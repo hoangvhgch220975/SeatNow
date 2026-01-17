@@ -59,11 +59,29 @@ async function register({ phone, email, name, password, accountType }) {
     if (byEmail) throw Object.assign(new Error('EMAIL_ALREADY_EXISTS'), { status: 409 });
   }
 
-  // require phone OTP verification
+  // require phone verification: either Firebase ID token (phone auth) OR local OTP
   if (!phone) throw Object.assign(new Error('PHONE_REQUIRED'), { status: 400 });
-  if (!arguments[0]?.otp) throw Object.assign(new Error('OTP_REQUIRED'), { status: 400 });
-  const otpOk = await otpUtil.verifyOtp(redis, phone, arguments[0].otp);
-  if (!otpOk) throw Object.assign(new Error('OTP_INVALID_OR_EXPIRED'), { status: 400 });
+
+  const firebaseToken = arguments[0]?.firebaseToken || null;
+  if (firebaseToken) {
+    const admin = getFirebaseAdmin();
+    if (!admin) throw Object.assign(new Error('FIREBASE_NOT_CONFIGURED'), { status: 500 });
+    let decoded;
+    try {
+      decoded = await admin.auth().verifyIdToken(firebaseToken);
+    } catch (err) {
+      throw Object.assign(new Error('INVALID_FIREBASE_TOKEN'), { status: 401 });
+    }
+    const phoneNumber = decoded.phone_number || null;
+    if (!phoneNumber) throw Object.assign(new Error('FIREBASE_PHONE_NOT_VERIFIED'), { status: 400 });
+    // normalize comparison: prefer full E.164 match
+    if (phone && String(phoneNumber).replace(/\s+/g, '') !== String(phone).replace(/\s+/g, '')) {
+      throw Object.assign(new Error('PHONE_MISMATCH_WITH_FIREBASE'), { status: 400 });
+    }
+  } else {
+    if (!arguments[0]?.otp) throw Object.assign(new Error('OTP_REQUIRED'), { status: 400 });
+    await verifyOtp({ phone, code: arguments[0].otp });
+  }
 
   const role = mapAccountTypeToRole(accountType);
   const passwordHash = await bcrypt.hash(password, 10);
@@ -81,10 +99,10 @@ async function register({ phone, email, name, password, accountType }) {
 
 async function login({ identifier, password }) {
   const user = await UserModel.findByPhoneOrEmail({ phone: identifier, email: identifier });
-  if (!user) throw Object.assign(new Error('INVALID_CREDENTIALS'), { status: 401 });
+  if (!user) throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
 
   const ok = await bcrypt.compare(password, user.password);
-  if (!ok) throw Object.assign(new Error('INVALID_CREDENTIALS'), { status: 401 });
+  if (!ok) throw Object.assign(new Error('INVALID_PASSWORD'), { status: 401 });
 
   const sid = await createSession({ userId: user.id, role: user.role });
 
@@ -136,16 +154,33 @@ async function logout({ refreshToken }) {
 }
 
 async function sendOtp({ phone }) {
+  // Anti-spam / rate limit checks
+  const can = await otpUtil.canSendOtp(redis, phone, { cooldownSeconds: 60, maxPerWindow: 5, windowSeconds: 3600 });
+  if (!can.ok) {
+    const reason = can.reason === 'TOO_SOON' ? 'OTP_SEND_TOO_SOON' : 'OTP_SEND_RATE_LIMIT_EXCEEDED';
+    throw Object.assign(new Error(reason), { status: 429 });
+  }
+
   const code = otpUtil.genOtp();
-  await otpUtil.saveOtp(redis, phone, code, 300);
-  console.log(`[OTP] ${phone}: ${code}`); // DEV only
+  // Save OTP for 120 seconds (2 minutes)
+  // Save OTP in Redis (2 minutes) but DO NOT send SMS from backend.
+  // Frontend is responsible for delivering the OTP (e.g., using Twilio/Firebase).
+  await otpUtil.saveOtp(redis, phone, code, 120);
+
+  // record this send to enforce limits
+  await otpUtil.recordOtpSent(redis, phone, { cooldownSeconds: 60, windowSeconds: 3600 });
+
+  // Do not log or return the code in production. For safety we only return ok.
   return { ok: true };
 }
 
 async function verifyOtp({ phone, code }) {
-  const ok = await otpUtil.verifyOtp(redis, phone, code);
-  if (!ok) throw Object.assign(new Error('OTP_INVALID_OR_EXPIRED'), { status: 400 });
-  return { ok: true };
+  const res = await otpUtil.verifyOtp(redis, phone, code, parseInt(process.env.OTP_MAX_VERIFY_ATTEMPTS || '5', 10));
+  if (res.ok) return { ok: true };
+  if (res.reason === 'EXPIRED') throw Object.assign(new Error('OTP_EXPIRED'), { status: 400 });
+  if (res.reason === 'INCORRECT') throw Object.assign(new Error('OTP_INCORRECT'), { status: 400 });
+  if (res.reason === 'TOO_MANY_ATTEMPTS') throw Object.assign(new Error('OTP_MAX_ATTEMPTS_EXCEEDED'), { status: 429 });
+  throw Object.assign(new Error('OTP_INVALID'), { status: 400 });
 }
 
 async function resetPassword({ phone, otp, newPassword }) {

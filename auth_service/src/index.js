@@ -21,8 +21,10 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 app.use('/api/v1/auth', authRoutes);
 
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(400).json({ message: err.message || 'Bad Request' });
+  // Log error (don't crash the process)
+  console.error(err && err.stack ? err.stack : err);
+  const status = err && err.status ? err.status : 400;
+  res.status(status).json({ message: err.message || 'Bad Request' });
 });
 
 async function bootstrap() {

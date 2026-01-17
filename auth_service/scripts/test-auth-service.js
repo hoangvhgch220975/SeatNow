@@ -17,7 +17,7 @@ async function main() {
   await getPool();
   await initRedis();
   const suffix = randomSuffix();
-  const phone = `+8412823285`;
+  const phone = `+84812823285`;
   const email = `test+${suffix}@example.com`;
   const name = `Test User ${suffix}`;
   const password = 'P@ssw0rd!';
@@ -25,34 +25,100 @@ async function main() {
   try {
     console.log('Requesting OTP for:', phone);
     await AuthService.sendOtp({ phone });
+
     const { RedisClient } = require('../src/config/redis');
     const redis = RedisClient.getInstance();
     const otpKey = `otp:${phone}`;
-    const code = await redis.get(otpKey);
-    console.log('Got OTP (from redis):', code);
 
-    // If Twilio is configured, attempt to send the OTP SMS (test-only)
-    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM) {
-      try {
-        const twilio = require('twilio');
-        const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-        await client.messages.create({ body: `Your OTP is ${code}`, from: process.env.TWILIO_FROM, to: phone });
-        console.log('OTP sent via Twilio to', phone);
-      } catch (err) {
-        console.warn('Failed to send SMS via Twilio:', err && err.message);
+    // Small delay to ensure Redis write has completed
+    await new Promise((r) => setTimeout(r, 100));
+    const code = await redis.get(otpKey);
+    console.log('Got OTP (from redis):', code ? '<hidden for safety>' : null);
+
+    // If running locally and you want the script to auto-use the OTP, set AUTO_USE_OTP=1
+    const autoMode = (process.env.AUTO_USE_OTP === '1' || process.argv.includes('--auto'));
+    const maxAttempts = parseInt(process.env.OTP_MAX_VERIFY_ATTEMPTS || '5', 10);
+
+    async function promptOtp() {
+      if (autoMode) {
+        if (!code) throw new Error('OTP not found in redis');
+        console.log('Auto-using OTP from redis');
+        return String(code).trim();
       }
-    } else {
-      console.log('Twilio not configured — OTP printed to console (dev).');
+      const readline = require('readline');
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const ans = await new Promise((resolve) => rl.question('Enter OTP received on phone: ', (a) => { rl.close(); resolve(a.trim()); }));
+      return ans;
     }
 
-    // Prompt user to type the OTP shown on phone/console
-    const readline = require('readline');
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const entered = await new Promise((resolve) => rl.question('Enter OTP received on phone: ', (ans) => { rl.close(); resolve(ans.trim()); }));
-
     console.log('Registering user:', phone, email);
-    const reg = await AuthService.register({ phone, email, name, password, accountType: 'customer', otp: entered });
-    console.log('Register success:', { user: reg.user });
+
+    let reg = null;
+    let attempt = 0;
+    while (attempt < maxAttempts) {
+      const entered = await promptOtp();
+      try {
+        reg = await AuthService.register({ phone, email, name, password, accountType: 'customer', otp: entered });
+        console.log('Register success:', { user: reg.user });
+        break;
+      } catch (err) {
+        const msg = err && err.message ? err.message : '';
+        if (msg === 'OTP_INCORRECT') {
+          attempt += 1;
+          const remaining = Math.max(0, maxAttempts - attempt);
+          console.error('OTP incorrect. Attempts left:', remaining);
+          if (remaining <= 0) {
+            console.error('Max attempts reached. You must request a new OTP.');
+            // Ask user whether to request a new OTP
+            if (autoMode) {
+              console.log('Auto mode: requesting new OTP...');
+              await AuthService.sendOtp({ phone });
+              // refresh code from redis
+              await new Promise((r) => setTimeout(r, 100));
+              code = await redis.get(otpKey);
+              attempt = 0;
+              continue;
+            } else {
+              const readline = require('readline');
+              const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+              const answer = await new Promise((resolve) => rl.question('Request new OTP? (y/N): ', (a) => { rl.close(); resolve(a.trim().toLowerCase()); }));
+              if (answer === 'y' || answer === 'yes') {
+                await AuthService.sendOtp({ phone });
+                await new Promise((r) => setTimeout(r, 100));
+                code = await redis.get(otpKey);
+                attempt = 0;
+                continue;
+              }
+              throw err;
+            }
+          }
+          // otherwise loop to prompt again
+          continue;
+        }
+
+        if (msg === 'OTP_EXPIRED') {
+          console.error('OTP expired. Requesting a new OTP...');
+          await AuthService.sendOtp({ phone });
+          await new Promise((r) => setTimeout(r, 100));
+          code = await redis.get(otpKey);
+          attempt = 0;
+          continue;
+        }
+
+        if (msg === 'OTP_MAX_ATTEMPTS_EXCEEDED') {
+          console.error('OTP max attempts exceeded. Request a new OTP to continue.');
+          await AuthService.sendOtp({ phone });
+          await new Promise((r) => setTimeout(r, 100));
+          code = await redis.get(otpKey);
+          attempt = 0;
+          continue;
+        }
+
+        // other errors: rethrow
+        throw err;
+      }
+    }
+    if (!reg) throw new Error('Registration failed after OTP attempts');
 
     console.log('Logging in...');
     const login = await AuthService.login({ identifier: phone, password });

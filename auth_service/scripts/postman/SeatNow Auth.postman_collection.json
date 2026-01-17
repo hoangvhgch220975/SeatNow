@@ -1,0 +1,121 @@
+{
+  "info": {
+    "name": "SeatNow Auth",
+    "_postman_id": "f1a2b3c4-d5e6-4789-9012-abcdef123456",
+    "description": "Collection to test auth_service endpoints (local).\nBase URL: http://localhost:3001/api/v1/auth/",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Send OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"+84818990222\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3001/api/v1/auth/send-otp",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3001",
+          "path": ["api","v1","auth","send-otp"]
+        }
+      }
+    },
+    {
+      "name": "Verify OTP",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"code\": \"123456\"\n}" },
+        "url": { "raw": "http://localhost:3001/api/v1/auth/verify-otp", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","verify-otp"] }
+      }
+    },
+    {
+      "name": "Register (with OTP)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"accountType\": \"customer\",\n  \"otp\": \"123456\"\n}" },
+        "url": { "raw": "http://localhost:3001/api/v1/auth/register", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","register"] }
+      }
+    },
+    {
+      "name": "Register (with Firebase token)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"accountType\": \"customer\",\n  \"firebaseToken\": \"<FIREBASE_ID_TOKEN>\"\n}" },
+        "url": { "raw": "http://localhost:3001/api/v1/auth/register", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","register"] }
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"+84818990222\",\n  \"password\": \"P@ssw0rd!\"\n}" },
+        "url": { "raw": "http://localhost:3001/api/v1/auth/login", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","login"] }
+      }
+    },
+    {
+      "name": "Refresh Token",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"<REFRESH_TOKEN>\"\n}" },
+        "url": { "raw": "http://localhost:3001/api/v1/auth/refresh-token", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","refresh-token"] }
+      }
+    },
+    {
+      "name": "Logout",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"<REFRESH_TOKEN>\"\n}" },
+        "url": { "raw": "http://localhost:3001/api/v1/auth/logout", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","logout"] }
+      }
+    },
+    {
+      "name": "Reset Password (request via send-otp)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\"\n}" },
+        "url": { "raw": "http://localhost:3001/api/v1/auth/forgot-password", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","forgot-password"] }
+      }
+    },
+    {
+      "name": "Reset Password (confirm)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewP@ssw0rd!\"\n}" },
+        "url": { "raw": "http://localhost:3001/api/v1/auth/reset-password", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","reset-password"] }
+      }
+    },
+    {
+      "name": "Google Sign-In",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"idToken\": \"<GOOGLE_ID_TOKEN>\",\n  \"accountType\": \"customer\"\n}" },
+        "url": { "raw": "http://localhost:3001/api/v1/auth/google-signin", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","google-signin"] }
+      }
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": { "exec": [], "type": "text/javascript" }
+    },
+    {
+      "listen": "test",
+      "script": { "exec": [], "type": "text/javascript" }
+    }
+  ]
+}
