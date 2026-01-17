@@ -44,7 +44,7 @@ function parseExpiresToSeconds(expires) {
 async function createSession({ userId, role }) {
   const sid = uuidv4();
   const ttl = parseExpiresToSeconds(process.env.JWT_REFRESH_EXPIRES_IN || '7d');
-  await redis.set(`user:session:${sid}`, JSON.stringify({ userId, role }), 'EX', ttl);
+  await redis.set(`user:session:${sid}`, JSON.stringify({ userId, role }), { EX: ttl });
   return sid;
 }
 
