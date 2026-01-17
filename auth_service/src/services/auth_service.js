@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const UserModel = require('../models/user_model');
 const { RedisClient } = require('../config/redis');
 const { getFirebaseAdmin } = require('../config/firebase');
-const { generateOtpCode, otpKey } = require('../utils/otp_util');
+const otpUtil = require('../utils/otp_util');
 
 const redis = RedisClient.getInstance();
 
@@ -58,6 +58,12 @@ async function register({ phone, email, name, password, accountType }) {
     const byEmail = await UserModel.findByPhoneOrEmail({ email });
     if (byEmail) throw Object.assign(new Error('EMAIL_ALREADY_EXISTS'), { status: 409 });
   }
+
+  // require phone OTP verification
+  if (!phone) throw Object.assign(new Error('PHONE_REQUIRED'), { status: 400 });
+  if (!arguments[0]?.otp) throw Object.assign(new Error('OTP_REQUIRED'), { status: 400 });
+  const otpOk = await otpUtil.verifyOtp(redis, phone, arguments[0].otp);
+  if (!otpOk) throw Object.assign(new Error('OTP_INVALID_OR_EXPIRED'), { status: 400 });
 
   const role = mapAccountTypeToRole(accountType);
   const passwordHash = await bcrypt.hash(password, 10);
@@ -130,17 +136,15 @@ async function logout({ refreshToken }) {
 }
 
 async function sendOtp({ phone }) {
-  const code = generateOtpCode();
-  await redis.set(otpKey(phone), code, 'EX', 300);
+  const code = otpUtil.genOtp();
+  await otpUtil.saveOtp(redis, phone, code, 300);
   console.log(`[OTP] ${phone}: ${code}`); // DEV only
   return { ok: true };
 }
 
 async function verifyOtp({ phone, code }) {
-  const saved = await redis.get(otpKey(phone));
-  if (!saved) throw Object.assign(new Error('OTP_EXPIRED'), { status: 400 });
-  if (saved !== String(code)) throw Object.assign(new Error('OTP_INVALID'), { status: 400 });
-  await redis.del(otpKey(phone));
+  const ok = await otpUtil.verifyOtp(redis, phone, code);
+  if (!ok) throw Object.assign(new Error('OTP_INVALID_OR_EXPIRED'), { status: 400 });
   return { ok: true };
 }
 
