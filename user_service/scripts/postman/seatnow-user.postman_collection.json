@@ -1,0 +1,103 @@
+{
+  "info": {
+    "name": "SeatNow - User Service",
+    "_postman_id": "seatnow-user-collection",
+    "description": "Collection for testing User Service endpoints (me, update, bookings, wallet, loyalty).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Current User (me)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","users","me"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update Current User (me)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"New Name\",\n  \"email\": \"new@example.com\",\n  \"avatar\": null\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","users","me"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get My Bookings",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/me/bookings?offset=0&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","users","me","bookings"],
+          "query": [
+            { "key": "offset", "value": "0" },
+            { "key": "limit", "value": "10" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get My Wallet",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/me/wallet",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","users","me","wallet"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get My Loyalty Points",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/me/loyalty-points",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","v1","users","me","loyalty-points"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3002" },
+    { "key": "token", "value": "" }
+  ]
+}
