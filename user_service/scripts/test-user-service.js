@@ -3,6 +3,8 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const userService = require(path.join(__dirname, '..', 'src', 'services', 'user_service'));
 const { getPool } = require(path.join(__dirname, '..', 'src', 'config', 'db'));
+const userSql = require(path.join(__dirname, '..', 'src', 'models', 'user_sql'));
+const { sql } = require(path.join(__dirname, '..', 'src', 'config', 'db'));
 
 let userId = process.env.TEST_USER_ID || process.argv[2];
 
@@ -35,11 +37,45 @@ async function run() {
     const wallet = await userService.getMyWallet(userId);
     console.log('\n[getMyWallet] ->', wallet);
 
+    // Ensure user wallet exists (will create if missing)
+    try {
+      const ensured = await userSql.ensureWalletForUser(userId);
+      console.log('\n[ensureWalletForUser] ->', ensured);
+    } catch (e) {
+      console.warn('ensureWalletForUser failed:', e && e.message ? e.message : e);
+    }
+
     const points = await userService.getMyLoyaltyPoints(userId);
     console.log('\n[getMyLoyaltyPoints] ->', points);
 
     const bookings = await userService.getMyBookings(userId, { offset: 0, limit: 10 });
     console.log('\n[getMyBookings] ->', bookings);
+
+    // Optionally ensure a restaurant wallet if TEST_RESTAURANT_ID provided
+    const restaurantId = process.env.TEST_RESTAURANT_ID || process.argv[3];
+    if (restaurantId) {
+      try {
+        const pool = await getPool();
+        const rs = await pool.request()
+          .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+          .query(`SELECT TOP 1 id, restaurantId, balance, lockedAmount FROM dbo.Wallets WHERE restaurantId = @restaurantId`);
+
+        if (rs.recordset[0]) {
+          console.log('\n[restaurant wallet exists] ->', rs.recordset[0]);
+        } else {
+          const ins = await pool.request()
+            .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+            .query(`
+              INSERT INTO dbo.Wallets (restaurantId, balance, lockedAmount)
+              OUTPUT INSERTED.id, INSERTED.restaurantId, INSERTED.balance, INSERTED.lockedAmount, INSERTED.createdAt, INSERTED.updatedAt
+              VALUES (@restaurantId, 0, 0)
+            `);
+          console.log('\n[ensureWalletForRestaurant] ->', ins.recordset[0]);
+        }
+      } catch (e) {
+        console.warn('ensureWalletForRestaurant failed:', e && e.message ? e.message : e);
+      }
+    }
 
     const pool = await getPool();
     try { await pool.close(); } catch (_) {}
