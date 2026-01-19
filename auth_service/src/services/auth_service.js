@@ -18,7 +18,7 @@ function mapAccountTypeToRole(accountType) {
 
 function signAccessToken({ userId, role, sid }) {
   return jwt.sign(
-    { sub: userId, role, sid },
+    { sub: userId, role, sid, type: 'access' },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' }
   );
@@ -41,11 +41,15 @@ function parseExpiresToSeconds(expires) {
   return n * mult;
 }
 
-async function createSession({ userId, role }) {
-  const sid = uuidv4();
+function createSid() {
+  return uuidv4();
+}
+
+async function persistSession({ sid, userId, role, refreshToken }) {
   const ttl = parseExpiresToSeconds(process.env.JWT_REFRESH_EXPIRES_IN || '7d');
-  await redis.set(`user:session:${sid}`, JSON.stringify({ userId, role }), { EX: ttl });
-  return sid;
+  const payload = { sid, userId, role, refreshToken: refreshToken || null, rotatedAt: new Date().toISOString() };
+  await redis.set(`user:session:${sid}`, JSON.stringify(payload), { EX: ttl });
+  return true;
 }
 
 // ====== PUBLIC API ======
@@ -88,12 +92,15 @@ async function register({ phone, email, name, password, accountType }) {
 
   const user = await UserModel.createUser({ phone, email, name, passwordHash, role });
 
-  const sid = await createSession({ userId: user.id, role: user.role });
+  const sid = createSid();
+  const accessToken = signAccessToken({ userId: user.id, role: user.role, sid });
+  const refreshToken = signRefreshToken({ userId: user.id, role: user.role, sid });
+  await persistSession({ sid, userId: user.id, role: user.role, refreshToken });
 
   return {
     user: { id: user.id, phone: user.phone, email: user.email, name: user.name, role: user.role },
-    accessToken: signAccessToken({ userId: user.id, role: user.role, sid }),
-    refreshToken: signRefreshToken({ userId: user.id, role: user.role, sid })
+    accessToken,
+    refreshToken
   };
 }
 
@@ -104,12 +111,15 @@ async function login({ identifier, password }) {
   const ok = await bcrypt.compare(password, user.password);
   if (!ok) throw Object.assign(new Error('INVALID_PASSWORD'), { status: 401 });
 
-  const sid = await createSession({ userId: user.id, role: user.role });
+  const sid = createSid();
+  const accessToken = signAccessToken({ userId: user.id, role: user.role, sid });
+  const refreshToken = signRefreshToken({ userId: user.id, role: user.role, sid });
+  await persistSession({ sid, userId: user.id, role: user.role, refreshToken });
 
   return {
     user: { id: user.id, phone: user.phone, email: user.email, name: user.name, role: user.role },
-    accessToken: signAccessToken({ userId: user.id, role: user.role, sid }),
-    refreshToken: signRefreshToken({ userId: user.id, role: user.role, sid })
+    accessToken: { accessToken, expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' },
+    refreshToken: { refreshToken, expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
   };
 }
 
@@ -129,17 +139,33 @@ async function refreshToken({ refreshToken }) {
   const sessionRaw = await redis.get(sessionKey);
   if (!sessionRaw) throw Object.assign(new Error('SESSION_EXPIRED'), { status: 401 });
 
-  // rotate session
+  let sessionObj = null;
+  try {
+    sessionObj = JSON.parse(sessionRaw);
+  } catch (e) {
+    await redis.del(sessionKey).catch(() => {});
+    throw Object.assign(new Error('SESSION_INVALID'), { status: 401 });
+  }
+
+  // optional check: ensure presented refresh token matches stored one
+  if (sessionObj.refreshToken && sessionObj.refreshToken !== refreshToken) {
+    throw Object.assign(new Error('INVALID_REFRESH_TOKEN'), { status: 401 });
+  }
+
+  // rotate session: remove old and create new
   await redis.del(sessionKey);
 
   const user = await UserModel.findById(payload.sub);
   if (!user) throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
 
-  const sid = await createSession({ userId: user.id, role: user.role });
+  const sid = createSid();
+  const newAccessToken = signAccessToken({ userId: user.id, role: user.role, sid });
+  const newRefreshToken = signRefreshToken({ userId: user.id, role: user.role, sid });
+  await persistSession({ sid, userId: user.id, role: user.role, refreshToken: newRefreshToken });
 
   return {
-    accessToken: signAccessToken({ userId: user.id, role: user.role, sid }),
-    refreshToken: signRefreshToken({ userId: user.id, role: user.role, sid })
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken
   };
 }
 
@@ -148,7 +174,7 @@ async function logout({ refreshToken }) {
     const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     if (payload?.sid) await redis.del(`user:session:${payload.sid}`);
   } catch {
-    // ignore
+    // ignore errors
   }
   return { ok: true };
 }
@@ -228,12 +254,15 @@ async function googleSignIn({ idToken, accountType, phone }) {
     });
   }
 
-  const sid = await createSession({ userId: user.id, role: user.role });
+  const sid = createSid();
+  const accessToken = signAccessToken({ userId: user.id, role: user.role, sid });
+  const refreshToken = signRefreshToken({ userId: user.id, role: user.role, sid });
+  await persistSession({ sid, userId: user.id, role: user.role, refreshToken });
 
   return {
     user: { id: user.id, phone: user.phone, email: user.email, name: user.name, role: user.role, avatar: user.avatar },
-    accessToken: signAccessToken({ userId: user.id, role: user.role, sid }),
-    refreshToken: signRefreshToken({ userId: user.id, role: user.role, sid })
+    accessToken,
+    refreshToken
   };
 }
 
@@ -246,4 +275,4 @@ module.exports = {
   verifyOtp,
   resetPassword,
   googleSignIn
-};
+};   
