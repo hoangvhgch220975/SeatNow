@@ -1,3 +1,6 @@
+/**
+ * menu.controller (placeholder)
+ */
 const menuService = require('../services/menu.service');
 
 async function listMenu(req, res, next) {

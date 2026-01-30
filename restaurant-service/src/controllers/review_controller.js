@@ -1,3 +1,6 @@
+/**
+ * review.controller (placeholder)
+ */
 const reviewService = require('../services/review.service');
 
 async function createReview(req, res, next) {

@@ -1,3 +1,6 @@
+/**
+ * restaurant.controller (placeholder)
+ */
 const restaurantService = require('../services/restaurant.service');
 
 async function getRestaurant(req, res, next) {

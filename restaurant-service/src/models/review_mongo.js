@@ -1,3 +1,6 @@
+/**
+ * Mongoose model: Review (placeholder)
+ */
 const mongoose = require('mongoose');
 
 const reviewSchema = new mongoose.Schema({
