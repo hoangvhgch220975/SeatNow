@@ -1,0 +1,5 @@
+Thêm createSid() để sinh sid và persistSession({ sid, userId, role, refreshToken }) để lưu object session với các trường:
+sid, userId, role, refreshToken, rotatedAt
+Khi đăng ký/login/googleSignIn: tạo sid, sign tokens, gọi persistSession(...) để lưu refreshToken cùng rotatedAt.
+Khi gọi refreshToken: đọc session từ Redis, parse JSON, nếu session có refreshToken sẽ so sánh với refresh token được client gửi (nếu khác → lỗi), xóa session cũ, tạo session mới và lưu refreshToken mới kèm rotatedAt.
+Gợi ý kiểm tra:

@@ -138,192 +138,207 @@
 > Giữ nguyên cấu trúc service như cũ; các service dùng SQL Server sẽ theo pattern: `config/db.js` + `models/*.sql.js` (raw SQL qua `mssql`).
 
 ```
-SeatNow/
-├── services/
-│   ├── api-gateway/
-│   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   ├── .env.example
-│   │   └── src/
-│   │       ├── config/
-│   │       │   └── redis.js
-│   │       ├── index.js
-│   │       ├── routes/
-│   │       │   └── proxy.routes.js
-│   │       ├── middlewares/
-│   │       │   ├── logging.middleware.js
-│   │       │   └── auth-proxy.middleware.js
-│   │       └── utils/
-│   │           └── service-discovery.js
+SeatNow/                     # Thư mục gốc của dự án
+├── services/                             # Chứa các microservices riêng biệt
+│   ├── api-gateway/                      # Gateway service - proxy cho các service
+│   │   ├── Dockerfile                   # Dockerfile: build image cho Gateway
+│   │   ├── package.json                 # Khai báo dependency cho Gateway
+│   │   ├── .env.example                 # Biến môi trường mẫu cho Gateway
+│   │   └── src/                         # Mã nguồn Gateway
+│   │       ├── config/                  # Cấu hình (Redis, v.v.)
+│   │       │   └── redis.js             # Kết nối Redis: rate-limit, cache
+│   │       ├── index.js                 # Entry point: khởi server + cấu hình proxy
+│   │       ├── routes/                  # Định nghĩa route để forward
+│   │       │   └── proxy.routes.js      # Map đường dẫn tới service tương ứng
+│   │       ├── middlewares/             # Middlewares dùng chung cho Gateway
+│   │       │   ├── logging.middleware.js    # Ghi log request
+│   │       │   └── auth-proxy.middleware.js # Decode JWT sơ bộ (điều kiện routing)
+│   │       └── utils/                   # Hàm tiện ích cho Gateway
+│   │           └── service-discovery.js     # Map tên service sang URL/IP
 │   │
-│   ├── auth-service/
-│   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   ├── .env.example
-│   │   └── src/
-│   │       ├── config/
-│   │       │   ├── db.js
-│   │       │   ├── firebase.js
-│   │       │   └── redis.js
-│   │       ├── index.js
-│   │       ├── controllers/
-│   │       │   └── auth.controller.js
-│   │       ├── services/
-│   │       │   └── auth.service.js
-│   │       ├── models/
-│   │       │   └── user.model.js
-│   │       ├── routes/
-│   │       │   └── auth.route.js
-│   │       ├── middlewares/
-│   │       │   └── jwt.middleware.js
-│   │       └── utils/
-│   │           └── otp.util.js
+│   ├── auth-service/                    # Authentication service (register/login, OTP)
+│   │   ├── Dockerfile                   # Dockerfile Auth Service
+│   │   ├── package.json                 # Dependencies cho Auth Service
+│   │   ├── .env.example                 # Biến môi trường mẫu (DB, REDIS, JWT)
+│   │   └── src/                         # Mã nguồn Auth Service
+│   │       ├── config/                  # Cấu hình kết nối DB/Redis
+│   │       │   ├── db.js                # Kết nối SQL: bảng Users
+│   │       │   └── redis.js             # Kết nối Redis: lưu OTP/session
+│   │       ├── index.js                 # Entry point Auth Service
+│   │       ├── controllers/             # Controller xử lý request HTTP
+│   │       │   └── auth.controller.js   # Xử lý register, login, logout
+│   │       ├── services/                # Logic nghiệp vụ tách riêng
+│   │       │   └── auth.service.js      # Hash pwd, issue JWT, OTP flow, sessions
+│   │       ├── models/                  # Lớp truy xuất dữ liệu / ORM wrappers
+│   │       │   └── user.model.js        # Wrapper model User (DB queries)
+│   │       ├── routes/                  # Định nghĩa API endpoints
+│   │       │   └── auth.route.js        # /login, /register, /otp
+│   │       ├── middlewares/             # Middlewares riêng service
+│   │       │   └── jwt.middleware.js    # Xác thực/verify token cho routes
+│   │       └── utils/                   # Hàm tiện ích cho Auth
+│   │           └── otp.util.js          # Sinh & kiểm tra OTP, rate-limit
 │   │
-│   ├── user-service/
-│   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   ├── .env.example
+│   ├── user-service/                    # User profile service (profile, bookings, wallet)
+│   │   ├── Dockerfile                   # Dockerfile User Service
+│   │   ├── package.json                 # Dependencies cho User Service
+│   │   ├── .env.example                 # Biến môi trường mẫu (DB)
+│   │   └── src/                         # Mã nguồn User Service
+│   │       ├── config/                  # Cấu hình DB
+│   │       │   └── db.js                # Kết nối SQL cho profile & wallets
+│   │       ├── index.js                 # Entry point User Service
+│   │       ├── controllers/             # HTTP controllers cho user
+│   │       │   └── user.controller.js   # CRUD profile, lấy dữ liệu người dùng
+│   │       ├── services/                # Business logic cho user
+│   │       │   └── user.service.js      # Tách logic gọi model
+│   │       ├── models/                  # Data access layer
+│   │       │   └── user.sql.js          # Truy xuất DB (SQL) cho user, wallets
+│   │       ├── routes/                  # Định nghĩa endpoint user
+│   │       │   └── user.route.js        # Định tuyến REST cho user
+│   │       ├── validators/              # Validate input request
+│   │       │   └── user.validator.js    # Joi/Zod rules
+│   │       └── utils/                   # Helpers
+│   │           └── pagination.js        # Hàm phân trang, limit/offset
+│   │
+│   ├── restaurant-service/                 # Restaurant: metadata + tables + menu + reviews (KHÔNG xử lý booking rules)
+│   │   ├── Dockerfile                      # (nên có) Build image restaurant-service
+│   │   ├── package.json                    # Dependency + scripts
+│   │   ├── .env.example                    # Mẫu env: SQL + Mongo + Redis
 │   │   └── src/
+│   │       ├── index.js                    # Bootstrap app + mount restaurant routes
 │   │       ├── config/
-│   │       │   └── db.js
-│   │       ├── index.js
-│   │       ├── controllers/
-│   │       │   └── user.controller.js
-│   │       ├── services/
-│   │       │   └── user.service.js
-│   │       ├── models/
-│   │       │   └── user.sql.js
-│   │       ├── routes/
-│   │       │   └── user.route.js
+│   │       │   ├── sql.js                  # Kết nối SQL (Restaurants/Tables)
+│   │       │   ├── mongo.js                # Kết nối Mongo (MenuItem/Review)
+│   │       │   └── redis.js                # Redis (cache read-only như restaurants trending, geo cache...)
+│   │       ├── middlewares/
+│   │       │   ├── jwt.middleware.js       # Verify JWT cho owner/admin actions
+│   │       │   ├── rateLimit.middleware.js # Rate-limit các endpoint public/search
+│   │       │   └── requireRole.middleware.js# RBAC: owner/admin
 │   │       ├── validators/
-│   │       │   └── user.validator.js
+│   │       │   ├── restaurant.validator.js # Validate restaurant CRUD/deposit policy payload
+│   │       │   ├── menu.validator.js       # Validate menu CRUD payload
+│   │       │   └── common.validator.js     # Các validate dùng chung trong service
+│   │       ├── models/
+│   │       │   ├── restaurant.sql.js        # Raw SQL: Restaurants (metadata, deposit policy, search fields)
+│   │       │   ├── table.sql.js             # Raw SQL: Tables (layout/capacity/status)
+│   │       │   ├── menuItem.mongo.js        # Mongoose model: MenuItem
+│   │       │   └── review.mongo.js          # Mongoose model: Review
+│   │       ├── services/
+│   │       │   ├── restaurant.service.js    # Search/detail restaurant, owner CRUD, cache read models
+│   │       │   ├── menu.service.js          # Menu CRUD (Mongo)
+│   │       │   └── review.service.js        # Review CRUD/query (Mongo)
+│   │       ├── controllers/
+│   │       │   ├── restaurant.controller.js # /restaurants: list/detail/create/update/delete
+│   │       │   ├── menu.controller.js       # /restaurants/:id/menu CRUD
+│   │       │   └── review.controller.js     # /restaurants/:id/reviews
+│   │       ├── routes/
+│   │       │   └── restaurant.route.js      # Routes restaurant/menu/review (+ proxy endpoints nếu cần)
 │   │       └── utils/
-│   │           └── pagination.js
+│   │           ├── slug.js                  # Generate slug cho restaurant name
+│   │           ├── pagination.js            # Pagination helper (nếu cần, hoặc chuyển sang packages/common)
+│   │           └── geo.js                   # Geo helpers (distance/haversine)
 │   │
-│   ├── restaurant-service/
-│   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   ├── .env.example
+│   ├── booking-service/                    # Booking: booking lifecycle + availability + lock + realtime
+│   │   ├── Dockerfile                      # Build image booking-service
+│   │   ├── package.json                    # Dependency + scripts (mssql, redis, bull/socket.io...)
+│   │   ├── .env.example                    # Mẫu env: SQL, Redis, policy cache, lock TTL...
 │   │   └── src/
 │   │       ├── config/
-│   │       │   ├── sql.js
-│   │       │   └── mongo.js
-│   │       ├── index.js
+│   │       │   ├── db.js                   # Kết nối SQL (Bookings)
+│   │       │   └── redis.js                # Redis: distributed lock + availability cache
+│   │       ├── index.js                    # Bootstrap app + routes + socket init (nếu có)
 │   │       ├── controllers/
-│   │       │   └── restaurant.controller.js
+│   │       │   └── booking.controller.js   # HTTP handlers: create/cancel/confirm/check-in/complete...
 │   │       ├── services/
-│   │       │   ├── restaurant.service.js
-│   │       │   └── menu.service.js
+│   │       │   ├── booking.service.js      # Core booking rules + transaction + status transitions
+│   │       │   └── availability.service.js # ✅ Tính availability + cache + invalidation theo booking changes
 │   │       ├── models/
-│   │       │   ├── restaurant.sql.js
-│   │       │   └── menu.mongo.js
+│   │       │   └── booking.sql.js          # Raw SQL: insert/update/select bookings + indexes usage
 │   │       ├── routes/
-│   │       │   └── restaurant.route.js
-│   │       ├── middlewares/
-│   │       │   └── rateLimit.middleware.js
-│   │       └── utils/
-│   │           └── availability.js
-│   │
-│   ├── booking-service/
-│   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   ├── .env.example
-│   │   └── src/
-│   │       ├── config/
-│   │       │   ├── db.js
-│   │       │   └── redis.js
-│   │       ├── index.js
-│   │       ├── controllers/
-│   │       │   └── booking.controller.js
-│   │       ├── services/
-│   │       │   └── booking.service.js
-│   │       ├── models/
-│   │       │   └── booking.sql.js
-│   │       ├── routes/
-│   │       │   └── booking.route.js
+│   │       │   └── booking.route.js        # /api/v1/bookings/*
 │   │       ├── jobs/
-│   │       │   └── bookingExpire.job.js
+│   │       │   └── bookingExpire.job.js    # Auto-expire/no-show cleanup + enqueue notifications
 │   │       ├── sockets/
-│   │       │   └── booking.socket.js
+│   │       │   └── booking.socket.js       # Broadcast changes: availability/check-in updates
 │   │       └── utils/
-│   │           └── lock.redis.js
+│   │           └── lock.redis.js           # Redis lock helper (NX + EX) chống double-booking
 │   │
-│   ├── payment-service/
-│   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   ├── .env.example
+│   ├── payment-service/                    # Payment: deposit/commission + wallet transactions + webhook
+│   │   ├── Dockerfile                      # Build image payment-service
+│   │   ├── package.json                    # Dependency cổng thanh toán
+│   │   ├── .env.example                    # Keys: vnpay/momo/zalopay + SQL
 │   │   └── src/
 │   │       ├── config/
-│   │       │   └── db.js
-│   │       ├── index.js
+│   │       │   └── db.js                   # Kết nối SQL (Wallets/Transactions)
+│   │       ├── index.js                    # Bootstrap app
 │   │       ├── controllers/
-│   │       │   └── payment.controller.js
+│   │       │   └── payment.controller.js   # Generate QR + webhook handlers + transaction status
 │   │       ├── services/
-│   │       │   ├── payment.service.js
-│   │       │   └── qr.service.js
+│   │       │   ├── payment.service.js      # Verify signature/webhook -> update transaction atomically
+│   │       │   └── qr.service.js           # Generate VietQR/QRCode buffer (helper layer)
 │   │       ├── routes/
-│   │       │   └── payment.route.js
+│   │       │   └── payment.route.js        # /api/v1/payment/*
 │   │       └── utils/
-│   │           └── webhook.validator.js
+│   │           └── webhook.validator.js    # Validate payload + signature rules per provider
 │   │
-│   ├── notification-service/
-│   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   ├── .env.example
+│   ├── notification-service/               # Notification worker: SMS/Email/Push (async jobs)
+│   │   ├── Dockerfile                      # Build image notification worker
+│   │   ├── package.json                    # Dependency senders + queue client
+│   │   ├── .env.example                    # Redis + API keys (SendGrid/Twilio...)
 │   │   └── src/
 │   │       ├── config/
-│   │       │   └── redis.js
-│   │       ├── index.js
+│   │       │   └── redis.js                # Redis connection (Bull/queue)
+│   │       ├── index.js                    # Worker entrypoint: subscribe queue + process jobs
 │   │       ├── services/
-│   │       │   ├── sms.service.js
-│   │       │   └── email.service.js
+│   │       │   ├── sms.service.js          # Provider adapter: Twilio/SMSAPI...
+│   │       │   └── email.service.js        # Provider adapter: SendGrid/Nodemailer...
 │   │       └── queues/
-│   │           └── notification.queue.js
+│   │           └── notification.queue.js   # Queue definitions: job names, retries, backoff...
 │   │
-│   └── admin-service/
-│       ├── Dockerfile
-│       ├── package.json
-│       ├── .env.example
+│   └── admin-service/                      # Admin: moderation + stats + approval flows
+│       ├── Dockerfile                      # Build image admin-service
+│       ├── package.json                    # Dependency admin
+│       ├── .env.example                    # Env: SQL + Mongo (analytics/logs) + auth
 │       └── src/
 │           ├── config/
-│           │   ├── sql.js
-│           │   └── mongo.js
-│           ├── index.js
+│           │   ├── sql.js                  # SQL connection (admin queries)
+│           │   └── mongo.js                # Mongo connection (analytics/logs)
+│           ├── index.js                    # Bootstrap admin service
 │           ├── controllers/
-│           │   └── admin.controller.js
+│           │   └── admin.controller.js     # HTTP handlers cho admin actions
 │           ├── services/
-│           │   └── admin.service.js
+│           │   └── admin.service.js        # Business logic admin (approve/suspend/reporting)
 │           └── routes/
-│               └── admin.route.js
+│               └── admin.route.js          # /api/v1/admin/*
 │
-├── packages/
+├── packages/                               # Shared libs giữa các services
 │   ├── common/
-│   │   ├── package.json
+│   │   ├── package.json                    # Dependency common (logger/errors/redis client...)
 │   │   └── src/
-│   │       ├── logger.js
-│   │       ├── errors.js
-│   │       └── redis.client.js
+│   │       ├── logger.js                   # Winston/Morgan config chuẩn (dùng lại)
+│   │       ├── errors.js                   # Standard error classes + mapping HTTP codes
+│   │       └── redis.client.js             # Redis wrapper dùng chung (singleton, reconnect policy)
 │   └── types/
-│       ├── package.json
+│       ├── package.json                    # Shared types package
 │       └── src/
-│           └── api-types.js
+│           └── api-types.js                # DTO/interfaces shared (nếu dùng TS càng hữu ích)
 │
 ├── infra/
-│   ├── docker-compose.yml
+│   ├── docker-compose.yml                  # Dev orchestration: SQL/Mongo/Redis + services
 │   ├── k8s/
-│   │   ├── deployment.yaml
-│   │   └── service.yaml
+│   │   ├── deployment.yaml                 # Kubernetes deployments
+│   │   └── service.yaml                    # Kubernetes services
 │   └── nginx/
-│       └── gateway.conf
+│       └── gateway.conf                    # Nginx reverse proxy/load balancing rules
 │
 ├── scripts/
-│   ├── build-all.ps1
-│   └── deploy-all.ps1
+│   ├── build-all.ps1                       # Build tất cả services (Windows)
+│   └── deploy-all.ps1                      # Deploy tất cả (Windows)
 │
 ├── terraform/
-│   └── main.tf
+│   └── main.tf                             # IaC (nếu dùng AWS/GCP/Azure)
 │
-└── README.md
+└── README.md                               # Tổng quan dự án + cách chạy local + conventions
+
 ```
 
 ---
