@@ -1,16 +1,28 @@
 /**
  * review.controller (placeholder)
  */
-const reviewService = require('../services/review.service');
+const reviewSvc = require('../services/review_service');
 
-async function createReview(req, res, next) {
+// Hàm liệt kê đánh giá của một nhà hàng với phân trang
+async function list(req, res) {
   try {
-    const payload = req.body;
-    const review = await reviewService.createReview(payload);
-    res.status(201).json({ review });
-  } catch (err) {
-    next(err);
+    const data = await reviewSvc.listReviews(req.params.id, req.query);
+    res.json({ data, meta: { limit: req.query.limit, offset: req.query.offset } });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
   }
 }
 
-module.exports = { createReview };
+// Hàm tạo đánh giá mới cho một nhà hàng
+async function create(req, res) {
+  try {
+    const customerId = req.user?.userId || req.user?.id;
+    const data = await reviewSvc.createReview(req.params.id, customerId, req.body);
+    res.status(201).json({ data });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
+module.exports = { list, create };
+

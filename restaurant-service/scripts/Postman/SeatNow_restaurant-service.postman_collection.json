@@ -1,0 +1,168 @@
+{
+  "info": {
+    "name": "SeatNow Restaurant Service",
+    "_postman_id": "restaurant-service-collection",
+    "description": "Collection to test restaurant-service endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3003" },
+    { "key": "token", "value": "" },
+    { "key": "restaurantId", "value": "1" },
+    { "key": "itemId", "value": "1" },
+    { "key": "tableId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health"
+      }
+    },
+    {
+      "name": "List Restaurants",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/restaurants?limit=2"
+      }
+    },
+    {
+      "name": "Get Restaurant (by id)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}"
+      }
+    },
+    {
+      "name": "Get Menu",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/menu"
+      }
+    },
+    {
+      "name": "Create Menu Item",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Pho\",\n  \"price\": 50000,\n  \"description\": \"Beef noodle\",\n  \"available\": true\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/menu"
+      }
+    },
+    {
+      "name": "Update Menu Item",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"PhoUpdated\",\n  \"price\": 55000\n}" },
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/menu/{{itemId}}"
+      }
+    },
+    {
+      "name": "Delete Menu Item",
+      "request": {
+        "method": "DELETE",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/menu/{{itemId}}"
+      }
+    },
+    {
+      "name": "List Reviews",
+      "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/reviews" }
+    },
+    {
+      "name": "Create Review",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Excellent\"\n}" },
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/reviews"
+      }
+    },
+    {
+      "name": "List Tables",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables"
+      }
+    },
+    {
+      "name": "Create Table",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Table 1\",\n  \"seats\": 4\n}" },
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables"
+      }
+    },
+    {
+      "name": "Update Table",
+      "request": {
+        "method": "PUT",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Table 1A\",\n  \"seats\": 6\n}" },
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables/{{tableId}}"
+      }
+    },
+    {
+      "name": "Delete Table",
+      "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables/{{tableId}}" }
+    },
+    {
+      "name": "Create Restaurant",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Restaurant\",\n  \"address\": \"123 Main\",\n  \"lat\": 10.0,\n  \"lng\": 106.0,\n  \"cuisine\": \"Vietnamese\"\n}" },
+        "url": "{{baseUrl}}/api/v1/restaurants"
+      }
+    },
+    {
+      "name": "Update Restaurant",
+      "request": {
+        "method": "PUT",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Restaurant Updated\"\n}" },
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}"
+      }
+    },
+    {
+      "name": "Update Deposit Policy",
+      "request": {
+        "method": "PUT",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"required\": true,\n  \"amount\": 100000\n}" },
+        "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/deposit-policy"
+      }
+    },
+    {
+      "name": "Delete Restaurant",
+      "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}" }
+    },
+    {
+      "name": "Availability (placeholder)",
+      "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/availability" }
+    }
+  ]
+}

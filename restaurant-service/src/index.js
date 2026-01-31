@@ -11,7 +11,7 @@ const morgan = require('morgan');
 
 const { connectMongo } = require('./config/mongo');
 const { getPool } = require('./config/sql');
-const { getRedis } = require('./config/redis');
+const { initRedis } = require('./config/redis');
 
 const restaurantRoutes = require('./routes/restaurant_route');
 
@@ -23,7 +23,7 @@ app.use(morgan('dev'));
 
 app.get('/health', async (_req, res) => {
   try {
-    await Promise.all([getPool(), connectMongo(), getRedis()]);
+    await Promise.all([getPool(), connectMongo(), initRedis()]);
     res.json({ ok: true  , service: 'restaurant-service' });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

@@ -1,16 +1,69 @@
 /**
  * restaurant.controller (placeholder)
  */
-const restaurantService = require('../services/restaurant.service');
+const restaurantSvc = require('../services/restaurant_service');
 
-async function getRestaurant(req, res, next) {
+// Hàm liệt kê nhà hàng với phân trang và lọc
+async function list(req, res) {
   try {
-    const id = req.params.id;
-    const data = await restaurantService.getRestaurantById(id);
-    res.json({ data });
-  } catch (err) {
-    next(err);
+    const data = await restaurantSvc.listRestaurants(req.query);
+    res.json({ data, meta: { limit: req.query.limit, offset: req.query.offset } });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
   }
 }
 
-module.exports = { getRestaurant };
+// Hàm lấy thông tin chi tiết của một nhà hàng dựa trên ID
+async function detail(req, res) {
+  try {
+    const r = await restaurantSvc.getRestaurant(req.params.id);
+    if (!r) return res.status(404).json({ message: 'Not found' });
+    res.json({ data: r });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
+// Hàm tạo mới một nhà hàng
+async function create(req, res) {
+  try {
+    const ownerId = req.user?.userId || req.user?.id;
+    const data = await restaurantSvc.createRestaurant(ownerId, req.body);
+    res.status(201).json({ data });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
+// Hàm cập nhật thông tin nhà hàng
+async function update(req, res) {
+  try {
+    const data = await restaurantSvc.updateRestaurant(req.params.id, req.body);
+    if (!data) return res.status(404).json({ message: 'Not found' });
+    res.json({ data });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
+// Hàm cập nhật chính sách đặt cọc của nhà hàng
+async function updateDepositPolicy(req, res) {
+  try {
+    const data = await restaurantSvc.updateDepositPolicy(req.params.id, req.body);
+    if (!data) return res.status(404).json({ message: 'Not found' });
+    res.json({ data });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+}
+// Hàm xóa mềm nhà hàng
+async function remove(req, res) {
+  try {
+    const data = await restaurantSvc.softDeleteRestaurant(req.params.id);
+    res.json({ data });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
+module.exports = { list, detail, create, update, updateDepositPolicy, remove };

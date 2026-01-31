@@ -1,16 +1,27 @@
 /**
  * Mongoose model: Review (placeholder)
  */
-const mongoose = require('mongoose');
+// review.mongo.js
+const { mongoose } = require('../config/mongo');
 
-const reviewSchema = new mongoose.Schema({
+const schema = new mongoose.Schema({
   bookingId: { type: String, required: true, unique: true },
   customerId: { type: String, required: true },
-  restaurantId: { type: String, required: true },
+  restaurantId: { type: String, required: true, index: true },
+
   rating: { type: Number, required: true, min: 1, max: 5 },
-  comment: String,
-  images: [String],
+  comment: { type: String },
+  images: [{ type: String }],
+
+  foodRating: { type: Number, min: 1, max: 5 },
+  serviceRating: { type: Number, min: 1, max: 5 },
+  atmosphereRating: { type: Number, min: 1, max: 5 },
+
+  isVerified: { type: Boolean, default: true },
+  helpful: { type: Number, default: 0 },
+
   createdAt: { type: Date, default: Date.now }
 });
+schema.pre('save', function (next) { this.updatedAt = new Date(); next(); });
 
-module.exports = mongoose.model('Review', reviewSchema);
+module.exports = mongoose.model('Review', schema);

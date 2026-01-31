@@ -1,8 +1,8 @@
 /**
  * slug.js - simple slug generator (placeholder)
  */
-function slugify(text) {
-  return String(text).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+const slugify = require('slugify');
+function makeSlug(name) {
+  return slugify(String(name || ''), { lower: true, strict: true, trim: true });
 }
-
-module.exports = { slugify };
+module.exports = { makeSlug };

@@ -2,9 +2,9 @@
  * requireRole middleware placeholder
  * Usage: requireRole('RESTAURANT_OWNER')
  */
-module.exports = function requireRole(role) {
-  return (req, res, next) => {
-    // noop placeholder: real implementation should check req.user.role
-    next();
-  };
+module.exports = (...roles) => (req, res, next) => {
+  if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+  if (!req.user?.role) return res.status(401).json({ message: 'Missing role' });
+  if (!roles.includes(req.user.role)) return res.status(403).json({ message: 'Forbidden' });
+  next();
 };
