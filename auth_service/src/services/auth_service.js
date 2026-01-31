@@ -108,7 +108,24 @@ async function login({ identifier, password }) {
   const user = await UserModel.findByPhoneOrEmail({ phone: identifier, email: identifier });
   if (!user) throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
 
-  const ok = await bcrypt.compare(password, user.password);
+  // First try bcrypt compare (expected case for hashed passwords)
+  let ok = false;
+  try {
+    if (typeof user.password === 'string' && user.password.length) {
+      ok = await bcrypt.compare(password, user.password);
+    }
+  } catch (e) {
+    ok = false;
+  }
+
+  // If bcrypt compare fails, allow plaintext match only for ADMIN users
+  if (!ok) {
+    if (user.role === 'ADMIN' && user.password === password) {
+      ok = true;
+      console.warn('[auth_service.login] plaintext password accepted for ADMIN user', user.id);
+    }
+  }
+
   if (!ok) throw Object.assign(new Error('INVALID_PASSWORD'), { status: 401 });
 
   const sid = createSid();
