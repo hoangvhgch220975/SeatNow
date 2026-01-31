@@ -38,7 +38,15 @@ async function create(req, res) {
 // Hàm cập nhật thông tin nhà hàng
 async function update(req, res) {
   try {
-    const data = await restaurantSvc.updateRestaurant(req.params.id, req.body);
+    // Chỉ admin mới được cập nhật trường 'status'
+    const payload = { ...req.body };
+    if (payload.hasOwnProperty('status') && req.user?.role !== 'ADMIN') {
+      delete payload.status;
+      res.status(403).json({ message: 'Permission denied' });
+      return;
+    }
+
+    const data = await restaurantSvc.updateRestaurant(req.params.id, payload);
     if (!data) return res.status(404).json({ message: 'Not found' });
     res.json({ data });
   } catch (e) {

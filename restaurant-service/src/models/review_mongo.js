@@ -22,6 +22,9 @@ const schema = new mongoose.Schema({
 
   createdAt: { type: Date, default: Date.now }
 });
-schema.pre('save', function (next) { this.updatedAt = new Date(); next(); });
+schema.pre('save', function (next) {
+  this.updatedAt = new Date();
+  if (typeof next === 'function') return next();
+});
 
 module.exports = mongoose.model('Review', schema);

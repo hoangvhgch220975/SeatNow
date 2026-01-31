@@ -30,7 +30,10 @@ async function listRestaurants(query) {
 
 // Hàm lấy thông tin chi tiết của một nhà hàng dựa trên ID
 async function getRestaurant(id) {
-  return restaurantSql.findById(id);
+  // Accept either UUID id or slug
+  const isUuid = typeof id === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
+  if (isUuid) return restaurantSql.findById(id);
+  return restaurantSql.findBySlug(id);
 }
 
 
@@ -48,8 +51,9 @@ async function updateRestaurant(id, patch) {
 
 // Hàm cập nhật chính sách đặt cọc của nhà hàng
 async function updateDepositPolicy(id, payload) {
-  // payload: { depositEnabled, policy }
-  return restaurantSql.updateDepositPolicy(id, payload);
+  const { depositEnabled } = payload || {};
+  const policy = (payload && (payload.policy ?? payload.depositPolicy)) || null;
+  return restaurantSql.updateDepositPolicy(id, { depositEnabled, policy });
 }
 
 // Hàm xóa mềm nhà hàng dựa trên ID

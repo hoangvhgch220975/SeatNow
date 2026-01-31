@@ -145,7 +145,7 @@ router.delete(
 );
 
 /**
- * availability/bookings/dashboard: nên proxy sang booking-service (bạn làm bước tiếp theo)
+ * availability/bookings/dashboard
  */
 router.get('/:id/availability', (req, res) => res.status(501).json({ message: 'Implement via booking-service' }));
 

@@ -35,11 +35,11 @@ async function findById(id) {
 }
 
 // Tạo bàn mới
-async function createTable({ restaurantId, tableNumber, capacity, type = 'standard', location = null, status = 'active' }) {
+async function createTable({ restaurantId, tableNumber, capacity, type = 'standard', location = null, status = 'available' }) {
   const pool = await getPool();
   const rs = await pool.request()
     .input('restaurantId', sql.UniqueIdentifier, restaurantId)
-    .input('tableNumber', sql.Int, tableNumber)
+    .input('tableNumber', sql.NVarChar(50), tableNumber)
     .input('capacity', sql.Int, capacity)
     .input('type', sql.NVarChar(50), type)
     .input('location', sql.NVarChar(255), location)
@@ -59,7 +59,7 @@ async function updateTable(id, patch) {
   const sets = [];
 
   const map = {
-    tableNumber: ['tableNumber', sql.Int],
+    tableNumber: ['tableNumber', sql.NVarChar(50)],
     capacity: ['capacity', sql.Int],
     type: ['[type]', sql.NVarChar(50)],
     location: ['[location]', sql.NVarChar(255)],

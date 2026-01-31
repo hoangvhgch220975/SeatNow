@@ -21,10 +21,18 @@ app.use(helmet());
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
 
+// Try to initialize backing services on startup so handlers don't block
+Promise.allSettled([getPool(), connectMongo(), initRedis()])
+  .then((results) => {
+    results.forEach((r) => {
+      if (r.status === 'rejected') console.warn('[startup] service init failed', r.reason && r.reason.message ? r.reason.message : r.reason);
+    });
+  });
+
 app.get('/health', async (_req, res) => {
   try {
     await Promise.all([getPool(), connectMongo(), initRedis()]);
-    res.json({ ok: true  , service: 'restaurant-service' });
+    res.json({ ok: true, service: 'restaurant-service' });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }

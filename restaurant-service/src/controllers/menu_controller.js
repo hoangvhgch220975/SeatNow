@@ -19,6 +19,7 @@ async function create(req, res) {
     const data = await menuSvc.createMenuItem(req.params.id, req.body);
     res.status(201).json({ data });
   } catch (e) {
+    console.error('[menu.controller.create] error', e);
     res.status(400).json({ message: e.message });
   }
 }

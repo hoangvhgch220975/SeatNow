@@ -55,7 +55,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Pho\",\n  \"price\": 50000,\n  \"description\": \"Beef noodle\",\n  \"available\": true\n}"
+          "raw": "{\n  \"name\": \"Phở Bò Đặc Biệt\",\n  \"description\": \"Phở bò tái, chín, gân\",\n  \"price\": 70000,\n  \"discountPrice\": 60000,\n  \"category\": \"Soup\",\n  \"images\": [\"https://example.com/images/pho.jpg\"],\n  \"isAvailable\": true,\n  \"tags\": [\"beef\", \"noodle\"],\n  \"allergens\": [\"gluten\"]\n}"
         },
         "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/menu"
       }
@@ -68,7 +68,7 @@
           { "key": "Content-Type", "value": "application/json" },
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
-        "body": { "mode": "raw", "raw": "{\n  \"name\": \"PhoUpdated\",\n  \"price\": 55000\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Phở Bò (lớn)\",\n  \"price\": 80000,\n  \"isAvailable\": true\n}" },
         "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/menu/{{itemId}}"
       }
     },
@@ -92,7 +92,7 @@
           { "key": "Content-Type", "value": "application/json" },
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
-        "body": { "mode": "raw", "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Excellent\"\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"bookingId\": \"booking_1001\",\n  \"rating\": 5,\n  \"comment\": \"Đồ ăn ngon, phục vụ tốt\",\n  \"foodRating\": 5,\n  \"serviceRating\": 5,\n  \"atmosphereRating\": 4,\n  \"images\": []\n}" },
         "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/reviews"
       }
     },
@@ -112,7 +112,7 @@
           { "key": "Content-Type", "value": "application/json" },
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
-        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Table 1\",\n  \"seats\": 4\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"tableNumber\": 1,\n  \"capacity\": 6,\n  \"type\": \"vip\",\n  \"location\": \"Trong phòng riêng\",\n  \"status\": \"active\"\n}" },
         "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables"
       }
     },
@@ -121,7 +121,7 @@
       "request": {
         "method": "PUT",
         "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Table 1A\",\n  \"seats\": 6\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"tableNumber\": 1,\n  \"capacity\": 8,\n  \"status\": \"inactive\"\n}" },
         "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables/{{tableId}}"
       }
     },
@@ -134,7 +134,7 @@
       "request": {
         "method": "POST",
         "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Restaurant\",\n  \"address\": \"123 Main\",\n  \"lat\": 10.0,\n  \"lng\": 106.0,\n  \"cuisine\": \"Vietnamese\"\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Nhà hàng Hoa Sen\",\n  \"address\": \"123 Đường Lê Lợi, Quận 1\",\n  \"latitude\": 10.77653,\n  \"longitude\": 106.70098,\n  \"phone\": \"+84900111222\",\n  \"email\": \"contact@hoasen.example\",\n  \"cuisineTypes\": [\"Vietnamese\"],\n  \"priceRange\": 2,\n  \"description\": \"Nhà hàng phục vụ phở và món Việt truyền thống.\",\n  \"images\": [\"https://example.com/hoasen.jpg\"],\n  \"openingHours\": {\"mon-fri\": \"10:00-22:00\", \"sat-sun\": \"08:00-23:00\"}\n}" },
         "url": "{{baseUrl}}/api/v1/restaurants"
       }
     },
@@ -143,7 +143,7 @@
       "request": {
         "method": "PUT",
         "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Restaurant Updated\"\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Nhà hàng Hoa Sen - CN1\",\n  \"address\": \"125 Đường Lê Lợi\",\n  \"priceRange\": 3\n}" },
         "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}"
       }
     },
@@ -152,7 +152,7 @@
       "request": {
         "method": "PUT",
         "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"required\": true,\n  \"amount\": 100000\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"depositEnabled\": true,\n  \"depositPolicy\": { \"amount\": 150000, \"note\": \"Deposit on weekends\" }\n}" },
         "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/deposit-policy"
       }
     },

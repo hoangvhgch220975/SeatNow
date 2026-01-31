@@ -211,6 +211,17 @@ async function findById(id) {
   return r ? mapJsonFields(r) : null;
 }
 
+// Find restaurant by slug (SEO-friendly string)
+async function findBySlug(slug) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('slug', sql.NVarChar(200), slug)
+    .query(`SELECT TOP 1 * FROM dbo.Restaurants WHERE slug=@slug`);
+
+  const r = rs.recordset[0];
+  return r ? mapJsonFields(r) : null;
+}
+
 async function createRestaurant({
   ownerId,
   name,
@@ -340,6 +351,7 @@ module.exports = {
   findMany,
   findManyNearMe,
   findById,
+  findBySlug,
   createRestaurant,
   updateRestaurant,
   updateDepositPolicy,
