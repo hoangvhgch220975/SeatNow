@@ -1,0 +1,467 @@
+{
+	"info": {
+		"_postman_id": "booking-service-2026",
+		"name": "SeatNow - Booking Service",
+		"description": "Complete API collection for SeatNow Booking Service with all endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3002/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "restaurantId",
+			"value": "BA3FB828-C52C-4FBE-83E7-4F326A9892A2",
+			"type": "string",
+			"description": "Lẩu Dê Nhất Ly - Hạ Long"
+		},
+		{
+			"key": "tableId",
+			"value": "AA07C586-38BB-423A-8554-1FE87348D2C1",
+			"type": "string",
+			"description": "T01 - 2 guests"
+		},
+		{
+			"key": "tableId4",
+			"value": "84A298F5-4582-4E6B-880E-5D450EF5EA09",
+			"type": "string",
+			"description": "T02 - 4 guests"
+		},
+		{
+			"key": "tableId6",
+			"value": "74C4A3F6-A29C-4F06-9D43-B0BDF3FF637A",
+			"type": "string",
+			"description": "OUT01 - 6 guests outdoor"
+		},
+		{
+			"key": "tableIdVIP",
+			"value": "4ABCE72D-F331-472F-BAD0-088DEF05A8DD",
+			"type": "string",
+			"description": "VIP01 - 8 guests VIP room"
+		},
+		{
+			"key": "bookingId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "bookingCode",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "customerId",
+			"value": "832BEBB5-D2E4-46C5-A005-C567F7CAA9F8",
+			"type": "string",
+			"description": "Test customer: +84818990222"
+		},
+		{
+			"key": "ownerId",
+			"value": "C4E503D9-9B33-4C61-AA19-7EF824D55226",
+			"type": "string",
+			"description": "Restaurant owner: +84818990234"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Public/Guest Operations",
+			"item": [
+				{
+					"name": "Create Booking (Guest)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const res = pm.response.json();",
+									"    pm.collectionVariables.set('bookingId', res.data.id);",
+									"    pm.collectionVariables.set('bookingCode', res.data.bookingCode);",
+									"    console.log('Booking ID:', res.data.id);",
+									"    console.log('Booking Code:', res.data.bookingCode);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"tableId\": \"{{tableId4}}\",\n  \"bookingDate\": \"2026-02-15\",\n  \"bookingTime\": \"19:00\",\n  \"numGuests\": 4,\n  \"guestName\": \"Nguyen Van A\",\n  \"guestPhone\": \"+84901234567\",\n  \"guestEmail\": \"nguyenvana@example.com\",\n  \"notes\": \"Gần cửa sổ, ưu tiên khu yên tĩnh\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/bookings",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings"]
+						},
+						"description": "Create a new booking as a guest (no authentication required)"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Booking (Customer)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const res = pm.response.json();",
+									"    pm.collectionVariables.set('bookingId', res.data.id);",
+									"    pm.collectionVariables.set('bookingCode', res.data.bookingCode);",
+									"    console.log('Booking ID:', res.data.id);",
+									"    console.log('Booking Code:', res.data.bookingCode);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"tableId\": \"{{tableId}}\",\n  \"bookingDate\": \"2026-02-20\",\n  \"bookingTime\": \"20:00\",\n  \"numGuests\": 2,\n  \"notes\": \"Kỷ niệm ngày cưới, nhờ chuẩn bị hoa và nến\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/bookings",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings"]
+						},
+						"description": "Create a new booking as an authenticated customer"
+					},
+					"response": []
+				},
+				{
+					"name": "Guest Lookup Booking",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/guest/lookup?bookingCode={{bookingCode}}&phone=%2B84901234567",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "guest", "lookup"],
+							"query": [
+								{
+									"key": "bookingCode",
+									"value": "{{bookingCode}}"
+								},
+								{
+									"key": "phone",
+									"value": "+84901234567"
+								}
+							]
+						},
+						"description": "Lookup a booking using booking code and phone number (for guests)"
+					},
+					"response": []
+				},
+				{
+					"name": "Check Availability",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/restaurants/{{restaurantId}}/availability?date=2026-02-15&time=19:00&numGuests=4",
+							"host": ["{{baseUrl}}"],
+							"path": ["restaurants", "{{restaurantId}}", "availability"],
+							"query": [
+								{
+									"key": "date",
+									"value": "2026-02-15"
+								},
+								{
+									"key": "time",
+									"value": "19:00"
+								},
+								{
+									"key": "numGuests",
+									"value": "4"
+								}
+							]
+						},
+						"description": "Check available tables for a specific date, time, and number of guests"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Customer Operations",
+			"item": [
+				{
+					"name": "My Bookings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/my-bookings?status=PENDING&sortBy=bookingDate&sortOrder=DESC&page=1&limit=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "my-bookings"],
+							"query": [
+								{
+									"key": "status",
+									"value": "PENDING",
+									"description": "PENDING, CONFIRMED, ARRIVED, COMPLETED, CANCELLED, NO_SHOW"
+								},
+								{
+									"key": "sortBy",
+									"value": "bookingDate"
+								},
+								{
+									"key": "sortOrder",
+									"value": "DESC"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Get authenticated customer's bookings with filters"
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Booking (Customer)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cancellationReason\": \"Thay đổi kế hoạch, không thể đến được\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/cancel",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}", "cancel"]
+						},
+						"description": "Cancel a booking as an authenticated customer"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Restaurant Owner/Admin Operations",
+			"item": [
+				{
+					"name": "Get Restaurant Bookings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/restaurants/{{restaurantId}}/bookings?date=2026-02-15&status=PENDING&sortBy=bookingTime&sortOrder=ASC&page=1&limit=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["restaurants", "{{restaurantId}}", "bookings"],
+							"query": [
+								{
+									"key": "date",
+									"value": "2026-02-15",
+									"description": "Filter by booking date (YYYY-MM-DD)"
+								},
+								{
+									"key": "status",
+									"value": "PENDING",
+									"description": "Filter by status"
+								},
+								{
+									"key": "sortBy",
+									"value": "bookingTime"
+								},
+								{
+									"key": "sortOrder",
+									"value": "ASC"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Get all bookings for a restaurant (Owner/Admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Confirm Booking",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/confirm",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}", "confirm"]
+						},
+						"description": "Confirm a pending booking (Owner/Admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Mark as Arrived",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/arrived",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}", "arrived"]
+						},
+						"description": "Mark a confirmed booking as arrived (Owner/Admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Complete Booking",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/complete",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}", "complete"]
+						},
+						"description": "Complete an arrived booking (Owner/Admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Mark as No-Show",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/no-show",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}", "no-show"]
+						},
+						"description": "Mark a confirmed booking as no-show (Owner/Admin only)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Guest Cancel Operations",
+			"item": [
+				{
+					"name": "Cancel Booking (Guest)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cancellationReason\": \"Có việc đột xuất, xin lỗi không thể đến\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/cancel/guest",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}", "cancel", "guest"]
+						},
+						"description": "Cancel a booking as a guest (no authentication required)"
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

@@ -1,6 +1,5 @@
 /**
  * requireRole middleware placeholder
- * Usage: requireRole('RESTAURANT_OWNER')
  */
 module.exports = (...roles) => (req, res, next) => {
   if (!req.user) return res.status(401).json({ message: 'Unauthorized' });

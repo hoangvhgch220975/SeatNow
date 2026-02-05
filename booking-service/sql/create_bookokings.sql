@@ -9,7 +9,7 @@ CREATE TABLE dbo.Bookings (
   bookingTime     NVARCHAR(10)     NOT NULL, -- "19:00"
   numGuests       INT              NOT NULL,
   status          NVARCHAR(30)     NOT NULL CONSTRAINT DF_Bookings_status DEFAULT 'PENDING',
-  notes           NVARCHAR(MAX)    NULL,
+  specialRequests NVARCHAR(MAX)    NULL,
 
   depositRequired BIT              NOT NULL CONSTRAINT DF_Bookings_depositRequired DEFAULT 0,
   depositAmount   FLOAT            NULL,
@@ -21,9 +21,11 @@ CREATE TABLE dbo.Bookings (
   commissionPaid  BIT              NOT NULL CONSTRAINT DF_Bookings_commissionPaid DEFAULT 0,
 
   confirmedAt     DATETIME2(3)     NULL,
-  checkedInAt     DATETIME2(3)     NULL,
+  arrivedAt       DATETIME2(3)     NULL,
   completedAt     DATETIME2(3)     NULL,
   cancelledAt     DATETIME2(3)     NULL,
+  cancelledBy     UNIQUEIDENTIFIER NULL,
+  cancellationReason NVARCHAR(500) NULL,
 
   createdAt       DATETIME2(3)     NOT NULL CONSTRAINT DF_Bookings_createdAt DEFAULT SYSUTCDATETIME(),
   updatedAt       DATETIME2(3)     NOT NULL CONSTRAINT DF_Bookings_updatedAt DEFAULT SYSUTCDATETIME(),
@@ -33,5 +35,5 @@ CREATE TABLE dbo.Bookings (
   CONSTRAINT FK_Bookings_customer FOREIGN KEY (customerId) REFERENCES dbo.Users(id),
   CONSTRAINT FK_Bookings_restaurant FOREIGN KEY (restaurantId) REFERENCES dbo.Restaurants(id),
   CONSTRAINT FK_Bookings_table FOREIGN KEY (tableId) REFERENCES dbo.Tables(id),
-  CONSTRAINT CK_Bookings_status CHECK (status IN ('PENDING','CONFIRMED','CHECKED_IN','COMPLETED','CANCELLED','NO_SHOW'))
+  CONSTRAINT CK_Bookings_status CHECK (status IN ('PENDING','CONFIRMED','ARRIVED','COMPLETED','CANCELLED','NO_SHOW'))
 );
