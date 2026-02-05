@@ -24,6 +24,17 @@
 }
 ```
 
+
+**Promotion Service — Structure**
+
+- `src/index.js`: express app, mount `routes/promotion.route.js`, health check
+- `src/config/db.js`: `mssql` pool helper
+- `src/controllers/promotion.controller.js`: handlers for validate/apply/CRUD
+- `src/services/promotion.service.js`: business logic, validation helpers
+- `src/models/promotion.sql.js`: raw SQL queries and transaction helpers
+- `src/routes/promotion.route.js`: route definitions and auth middleware
+- `src/validators/promotion.validator.js`: Joi/Zod schemas
+
 ### Backend
 > Có thể triển khai bằng **JavaScript hoặc TypeScript**, giữ Express làm framework chính.
 
@@ -216,6 +227,7 @@ SeatNow/                     # Thư mục gốc của dự án
 │   │       ├── validators/
 │   │       │   ├── restaurant.validator.js # Validate restaurant CRUD/deposit policy payload
 │   │       │   ├── menu.validator.js       # Validate menu CRUD payload
+|   |       |   ├── review.validator.js     # Validate review CRUD payload
 │   │       │   └── common.validator.js     # Các validate dùng chung trong service
 │   │       ├── models/
 │   │       │   ├── restaurant.sql.js        # Raw SQL: Restaurants (metadata, deposit policy, search fields)
@@ -226,10 +238,12 @@ SeatNow/                     # Thư mục gốc của dự án
 │   │       │   ├── restaurant.service.js    # Search/detail restaurant, owner CRUD, cache read models
 │   │       │   ├── menu.service.js          # Menu CRUD (Mongo)
 │   │       │   └── review.service.js        # Review CRUD/query (Mongo)
+│   │       │   └── table.service.js         # Table CRUD (SQL)
 │   │       ├── controllers/
 │   │       │   ├── restaurant.controller.js # /restaurants: list/detail/create/update/delete
 │   │       │   ├── menu.controller.js       # /restaurants/:id/menu CRUD
 │   │       │   └── review.controller.js     # /restaurants/:id/reviews
+│   │       │   └── table.controller.js      # /restaurants/:id/tables CRUD
 │   │       ├── routes/
 │   │       │   └── restaurant.route.js      # Routes restaurant/menu/review (+ proxy endpoints nếu cần)
 │   │       └── utils/
@@ -280,6 +294,26 @@ SeatNow/                     # Thư mục gốc của dự án
 │   │       └── utils/
 │   │           └── webhook.validator.js    # Validate payload + signature rules per provider
 │   │
+├── promotion-service/              # Promotion microservice
+|   │   ├── Dockerfile              # Image build for promotion-service
+|   │   ├── package.json            # Dependencies and npm scripts
+|   │   ├── .env.example            # Example environment variables
+|   │   └── src/                    # Source code
+|   │       ├── index.js            # Express app entrypoint, mount routes, health
+|   │       ├── config/             # Configuration (DB, Redis, etc.)
+|   │       │   └── db.js           # `mssql` pool helper and connection config
+|   │       ├── controllers/        # HTTP handlers (thin, call services)
+|   │       │   └── promotion.controller.js  # validate/apply/CRUD endpoints
+|   │       ├── services/           # Business logic, rule enforcement
+|   │       │   └── promotion.service.js     # Validate/apply/usage logic
+|   │       ├── models/             # Data access layer (raw SQL)
+|   │       │   └── promotion.sql.js         # Queries, transactions, helpers
+|   │       ├── routes/             # Express route definitions
+|   │       │   └── promotion.route.js       # Route mapping + auth middleware
+|   │       ├── validators/         # Input validation schemas
+|   │       │   └── promotion.validator.js   # Joi / Zod schemas
+|   │       └── utils/              # Small helpers/utilities
+|   │           └── promotion-calculator.js  # Discount calculation helpers
 │   ├── notification-service/               # Notification worker: SMS/Email/Push (async jobs)
 │   │   ├── Dockerfile                      # Build image notification worker
 │   │   ├── package.json                    # Dependency senders + queue client
@@ -340,6 +374,8 @@ SeatNow/                     # Thư mục gốc của dự án
 └── README.md                               # Tổng quan dự án + cách chạy local + conventions
 
 ```
+
+
 
 ---
 
@@ -447,65 +483,89 @@ CREATE TABLE dbo.Wallets (
 
 -- BOOKINGS
 CREATE TABLE dbo.Bookings (
-  id              UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-  bookingCode     NVARCHAR(30) NOT NULL,
-  customerId      UNIQUEIDENTIFIER NOT NULL,
-  restaurantId    UNIQUEIDENTIFIER NOT NULL,
-  tableId         UNIQUEIDENTIFIER NULL,
-  bookingDate     DATE NOT NULL,
-  bookingTime     NVARCHAR(10) NOT NULL, -- "19:00"
-  numGuests       INT NOT NULL,
-  status          NVARCHAR(30) NOT NULL DEFAULT 'PENDING',
-  notes           NVARCHAR(MAX) NULL,
-
-  depositRequired BIT NOT NULL DEFAULT 0,
-  depositAmount   FLOAT NULL,
-  depositPaid     BIT NOT NULL DEFAULT 0,
-  depositPaidAt   DATETIME2(3) NULL,
-  depositRefunded BIT NOT NULL DEFAULT 0,
-
-  commissionFee   FLOAT NULL,
-  commissionPaid  BIT NOT NULL DEFAULT 0,
-
-  confirmedAt     DATETIME2(3) NULL,
-  checkedInAt     DATETIME2(3) NULL,
-  completedAt     DATETIME2(3) NULL,
-  cancelledAt     DATETIME2(3) NULL,
-
-  createdAt       DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
-  updatedAt       DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
-
-  CONSTRAINT PK_Bookings PRIMARY KEY (id),
-  CONSTRAINT UQ_Bookings_bookingCode UNIQUE (bookingCode),
-  CONSTRAINT FK_Bookings_customer FOREIGN KEY (customerId) REFERENCES dbo.Users(id),
-  CONSTRAINT FK_Bookings_restaurant FOREIGN KEY (restaurantId) REFERENCES dbo.Restaurants(id),
-  CONSTRAINT FK_Bookings_table FOREIGN KEY (tableId) REFERENCES dbo.Tables(id),
-  CONSTRAINT CK_Bookings_status CHECK (status IN ('PENDING','CONFIRMED','CHECKED_IN','COMPLETED','CANCELLED','NO_SHOW'))
+  id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+  bookingCode NVARCHAR(30) UNIQUE NOT NULL, -- BK20250206XXXX
+  
+  -- Authenticated user (nullable)
+  customerId UNIQUEIDENTIFIER NULL,
+  
+  -- Guest info (required if customerId is NULL)
+  guestName NVARCHAR(100) NULL,
+  guestPhone NVARCHAR(20) NULL,
+  guestEmail NVARCHAR(100) NULL,
+  
+  restaurantId UNIQUEIDENTIFIER NOT NULL,
+  bookingDate DATE NOT NULL,
+  bookingTime NVARCHAR(10) NOT NULL, -- "18:30"
+  numGuests INT NOT NULL CHECK (numGuests > 0),
+  specialRequests NVARCHAR(MAX),
+  
+  status NVARCHAR(30) NOT NULL CHECK (status IN (
+    'PENDING',        -- Chờ thanh toán deposit
+    'CONFIRMED',      -- Đã xác nhận
+    'ARRIVED',        -- Khách đã đến
+    'COMPLETED',      -- Hoàn thành
+    'CANCELLED',      -- Đã hủy
+    'NO_SHOW'         -- Không đến
+  )),
+  
+  depositRequired BIT DEFAULT 0,
+  depositAmount FLOAT,
+  depositPaidAt DATETIME2,
+  
+  commissionFee FLOAT, -- Platform commission
+  
+  cancelledBy NVARCHAR(20), -- "customer", "restaurant", "admin"
+  cancelledAt DATETIME2,
+  cancellationReason NVARCHAR(500),
+  
+  createdAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+  updatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+  
+  FOREIGN KEY (customerId) REFERENCES dbo.Users(id),
+  FOREIGN KEY (restaurantId) REFERENCES dbo.Restaurants(id),
+  
+  -- Constraint: Must have either customerId OR guest contact info
+  CONSTRAINT CK_Booking_Customer_Or_Guest 
+    CHECK (customerId IS NOT NULL OR guestPhone IS NOT NULL)
 );
+
+CREATE INDEX IX_Bookings_CustomerId ON dbo.Bookings(customerId);
+CREATE INDEX IX_Bookings_RestaurantId ON dbo.Bookings(restaurantId);
+CREATE INDEX IX_Bookings_BookingDate ON dbo.Bookings(bookingDate);
+CREATE INDEX IX_Bookings_Status ON dbo.Bookings(status);
+CREATE INDEX IX_Bookings_Code ON dbo.Bookings(bookingCode);
+
+-- Indexes for guest lookup
+CREATE INDEX IX_Bookings_GuestPhone ON dbo.Bookings(guestPhone) 
+  WHERE guestPhone IS NOT NULL;
+CREATE INDEX IX_Bookings_GuestEmail ON dbo.Bookings(guestEmail) 
+  WHERE guestEmail IS NOT NULL;
 
 -- TRANSACTIONS
 CREATE TABLE dbo.Transactions (
-  id            UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-  walletId      UNIQUEIDENTIFIER NOT NULL,
-  bookingId     UNIQUEIDENTIFIER NULL,
-
-  type          NVARCHAR(30) NOT NULL,
-  amount        FLOAT NOT NULL,
+  id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+  walletId UNIQUEIDENTIFIER NOT NULL,
+  type NVARCHAR(30) NOT NULL CHECK (type IN (
+    'TOP_UP',
+    'COMMISSION',
+    'REFUND',
+    'WITHDRAWAL'
+  )),
+  amount FLOAT NOT NULL,
   balanceBefore FLOAT NOT NULL,
-  balanceAfter  FLOAT NOT NULL,
+  balanceAfter FLOAT NOT NULL,
+  description NVARCHAR(500),
+  paymentMethod NVARCHAR(50),
+  transactionRef NVARCHAR(100),
+  status NVARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+  createdAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+  FOREIGN KEY (walletId) REFERENCES dbo.Wallets(id)
+);
 
-  description   NVARCHAR(MAX) NULL,
-  paymentMethod NVARCHAR(50) NULL,
-  referenceCode NVARCHAR(100) NULL,
-
-  status        NVARCHAR(30) NOT NULL DEFAULT 'pending', -- pending, completed, failed
-  createdAt     DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
-
-  CONSTRAINT PK_Transactions PRIMARY KEY (id),
-  CONSTRAINT FK_Transactions_wallet FOREIGN KEY (walletId) REFERENCES dbo.Wallets(id),
-  CONSTRAINT FK_Transactions_booking FOREIGN KEY (bookingId) REFERENCES dbo.Bookings(id),
-  CONSTRAINT CK_Transactions_type CHECK (type IN ('TOP_UP','DEPOSIT_PAYMENT','DEPOSIT_REFUND','COMMISSION_FEE','WITHDRAWAL')),
-  CONSTRAINT CK_Transactions_status CHECK (status IN ('pending','completed','failed'))
+CREATE INDEX IX_Transactions_WalletId ON dbo.Transactions(walletId);
+CREATE INDEX IX_Transactions_Type ON dbo.Transactions(type);
+CREATE INDEX IX_Transactions_CreatedAt ON dbo.Transactions(createdAt DESC);
 );
 
 -- Indexes (khuyến nghị)
@@ -516,6 +576,47 @@ CREATE INDEX IX_Bookings_restaurantId ON dbo.Bookings(restaurantId);
 CREATE INDEX IX_Bookings_slot ON dbo.Bookings(restaurantId, bookingDate, bookingTime);
 CREATE INDEX IX_Transactions_walletId ON dbo.Transactions(walletId);
 CREATE INDEX IX_Transactions_bookingId ON dbo.Transactions(bookingId);
+
+
+-- PROMOTIONS
+CREATE TABLE dbo.Promotions (
+  id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+  restaurantId UNIQUEIDENTIFIER NOT NULL,
+  name NVARCHAR(150) NOT NULL,
+  code NVARCHAR(50) NOT NULL,
+  type NVARCHAR(30) NOT NULL,
+  value FLOAT NULL,
+  maxDiscount FLOAT NULL,
+  minBookingAmount FLOAT NULL,
+  minGuests INT NULL,
+  applicableDays NVARCHAR(50) NULL,
+  applicableTimeSlots NVARCHAR(MAX) NULL,
+  usageLimit INT NULL,
+  usageCount INT NOT NULL DEFAULT 0,
+  perUserLimit INT NULL,
+  startDate DATE NULL,
+  endDate DATE NULL,
+  isActive BIT NOT NULL DEFAULT 1,
+  status NVARCHAR(30) NOT NULL DEFAULT 'active',
+  createdAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+  updatedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+  CONSTRAINT UQ_Promotions_code UNIQUE (code),
+  CONSTRAINT FK_Promotions_restaurant FOREIGN KEY (restaurantId) REFERENCES dbo.Restaurants(id)
+);
+
+CREATE TABLE dbo.PromotionUsages (
+  id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+  promotionId UNIQUEIDENTIFIER NOT NULL,
+  customerId UNIQUEIDENTIFIER NULL,
+  bookingId UNIQUEIDENTIFIER NOT NULL,
+  discountAmount FLOAT,
+  usedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+  CONSTRAINT FK_PromotionUsages_promotion FOREIGN KEY (promotionId) REFERENCES dbo.Promotions(id),
+  CONSTRAINT UQ_PromotionUsages_booking UNIQUE (bookingId)
+);
+
+CREATE INDEX IX_Promotions_restaurant_active ON dbo.Promotions(restaurantId, isActive, status);
+CREATE INDEX IX_PromotionUsages_promotion_customer ON dbo.PromotionUsages(promotionId, customerId);
 ```
 
 ### 3.2 MongoDB (Mongoose Schemas) — Đã bỏ ActivityLog
@@ -641,14 +742,21 @@ GET    /api/v1/restaurants/:id/dashboard
 
 ### 4.4 Booking
 ```javascript
+1. Public endpoint
 POST   /api/v1/bookings
+GET    /api/v1/bookings/guest/lookup
+2. Authenticated endpoint
 GET    /api/v1/bookings/:id
+GET    /api/v1/bookings/my-bookings
 PUT    /api/v1/bookings/:id/cancel
-POST   /api/v1/bookings/:id/check-in
-POST   /api/v1/bookings/:id/complete
-POST   /api/v1/bookings/:id/review
 PUT    /api/v1/bookings/:id/confirm
-PUT    /api/v1/bookings/:id/reject
+3. Restaurant Owner endpoint
+GET    /api/v1/restaurants/:id/bookings
+PUT   /api/v1/bookings/:id/check-in
+PUT   /api/v1/bookings/:id/complete
+PUT   /api/v1/bookings/:id/no-show
+PUT   /api/v1/bookings/:id/restaurant-cancel
+
 ```
 
 ### 4.5 Payment
@@ -672,6 +780,18 @@ GET    /api/v1/admin/users
 GET    /api/v1/admin/bookings
 GET    /api/v1/admin/dashboard/stats
 GET    /api/v1/admin/transactions
+```
+
+### 4.7 Promotions
+```javascript
+GET    /api/v1/promotions/available?restaurantId=
+GET    /api/v1/promotions/:code
+POST   /api/v1/promotions/validate
+POST   /api/v1/promotions/apply
+POST   /api/v1/promotions           # owner/admin create
+PUT    /api/v1/promotions/:id       # update
+DELETE /api/v1/promotions/:id       # delete
+GET    /api/v1/promotions/:id/stats # usage/stats
 ```
 
 ---
@@ -899,8 +1019,42 @@ class WalletService {
 }
 
 module.exports = { WalletService };
+
 ```
 
+### 5.5 Promotion Service examples
+
+- Validate (controller → service):
+```js
+// services/promotion.controller.js
+const { validatePromotion } = require('../services/promotion.service');
+async function validate(req, res) {
+  const payload = req.body;
+  const result = await validatePromotion(payload);
+  return res.json({ success: result.valid, data: result });
+}
+```
+
+- Apply (service -> SQL transaction):
+```js
+// services/promotion.service.js
+const { sql, getPool } = require('../config/db');
+async function applyPromotion({ code, bookingId, customerId }) {
+  const pool = await getPool();
+  const tx = new sql.Transaction(pool);
+  try {
+    await tx.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+    // select promotion with UPDLOCK to increment usageCount safely
+    // insert into dbo.PromotionUsages
+    // update dbo.Promotions set usageCount = usageCount + 1
+    await tx.commit();
+    return { applied: true };
+  } catch (e) {
+    await tx.rollback();
+    throw e;
+  }
+}
+```
 ---
 
 ## 6) FRONTEND IMPLEMENTATION

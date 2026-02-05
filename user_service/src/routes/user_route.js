@@ -6,7 +6,7 @@ const c = require('../controllers/user_controller');
 
 // Base: /api/v1/users
 // Route for Customer and Restaurant Owner
-router.get('/me', requireAuth, c.me);
+router.get('/me', requireAuth, c.me); 
 router.put('/me', requireAuth, c.updateMe);
 router.get('/me/wallet', requireAuth, c.myWallet);
 

@@ -11,10 +11,10 @@
 - ✅ Đăng ký bằng số điện thoại/email
 - ✅ Đăng nhập/đăng xuất
 - ✅ Xác thực OTP qua SMS
-- ✅ Đăng nhập bằng Google/Facebook/Apple
+- ✅ Đăng nhập bằng Google
 - ✅ Quên mật khẩu
 - ✅ Đổi mật khẩu
-- ✅ Xóa tài khoản
+
 
 #### 1.2 Quản lý Profile
 - ✅ Cập nhật thông tin cá nhân (tên, ảnh đại diện, email)
