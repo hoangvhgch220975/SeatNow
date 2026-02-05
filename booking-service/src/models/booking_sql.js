@@ -155,29 +155,57 @@ async function updateStatus(id, fromStatuses, toStatus, timeField) {
 }
 
 // Cancel booking with reason and cancelledBy (nullable)
+
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function cancelBooking(id, fromStatuses, cancelledBy, cancellationReason) {
+  // Validate id GUID
+  const bookingId = String(id || '').trim();
+  if (!GUID_RE.test(bookingId)) {
+    throw new Error('Invalid booking id (GUID required)');
+  }
+
+  // Normalize reason (<= 500 chars)
+  const reason = cancellationReason ? String(cancellationReason).slice(0, 500) : null;
+
+  // Validate cancelledBy GUID (nullable)
+  let validCancelledBy = null;
+  if (cancelledBy) {
+    const str = String(cancelledBy).trim();
+    if (GUID_RE.test(str)) validCancelledBy = str;
+  }
+
+  // Use fromStatuses if provided, else default
+  const statuses = Array.isArray(fromStatuses) && fromStatuses.length
+    ? fromStatuses.map(s => String(s).trim().toUpperCase())
+    : ['PENDING', 'CONFIRMED'];
+
+  // Build parameter placeholders safely: @s0, @s1, ...
+  const placeholders = statuses.map((_, i) => `@s${i}`).join(', ');
+
   const pool = await getPool();
   const req = pool.request()
-    .input('id', sql.UniqueIdentifier, id)
-    .input('cancelledBy', sql.UniqueIdentifier, cancelledBy || null)
-    .input('cancellationReason', sql.NVarChar(500), cancellationReason || null)
-    .input('to', sql.NVarChar(30), 'CANCELLED');
+    .input('id', sql.UniqueIdentifier, bookingId)
+    .input('cancelledBy', sql.UniqueIdentifier, validCancelledBy)
+    .input('cancellationReason', sql.NVarChar(500), reason);
 
-  fromStatuses.forEach((s, i) => req.input(`f${i}`, sql.NVarChar(30), s));
+  statuses.forEach((s, i) => req.input(`s${i}`, sql.VarChar(20), s));
 
   const rs = await req.query(`
     UPDATE dbo.Bookings
-    SET status=@to,
+    SET status='CANCELLED',
         cancelledAt=SYSUTCDATETIME(),
-        cancellationReason=@cancellationReason,
         cancelledBy=@cancelledBy,
+        cancellationReason=@cancellationReason,
         updatedAt=SYSUTCDATETIME()
     OUTPUT INSERTED.*
-    WHERE id=@id AND status IN (${fromStatuses.map((_, i) => `@f${i}`).join(',')})
+    WHERE id=@id AND status IN (${placeholders})
   `);
 
+  // Nếu không update được (không tồn tại / sai status) => trả null
   return rs.recordset[0] || null;
 }
+
 
 module.exports = {
   ACTIVE_STATUSES,
@@ -189,5 +217,6 @@ module.exports = {
   listByCustomer,
   listByRestaurant,
   insertBookingTx,
-  updateStatus
+  updateStatus,
+  cancelBooking
 };

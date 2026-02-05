@@ -18,7 +18,7 @@
 	"variable": [
 		{
 			"key": "baseUrl",
-			"value": "http://localhost:3002/api/v1",
+			"value": "http://localhost:3004/api/v1",
 			"type": "string"
 		},
 		{
@@ -115,7 +115,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"tableId\": \"{{tableId4}}\",\n  \"bookingDate\": \"2026-02-15\",\n  \"bookingTime\": \"19:00\",\n  \"numGuests\": 4,\n  \"guestName\": \"Nguyen Van A\",\n  \"guestPhone\": \"+84901234567\",\n  \"guestEmail\": \"nguyenvana@example.com\",\n  \"notes\": \"Gần cửa sổ, ưu tiên khu yên tĩnh\"\n}"
+							"raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"tableId\": \"{{tableId4}}\",\n  \"bookingDate\": \"2026-02-15\",\n  \"bookingTime\": \"19:00\",\n  \"numGuests\": 4,\n  \"guestName\": \"Nguyen Van A\",\n  \"guestPhone\": \"+84901234567\",\n  \"guestEmail\": \"nguyenvana@example.com\",\n  \"specialRequests\": \"Gần cửa sổ, ưu tiên khu yên tĩnh\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/bookings",
@@ -135,10 +135,15 @@
 								"exec": [
 									"if (pm.response.code === 201) {",
 									"    const res = pm.response.json();",
-									"    pm.collectionVariables.set('bookingId', res.data.id);",
-									"    pm.collectionVariables.set('bookingCode', res.data.bookingCode);",
-									"    console.log('Booking ID:', res.data.id);",
-									"    console.log('Booking Code:', res.data.bookingCode);",
+									"    const booking = res.booking || res.data?.booking || res.data;",
+									"    if (booking) {",
+									"        pm.collectionVariables.set('bookingId', booking.id);",
+									"        pm.collectionVariables.set('bookingCode', booking.bookingCode);",
+									"        console.log('✅ Booking Created');",
+									"        console.log('Booking ID:', booking.id);",
+									"        console.log('Booking Code:', booking.bookingCode);",
+									"        console.log('Status:', booking.status);",
+									"    }",
 									"}"
 								],
 								"type": "text/javascript"
@@ -159,7 +164,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"tableId\": \"{{tableId}}\",\n  \"bookingDate\": \"2026-02-20\",\n  \"bookingTime\": \"20:00\",\n  \"numGuests\": 2,\n  \"notes\": \"Kỷ niệm ngày cưới, nhờ chuẩn bị hoa và nến\"\n}"
+							"raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"tableId\": \"{{tableId}}\",\n  \"bookingDate\": \"2026-02-20\",\n  \"bookingTime\": \"20:00\",\n  \"numGuests\": 2,\n  \"specialRequests\": \"Kỷ niệm ngày cưới, nhờ chuẩn bị hoa và nến\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/bookings",
@@ -179,7 +184,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/bookings/guest/lookup?bookingCode={{bookingCode}}&phone=%2B84901234567",
+							"raw": "{{baseUrl}}/bookings/guest/lookup?bookingCode={{bookingCode}}&guestPhone=%2B84901234567",
 							"host": ["{{baseUrl}}"],
 							"path": ["bookings", "guest", "lookup"],
 							"query": [
@@ -188,7 +193,7 @@
 									"value": "{{bookingCode}}"
 								},
 								{
-									"key": "phone",
+									"key": "guestPhone",
 									"value": "+84901234567"
 								}
 							]
@@ -206,7 +211,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/restaurants/{{restaurantId}}/availability?date=2026-02-15&time=19:00&numGuests=4",
+							"raw": "{{baseUrl}}/restaurants/{{restaurantId}}/availability?date=2026-02-15&time=19:00&guests=4",
 							"host": ["{{baseUrl}}"],
 							"path": ["restaurants", "{{restaurantId}}", "availability"],
 							"query": [
@@ -219,8 +224,9 @@
 									"value": "19:00"
 								},
 								{
-									"key": "numGuests",
-									"value": "4"
+									"key": "guests",
+									"value": "4",
+									"description": "Number of guests"
 								}
 							]
 						},

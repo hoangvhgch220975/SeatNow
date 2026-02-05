@@ -103,7 +103,10 @@ async function complete(req, res) {
 async function cancel(req, res) {
   try {
     const reason = req.body && req.body.cancellationReason ? req.body.cancellationReason : null;
-    return res.json({ booking: await bookingSvc.cancel(req.params.id, req.user || null, reason) });
+    console.log('[Cancel] req.user:', req.user);
+    console.log('[Cancel] reason:', reason);
+    const result = await bookingSvc.cancel(req.params.id, req.user || null, reason);
+    return res.json({ booking: result });
   } catch (e) { return res.status(e.status || 400).json({ message: e.message }); }
 }
 

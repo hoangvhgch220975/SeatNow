@@ -67,7 +67,7 @@ async function createBooking({ actor, body }) {
   }
 
   const { depositRequired, depositAmount } = computeDeposit(r, body.numGuests);
-  const status = depositRequired ? 'PENDING' : 'CONFIRMED';
+  const status = 'PENDING'; // Booking mới luôn là PENDING, chờ restaurant xác nhận
   const commissionFee = depositRequired ? depositAmount * (Number(r.commissionRate || 0) / 100) : 0;
 
   // lock by table+slot
@@ -104,6 +104,10 @@ async function createBooking({ actor, body }) {
       socket.emitBookingChanged({ restaurantId: body.restaurantId, customerId: actor?.id, payload: { type: 'created', booking: row } });
       socket.emitAvailabilityChanged(body.restaurantId, { bookingDate: body.bookingDate, bookingTime: body.bookingTime });
     } catch (e) {}
+
+    // Auto-release hold lock if existed
+    const holdKey = `table:hold:${body.restaurantId}:${tableId}:${body.bookingDate}:${body.bookingTime}`;
+    try { await redis.del(holdKey); } catch (e) {}
 
     return { booking: row, depositRequired, depositAmount };
   } finally {

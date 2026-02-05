@@ -4,6 +4,7 @@
 // src/sockets/booking.socket.js
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const { getRedis } = require('../config/redis');
 
 let io = null;
 
@@ -53,6 +54,86 @@ function initSocket(httpServer) {
       if (!restaurantId) return;
       socket.leave(`restaurant:${restaurantId}`);
       socket.leave(`restaurant:${restaurantId}:owners`);
+    });
+
+    // Hold table (UI selection lock - 2 phút)
+    socket.on('holdTable', async (data, callback) => {
+      try {
+        const { restaurantId, tableId, bookingDate, bookingTime } = data;
+        if (!restaurantId || !tableId || !bookingDate || !bookingTime) {
+          return callback?.({ error: 'Missing required fields' });
+        }
+
+        const userId = socket.user?.id || socket.id;
+        const redis = await getRedis();
+        const holdKey = `table:hold:${restaurantId}:${tableId}:${bookingDate}:${bookingTime}`;
+        const holdTTL = parseInt(process.env.TABLE_HOLD_TTL_SEC || '120', 10);
+
+        // Check if already held by someone else
+        const existing = await redis.get(holdKey);
+        if (existing && existing !== userId) {
+          return callback?.({ error: 'Table is being selected by another user' });
+        }
+
+        // Set hold lock
+        await redis.set(holdKey, userId, { EX: holdTTL });
+
+        // Emit to all in restaurant room
+        io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { bookingDate, bookingTime });
+
+        callback?.({ success: true, expiresIn: holdTTL });
+      } catch (err) {
+        callback?.({ error: err.message });
+      }
+    });
+
+    // Release hold
+    socket.on('releaseHold', async (data, callback) => {
+      try {
+        const { restaurantId, tableId, bookingDate, bookingTime } = data;
+        if (!restaurantId || !tableId || !bookingDate || !bookingTime) {
+          return callback?.({ error: 'Missing required fields' });
+        }
+
+        const userId = socket.user?.id || socket.id;
+        const redis = await getRedis();
+        const holdKey = `table:hold:${restaurantId}:${tableId}:${bookingDate}:${bookingTime}`;
+
+        // Only release if held by this user
+        const existing = await redis.get(holdKey);
+        if (existing === userId) {
+          await redis.del(holdKey);
+          io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { bookingDate, bookingTime });
+        }
+
+        callback?.({ success: true });
+      } catch (err) {
+        callback?.({ error: err.message });
+      }
+    });
+
+    // Auto-release holds on disconnect
+    socket.on('disconnect', async () => {
+      try {
+        const userId = socket.user?.id || socket.id;
+        const redis = await getRedis();
+        
+        // Scan và release tất cả holds của user này
+        for await (const key of redis.scanIterator({ MATCH: 'table:hold:*', COUNT: 100 })) {
+          const holder = await redis.get(key);
+          if (holder === userId) {
+            await redis.del(key);
+            // Extract restaurantId từ key để emit event
+            const parts = key.split(':');
+            if (parts.length >= 3) {
+              const restaurantId = parts[2];
+              io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', {});
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error releasing holds on disconnect:', err.message);
+      }
     });
   });
 

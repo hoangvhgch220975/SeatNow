@@ -41,17 +41,38 @@ async function getAvailableTables({ restaurantId, bookingDate, bookingTime, numG
     ORDER BY t.capacity ASC, t.tableNumber ASC
   `);
 
+  // Filter out tables that are currently held by someone (UI selection lock)
+  const tables = [];
+  for (const table of rs.recordset) {
+    const holdKey = `table:hold:${restaurantId}:${table.id}:${bookingDate}:${bookingTime}`;
+    const held = await redis.get(holdKey);
+    if (!held) {
+      tables.push(table);
+    }
+  }
+
   const ttl = parseInt(process.env.AVAIL_CACHE_TTL_SEC || '300', 10);
-  await redis.set(key, JSON.stringify(rs.recordset), { EX: ttl });
-  return rs.recordset;
+  await redis.set(key, JSON.stringify(tables), { EX: ttl });
+  return tables;
 }
 
 // Hàm vô hiệu hóa cache bàn trống khi có booking mới hoặc thay đổi
 async function invalidateAvailability({ restaurantId, bookingDate, bookingTime }) {
   const redis = await getRedis();
   const prefix = `restaurant:${restaurantId}:tables:available:${bookingDate}:${bookingTime}:`;
+  const keys = [];
   for await (const k of redis.scanIterator({ MATCH: `${prefix}*`, COUNT: 200 })) {
-    await redis.del(k);
+    if (k && typeof k === 'string') {
+      keys.push(k);
+    }
+  }
+  // Delete keys individually
+  for (const key of keys) {
+    try {
+      await redis.del(key);
+    } catch (err) {
+      console.error('Redis del error for key:', key, err.message);
+    }
   }
   try { socket.emitAvailabilityChanged(restaurantId, { bookingDate, bookingTime }); } catch (e) {}
 }

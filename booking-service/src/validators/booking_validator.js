@@ -13,7 +13,7 @@ const createBookingSchema = Joi.object({
 
   // guest fields (nếu không đăng nhập)
   guestName: Joi.string().max(100).optional().allow('', null),
-  guestPhone: Joi.string().max(20).required(),
+  guestPhone: Joi.string().max(20).optional().allow('', null),
   guestEmail: Joi.string().email().max(255).optional().allow('', null)
 });
 
