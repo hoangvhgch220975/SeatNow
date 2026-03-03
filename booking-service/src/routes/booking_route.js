@@ -4,15 +4,16 @@ const c = require('../controllers/booking_controller');
 const jwt = require('../middlewares/jwt_middleware');
 const optionalAuth = require('../middlewares/optionalAuth_middleware');
 const requireRole = require('../middlewares/requireRole_middleware');
+const rateLimit = require('../middlewares/rateLimit_middleware');
 
 const r = express.Router();
 
 // Public/Guest
-r.post('/bookings', optionalAuth, c.create);
+r.post('/bookings', optionalAuth, rateLimit({ limit: 10, windowSec: 60, key: 'create_booking' }), c.create);
 r.get('/bookings/guest/lookup', c.guestLookup);
 
 // Availability (public)
-r.get('/restaurants/:id/availability', c.availability);
+r.get('/restaurants/:id/availability', rateLimit({ limit: 60, windowSec: 60, key: 'availability' }), c.availability);
 
 // Customer
 r.get('/bookings/my-bookings', jwt.requireAuth, requireRole('CUSTOMER'), c.myBookings);
@@ -32,6 +33,6 @@ r.get('/bookings/:id/qr', jwt.requireAuth, requireRole('RESTAURANT_OWNER','ADMIN
 r.put('/bookings/:id/cancel', jwt.requireAuth, requireRole('CUSTOMER'), c.cancel);
 
 // Guest cancellation (no customer auth required)
-r.put('/bookings/:id/cancel/guest', optionalAuth, c.cancel);
+r.put('/bookings/:id/cancel/guest', optionalAuth, rateLimit({ limit: 10, windowSec: 60, key: 'guest_cancel' }), c.cancel);
 
 module.exports = r;

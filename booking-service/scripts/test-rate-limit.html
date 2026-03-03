@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Booking Service Rate Limit Tester</title>
+  <style>
+    body{font-family:Segoe UI,Roboto,Arial;margin:16px}
+    label{display:block;margin-top:8px}
+    input,select,button,textarea{margin-top:4px;padding:8px;font-size:14px;width:100%;box-sizing:border-box}
+    .row{display:flex;gap:8px}
+    .row > *{flex:1}
+    .stats{margin-top:12px;display:flex;gap:12px}
+    .panel{padding:10px;border:1px solid #ddd;border-radius:6px;background:#fafafa}
+    pre{max-height:200px;overflow:auto;background:#111;color:#dff; padding:8px}
+  </style>
+</head>
+<body>
+  <h2>Booking Service Rate Limit Tester</h2>
+
+  <label>Request URL
+    <input id="url" type="text" value="http://localhost:3004/api/v1/bookings" />
+  </label>
+
+  <div class="row">
+    <label>Method
+      <select id="method">
+        <option>GET</option>
+        <option>POST</option>
+        <option>PUT</option>
+        <option>DELETE</option>
+      </select>
+    </label>
+    <label>Interval (ms)
+      <input id="interval" type="number" value="500" />
+    </label>
+  </div>
+
+  <div class="row">
+    <label>Body (JSON)
+      <textarea id="body" rows="10">{
+    "restaurantId": "BA3FB828-C52C-4FBE-83E7-4F326A9892A2",
+    "tableId": "84A298F5-4582-4E6B-880E-5D450EF5EA09",
+    "bookingDate": "{RANDOM_DATE}",
+    "bookingTime": "{RANDOM_TIME}",
+    "numGuests": {RANDOM_GUESTS},
+    "guestName": "{RANDOM_NAME}",
+    "guestPhone": "{RANDOM_PHONE}",
+    "guestEmail": "{RANDOM_EMAIL}",
+    "specialRequests": "{RANDOM_REQUEST}"
+  }</textarea>
+    </label>
+    <label>Max requests (0 = unlimited)
+      <input id="max" type="number" value="0" />
+    </label>
+  </div>
+
+  <div style="margin-top:8px;display:flex;gap:8px">
+    <button id="start">Start</button>
+    <button id="stop" disabled>Stop</button>
+    <button id="clear">Clear Log</button>
+  </div>
+
+  <div class="stats">
+    <div class="panel">Sent: <strong id="sent">0</strong></div>
+    <div class="panel">Success: <strong id="ok">0</strong></div>
+    <div class="panel">Fail: <strong id="fail">0</strong></div>
+    <div class="panel">Last status: <strong id="last">-</strong></div>
+  </div>
+
+  <h3 style="margin-top:12px">Log</h3>
+  <pre id="log">(no logs)</pre>
+
+  <script>
+    const id = (s)=>document.getElementById(s)
+    const urlEl = id('url'), methodEl = id('method'), intervalEl = id('interval')
+    const bodyEl = id('body'), maxEl = id('max')
+    const startBtn = id('start'), stopBtn = id('stop'), clearBtn = id('clear')
+    const sentEl = id('sent'), okEl = id('ok'), failEl = id('fail'), lastEl = id('last'), logEl = id('log')
+
+    let timer = null
+    let counts = {sent:0,ok:0,fail:0}
+
+    function appendLog(text){
+      if(logEl.textContent === '(no logs)') logEl.textContent = ''
+      const time = new Date().toLocaleTimeString()
+      logEl.textContent = `${time} | ${text}\n` + logEl.textContent
+    }
+
+    async function sendOnce(){
+      const url = urlEl.value.trim()
+      if(!url) return
+      const method = methodEl.value
+      let options = {method,headers:{'Content-Type':'application/json'}}
+      if(method !== 'GET' && method !== 'HEAD'){
+        // allow template placeholders in body: {RANDOM_NAME}, {RANDOM_PHONE}, {RANDOM_EMAIL}
+        let raw = bodyEl.value || ''
+        try{
+          if(raw.includes('{RANDOM_')){
+            const name = randomName()
+            const phone = randomPhone()
+            const email = randomEmail(name)
+            const guests = randomGuests()
+            const req = randomRequest()
+            const date = randomDate()
+            const time = randomTime()
+            raw = raw.replace(/\{RANDOM_NAME\}/g, name)
+            raw = raw.replace(/\{RANDOM_PHONE\}/g, phone)
+            raw = raw.replace(/\{RANDOM_EMAIL\}/g, email)
+            raw = raw.replace(/\{RANDOM_GUESTS\}/g, String(guests))
+            raw = raw.replace(/\{RANDOM_REQUEST\}/g, req)
+            raw = raw.replace(/\{RANDOM_DATE\}/g, date)
+            raw = raw.replace(/\{RANDOM_TIME\}/g, time)
+          }
+          options.body = raw ? JSON.stringify(JSON.parse(raw)) : ''
+        }catch(e){appendLog('Invalid JSON body after replacement'); return}
+      }
+      counts.sent++
+      sentEl.textContent = counts.sent
+      try{
+        const res = await fetch(url, options)
+        const text = await res.text()
+        lastEl.textContent = res.status
+        if(res.ok){counts.ok++; okEl.textContent = counts.ok} else {counts.fail++; failEl.textContent = counts.fail}
+        appendLog(`${res.status} ${method} ${url} -> ${text.slice(0,200)}`)
+      }catch(err){
+        counts.fail++
+        failEl.textContent = counts.fail
+        lastEl.textContent = 'ERR'
+        appendLog(`ERR ${method} ${url} -> ${err.message}`)
+      }
+    }
+
+    startBtn.addEventListener('click', ()=>{
+      const interval = Math.max(10, Number(intervalEl.value) || 500)
+      const max = Number(maxEl.value) || 0
+      startBtn.disabled = true; stopBtn.disabled = false
+      if(max > 0){
+        timer = setInterval(async ()=>{
+          if(max > 0 && counts.sent >= max){ clearInterval(timer); timer = null; startBtn.disabled = false; stopBtn.disabled = true; appendLog('Reached max requests'); return }
+          await sendOnce()
+        }, interval)
+      } else {
+        timer = setInterval(sendOnce, interval)
+      }
+      appendLog('Started')
+    })
+
+    // Random generators
+    function randomInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min }
+    function randomName(){
+      const given = ['An','Binh','Cuong','Duy','Giang','Hoa','Khanh','Lan','Minh','Nga','Phuong','Quang']
+      const family = ['Nguyen Van','Tran Thi','Le Van','Pham Thi']
+      return `${family[randomInt(0,family.length-1)]} ${given[randomInt(0,given.length-1)]}`
+    }
+    function randomPhone(){
+      // +84 9xxxxxxxx or +8490xxxxxxx style
+      let s = '+84'
+      // choose prefix 9x
+      const p = ['90','91','92','93','94','95','98','99']
+      s += p[randomInt(0,p.length-1)]
+      for(let i=0;i<7;i++) s += String(randomInt(0,9))
+      return s
+    }
+    function randomEmail(name){
+      const clean = name.toLowerCase().replace(/[^a-z0-9]/g,'')
+      return `${clean}${randomInt(10,999)}@example.com`
+    }
+    function randomGuests(){
+      // 1 - 5 guests
+      return randomInt(1,5)
+    }
+    function randomRequest(){
+      const opts = [
+        'Gần cửa sổ',
+        'Ưu tiên khu yên tĩnh',
+        'Bàn cho trẻ em',
+        'Ăn chay',
+        'Kỷ niệm sinh nhật - có bánh'
+      ]
+      return opts[randomInt(0, opts.length-1)]
+    }
+    function randomDate(){
+      // random date within next 30 days
+      const daysAhead = randomInt(1, 30)
+      const d = new Date()
+      d.setDate(d.getDate() + daysAhead)
+      const yyyy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    }
+    function randomTime(){
+      // random time between 11:00 and 21:30, step 30 minutes
+      const hour = randomInt(11, 21)
+      const minute = Math.random() < 0.5 ? '00' : '30'
+      return `${String(hour).padStart(2,'0')}:${minute}`
+    }
+
+    stopBtn.addEventListener('click', ()=>{
+      if(timer){clearInterval(timer); timer = null}
+      startBtn.disabled = false; stopBtn.disabled = true
+      appendLog('Stopped')
+    })
+
+    clearBtn.addEventListener('click', ()=>{
+      logEl.textContent = '(no logs)'
+      counts = {sent:0,ok:0,fail:0}
+      sentEl.textContent = '0'; okEl.textContent = '0'; failEl.textContent = '0'; lastEl.textContent = '-'
+    })
+  </script>
+</body>
+</html>
