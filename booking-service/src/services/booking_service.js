@@ -128,8 +128,11 @@ async function myBookings(actor, { limit = 20, offset = 0 }) {
 async function restaurantBookings(restaurantId, actor, filters) {
   const r = await bookingSql.getRestaurant(restaurantId);
   if (!r) { const e = new Error('Restaurant not found'); e.status = 404; throw e; }
+    // Debug: log actor id/role and restaurant ownerId to help diagnose Forbidden cases
+    try { console.log('[restaurantBookings] actor:', actor ? { id: actor.id, role: actor.role } : null, 'restaurantOwnerId:', r.ownerId); } catch (e) {}
   if (actor.role !== 'ADMIN' && String(r.ownerId) !== String(actor.id)) { const e = new Error('Forbidden'); e.status = 403; throw e; }
   return bookingSql.listByRestaurant(restaurantId, filters);
+  
 }
 
 /** transitions (flow strict) */
@@ -162,7 +165,8 @@ async function complete(id) {
 
 // PENDING/CONFIRMED -> CANCELLED
 async function cancel(id, actor = null, cancellationReason = null) {
-  const cancelledBy = actor?.id || null;
+  // Store role (e.g., 'CUSTOMER') in cancelledBy column (now NVARCHAR)
+  const cancelledBy = actor?.role || null;
   const updated = await bookingSql.cancelBooking(id, ['PENDING','CONFIRMED'], cancelledBy, cancellationReason);
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });

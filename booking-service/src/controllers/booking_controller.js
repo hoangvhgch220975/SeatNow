@@ -4,6 +4,7 @@
 const bookingSvc = require('../services/booking_service');
 const availabilitySvc = require('../services/availability_service');
 const { createBookingSchema } = require('../validators/booking_validator');
+const qrcode = require('qrcode');
 
 // Hàm lấy thông tin phân trang từ query parameters
 function pickPaging(q, defLimit) {
@@ -20,9 +21,28 @@ async function create(req, res) {
 
   try {
     const data = await bookingSvc.createBooking({ actor: req.user || null, body: value });
+    // include a simple QR URL (frontend can generate QR from this or server can provide image)
+    try {
+      const checkinUrl = `${process.env.APP_BASE_URL || ''}/checkin?bookingId=${data.booking.id}`;
+      data.booking.checkinUrl = checkinUrl;
+    } catch (e) {}
     return res.status(201).json(data);
   } catch (e) {
     return res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
+// Return QR image (PNG) for booking check-in - owner/admin only (route protects with requireRole)
+async function getQr(req, res) {
+  try {
+    const id = req.params.id;
+    // payload: plain bookingId URL for owner app to scan
+    const payload = `${process.env.APP_BASE_URL || ''}/checkin?bookingId=${id}`;
+    const buffer = await qrcode.toBuffer(payload, { type: 'png', width: 300 });
+    res.setHeader('Content-Type', 'image/png');
+    return res.send(buffer);
+  } catch (e) {
+    return res.status(400).json({ message: e.message });
   }
 }
 
@@ -45,10 +65,28 @@ async function availability(req, res) {
 
 // Tra cứu booking cho khách (guest)
 async function guestLookup(req, res) {
-  const { bookingCode, guestPhone } = req.query;
+  const { bookingCode } = req.query;
+  let guestPhone = req.query.guestPhone || req.query.phone;
   if (!bookingCode || !guestPhone) return res.status(422).json({ message: 'bookingCode and guestPhone are required' });
 
-  const booking = await bookingSvc.guestLookup({ bookingCode, guestPhone });
+  // Normalize phone: remove spaces and try both + and non-plus variants
+  const norm = guestPhone.toString().trim().replace(/\s+/g, '');
+  const candidates = [];
+  if (norm.startsWith('+')) {
+    candidates.push(norm);
+    candidates.push(norm.replace(/^\+/, ''));
+  } else {
+    candidates.push(norm);
+    candidates.push('+' + norm);
+  }
+
+
+  let booking = null;
+  for (const gp of candidates) {
+    booking = await bookingSvc.guestLookup({ bookingCode, guestPhone: gp });
+    if (booking) break;
+  }
+
   if (!booking) return res.status(404).json({ message: 'Not found' });
 
   return res.json({ booking });
@@ -126,5 +164,7 @@ module.exports = {
   complete,
   cancel,
   noShow
+  ,
+  getQr
 };
 

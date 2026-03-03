@@ -156,6 +156,7 @@ async function updateStatus(id, fromStatuses, toStatus, timeField) {
 
 // Cancel booking with reason and cancelledBy (nullable)
 
+ // Validate cancelledBy GUID (nullable)
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function cancelBooking(id, fromStatuses, cancelledBy, cancellationReason) {
@@ -164,15 +165,14 @@ async function cancelBooking(id, fromStatuses, cancelledBy, cancellationReason) 
   if (!GUID_RE.test(bookingId)) {
     throw new Error('Invalid booking id (GUID required)');
   }
-
+ 
   // Normalize reason (<= 500 chars)
   const reason = cancellationReason ? String(cancellationReason).slice(0, 500) : null;
 
-  // Validate cancelledBy GUID (nullable)
+  // cancelledBy now stores role string (e.g., 'CUSTOMER') or null
   let validCancelledBy = null;
   if (cancelledBy) {
-    const str = String(cancelledBy).trim();
-    if (GUID_RE.test(str)) validCancelledBy = str;
+    validCancelledBy = String(cancelledBy).trim().slice(0, 50);
   }
 
   // Use fromStatuses if provided, else default
@@ -186,24 +186,57 @@ async function cancelBooking(id, fromStatuses, cancelledBy, cancellationReason) 
   const pool = await getPool();
   const req = pool.request()
     .input('id', sql.UniqueIdentifier, bookingId)
-    .input('cancelledBy', sql.UniqueIdentifier, validCancelledBy)
+    .input('cancelledBy', sql.NVarChar(50), validCancelledBy)
     .input('cancellationReason', sql.NVarChar(500), reason);
 
-  statuses.forEach((s, i) => req.input(`s${i}`, sql.VarChar(20), s));
+  // Use a slightly larger NVARCHAR parameter to avoid overflow from unexpected values
+  statuses.forEach((s, i) => req.input(`s${i}`, sql.NVarChar(100), s));
 
-  const rs = await req.query(`
-    UPDATE dbo.Bookings
-    SET status='CANCELLED',
-        cancelledAt=SYSUTCDATETIME(),
-        cancelledBy=@cancelledBy,
-        cancellationReason=@cancellationReason,
-        updatedAt=SYSUTCDATETIME()
-    OUTPUT INSERTED.*
-    WHERE id=@id AND status IN (${placeholders})
-  `);
+  // Log parameters and their lengths/values to help diagnose potential overflow
+  try {
+    // eslint-disable-next-line no-console
+    console.log('[cancelBooking] params:', {
+      bookingId,
+      cancelledBy: validCancelledBy,
+      cancellationReasonLength: reason ? reason.length : 0,
+      cancellationReasonSample: reason ? (reason.length > 200 ? reason.slice(0, 200) + '...' : reason) : null,
+      statuses
+    });
+    // eslint-disable-next-line no-console
+    statuses.forEach((s, i) => console.log(`[cancelBooking] param s${i} (len=${String(s).length}):`, s));
+  } catch (e) {}
+
+  let res;
+  try {
+    // Perform update without OUTPUT to avoid type conversion issues in some SQL drivers
+    // Log the query placeholder list
+    // eslint-disable-next-line no-console
+    console.log('[cancelBooking] executing UPDATE with placeholders:', placeholders);
+    res = await req.query(
+      `UPDATE dbo.Bookings
+      SET status='CANCELLED',
+          cancelledAt=SYSUTCDATETIME(),
+          cancelledBy=@cancelledBy,
+          cancellationReason=@cancellationReason,
+          updatedAt=SYSUTCDATETIME()
+      WHERE id=@id AND status IN (${placeholders})`
+    );
+  } catch (e) {
+    // Log error with context
+    // eslint-disable-next-line no-console
+    console.error('[cancelBooking] SQL error:', e && e.message);
+    throw e;
+  }
 
   // Nếu không update được (không tồn tại / sai status) => trả null
-  return rs.recordset[0] || null;
+  if (!res || !res.rowsAffected || res.rowsAffected[0] === 0) return null;
+
+  // Fetch and return the updated row
+  const rs2 = await pool.request()
+    .input('id', sql.UniqueIdentifier, bookingId)
+    .query(`SELECT TOP 1 * FROM dbo.Bookings WHERE id=@id`);
+
+  return rs2.recordset[0] || null;
 }
 
 

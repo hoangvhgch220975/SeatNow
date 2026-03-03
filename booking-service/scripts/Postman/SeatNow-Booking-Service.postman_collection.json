@@ -194,11 +194,12 @@
 								},
 								{
 									"key": "guestPhone",
-									"value": "+84901234567"
+									"value": "%2B84901234567",
+									"description": "Phone must be URL-encoded: + -> %2B"
 								}
 							]
 						},
-						"description": "Lookup a booking using booking code and phone number (for guests)"
+						"description": "Lookup a booking using booking code and phone number (for guests). NOTE: encode '+' as %2B in query strings."
 					},
 					"response": []
 				},

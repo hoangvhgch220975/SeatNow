@@ -24,7 +24,7 @@ CREATE TABLE dbo.Bookings (
   arrivedAt       DATETIME2(3)     NULL,
   completedAt     DATETIME2(3)     NULL,
   cancelledAt     DATETIME2(3)     NULL,
-  cancelledBy     UNIQUEIDENTIFIER NULL,
+  cancelledBy     NVARCHAR(50)     NULL,
   cancellationReason NVARCHAR(500) NULL,
 
   createdAt       DATETIME2(3)     NOT NULL CONSTRAINT DF_Bookings_createdAt DEFAULT SYSUTCDATETIME(),

@@ -418,6 +418,20 @@ Content-Type: application/json
 GET {{baseUrl}}/bookings/guest/lookup?bookingCode=BK20260215001&phone=%2B84901234567
 ```
 
+Note: when calling this endpoint from a browser or constructing URLs, **always URL-encode the plus sign (`+`) as `%2B`** in the query string. If `+` is not encoded it may be decoded as a space and the lookup will fail.
+
+Examples:
+
+Curl (uses data-urlencode to handle `+` correctly):
+```bash
+curl -G --data-urlencode "bookingCode=BK20260215001" --data-urlencode "guestPhone=+84901234567" "{{baseUrl}}/bookings/guest/lookup"
+```
+
+Direct URL (manual encoding):
+```
+GET {{baseUrl}}/bookings/guest/lookup?bookingCode=BK20260215001&guestPhone=%2B84901234567
+```
+
 **Expected Response:**
 ```json
 {

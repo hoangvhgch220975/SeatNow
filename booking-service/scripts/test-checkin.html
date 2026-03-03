@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SeatNow — QR Checkin Test</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px}
+    label{display:block;margin-top:10px}
+    input,button{padding:8px;margin-top:6px;width:100%;max-width:520px}
+    img{display:block;margin-top:12px;border:1px solid #ddd}
+    pre{background:#f6f8fa;padding:10px;border-radius:6px;max-width:720px}
+  </style>
+</head>
+<body>
+  <h2>SeatNow — QR Checkin Quick Test</h2>
+
+  <label>API Base URL
+    <input id="base" value="http://localhost:3004/api/v1" />
+  </label>
+
+  <label>Booking ID
+    <input id="bookingId" placeholder="25D845F4-..." />
+  </label>
+
+  <label>Checkin URL (optional)
+    <input id="checkinUrl" placeholder="optional full checkin URL, e.g. https://app.example.com/checkin?bookingId=..." />
+    <small>Leave empty to compute from Base URL automatically.</small>
+  </label>
+
+  <label>Authorization Token (Bearer)
+    <input id="token" placeholder="paste bearer token here (without 'Bearer ')" />
+  </label>
+
+  <button id="showQr">Fetch QR image</button>
+  <img id="qrImg" alt="QR will appear here" width="300" height="300" />
+
+  <button id="genClientQr">Generate client QR (no-auth)</button>
+  <button id="simulateScan">Simulate Scan (calls arrive)</button>
+
+  <button id="arrived">Mark Arrived (PUT)</button>
+
+  <h4>Response</h4>
+  <pre id="output">—</pre>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    function out(v){ $('output').textContent = typeof v==='string'?v:JSON.stringify(v,null,2); }
+
+    $('showQr').addEventListener('click', async ()=>{
+      const base = $('base').value.replace(/\/+$/, '');
+      const id = $('bookingId').value.trim();
+      const token = $('token').value.trim();
+      if(!id){ out('Missing bookingId'); return; }
+      try{
+        const res = await fetch(`${base}/bookings/${encodeURIComponent(id)}/qr`, {
+          headers: token?{ 'Authorization': 'Bearer '+token }:{},
+          method: 'GET'
+        });
+        if(!res.ok){ out('Error: '+res.status+' '+res.statusText+'\n'+await res.text()); return; }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        $('qrImg').src = url;
+        out('QR image fetched — displayed below.');
+      }catch(e){ out('Fetch error: '+e.message); }
+    });
+
+    // Generate QR client-side using checkinUrl (Google Chart API)
+    $('genClientQr').addEventListener('click', ()=>{
+      const id = $('bookingId').value.trim();
+      const base = $('base').value.replace(/\/+$/, '');
+      let checkin = $('checkinUrl').value.trim();
+      if(!checkin){
+        // compute app base by removing '/api/v1' if present
+        const appBase = base.replace(/\/api\/v1\/?$/i, '');
+        checkin = `${appBase}/checkin?bookingId=${encodeURIComponent(id)}`;
+      }
+      if(!id){ out('Missing bookingId'); return; }
+      const qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=' + encodeURIComponent(checkin);
+      $('qrImg').src = qrUrl;
+      $('checkinUrl').value = checkin;
+      out('Client QR generated from checkinUrl.');
+    });
+
+    // Simulate scanning the QR: calls arrive endpoint
+    $('simulateScan').addEventListener('click', async ()=>{
+      const base = $('base').value.replace(/\/+$/, '');
+      const id = $('bookingId').value.trim();
+      const token = $('token').value.trim();
+      if(!id){ out('Missing bookingId'); return; }
+      try{
+        // Optional: call a checkin validation endpoint in future
+        const res = await fetch(`${base}/bookings/${encodeURIComponent(id)}/arrived`, {
+          method: 'PUT',
+          headers: Object.assign({'Content-Type':'application/json'}, token?{ 'Authorization':'Bearer '+token }:{}),
+        });
+        const text = await res.text();
+        try{ out(JSON.parse(text)); }catch{ out(text); }
+      }catch(e){ out('Request error: '+e.message); }
+    });
+
+    $('arrived').addEventListener('click', async ()=>{
+      const base = $('base').value.replace(/\/+$/, '');
+      const id = $('bookingId').value.trim();
+      const token = $('token').value.trim();
+      if(!id){ out('Missing bookingId'); return; }
+      try{
+        const res = await fetch(`${base}/bookings/${encodeURIComponent(id)}/arrived`, {
+          method: 'PUT',
+          headers: Object.assign({'Content-Type':'application/json'}, token?{ 'Authorization':'Bearer '+token }:{}),
+        });
+        const text = await res.text();
+        try{ out(JSON.parse(text)); }catch{ out(text); }
+      }catch(e){ out('Request error: '+e.message); }
+    });
+  </script>
+</body>
+</html>

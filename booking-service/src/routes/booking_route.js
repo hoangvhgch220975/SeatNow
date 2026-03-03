@@ -24,6 +24,8 @@ r.put('/bookings/:id/confirm', jwt.requireAuth, requireRole('RESTAURANT_OWNER','
 r.put('/bookings/:id/arrived', jwt.requireAuth, requireRole('RESTAURANT_OWNER','ADMIN'), c.arrived);
 r.put('/bookings/:id/complete', jwt.requireAuth, requireRole('RESTAURANT_OWNER','ADMIN'), c.complete);
 r.put('/bookings/:id/no-show', jwt.requireAuth, requireRole('RESTAURANT_OWNER','ADMIN'), c.noShow);
+// QR for check-in
+r.get('/bookings/:id/qr', jwt.requireAuth, requireRole('RESTAURANT_OWNER','ADMIN'), c.getQr);
 
 // Cancel: split customer vs guest cancellation
 // - Customer cancel: authenticated customers only
