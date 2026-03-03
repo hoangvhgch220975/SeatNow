@@ -1,0 +1,237 @@
+
+    <!doctype html>
+    <html lang="vi">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width,initial-scale=1" />
+      <title>Auth Service Tester — Register / Phone login / Google</title>
+      <style>
+        body{font-family:Segoe UI,Roboto,Arial;margin:16px}
+        .wrap{max-width:720px;margin:0 auto}
+        .card{border:1px solid #e0e0e0;padding:12px;border-radius:8px;margin-bottom:12px;background:#fff}
+        label{display:block;margin:8px 0 4px}
+        input,button,select{padding:8px;font-size:14px;width:100%;box-sizing:border-box}
+        .row{display:flex;gap:8px}
+        .row> *{flex:1}
+        pre{background:#111;color:#dff;padding:8px;max-height:280px;overflow:auto}
+        small{color:#666}
+      </style>
+    </head>
+    <body>
+      <div class="wrap">
+        <h2>Auth Service Tester</h2>
+
+        <div class="card">
+          <label>Base URL
+            <input id="base" value="http://localhost:3001/api/v1/auth" />
+          </label>
+          <div class="row" style="margin-top:8px">
+            <button id="clear_log">Clear Log</button>
+            <button id="rand">Fill Random</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Register</h3>
+          <label>Full name<input id="reg_name" /></label>
+          <label>Phone<input id="reg_phone" placeholder="+84901234567" /></label>
+          <div class="row" style="margin-top:6px">
+            <button id="reg_send_otp">Send OTP</button>
+            <button id="reg_send_otp_auto">Auto Send OTP</button>
+          </div>
+          <label style="margin-top:6px">OTP code<input id="reg_otp" placeholder="123456" /></label>
+          <label>Email<input id="reg_email" /></label>
+          <label>Password<input id="reg_password" type="password" value="P@ssw0rd" /></label>
+          <div class="row" style="margin-top:8px">
+            <button id="register">Register</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Login (Phone + Password)</h3>
+          <label>Phone<input id="login_phone" placeholder="+84901234567" /></label>
+          <label>Password<input id="login_password" type="password" value="P@ssw0rd" /></label>
+          <div class="row" style="margin-top:8px">
+            <button id="login">Login (phone)</button>
+          </div>
+          <small>If you prefer email login, use the phone field blank and the server will accept email if implemented.</small>
+        </div>
+
+        <div class="card">
+          <h3>Google Sign-In</h3>
+          <label>Client ID<input id="google_client_id" placeholder="xxxxx.apps.googleusercontent.com" /></label>
+          <label style="margin-top:8px">Firebase Web Config (optional)
+            <textarea id="firebase_config" rows="4">{
+  "apiKey": "AIzaSyDDWXtPxcBM0Y7yAGPkloV-Q-LiVVPyp5Y",
+  "authDomain": "seatnow-43be0.firebaseapp.com",
+  "projectId": "seatnow-43be0",
+  "appId": "1:582187890102:web:c6a27a9de6871ea4d8bd17"
+}</textarea>
+            <small>Note: I filled safe fields from server secrets (projectId). Do NOT paste service account private key here. Fill `apiKey` and `appId` from Firebase Web SDK config.</small>
+          </label>
+          <div style="margin-top:8px"><div id="g_id_button"></div></div>
+          <div class="row" style="margin-top:8px">
+            <button id="load_google">Load Google Button</button>
+            <button id="google_manual">Send id_token manually</button>
+            <button id="load_firebase">Init Firebase</button>
+            <button id="firebase_signin">Sign in with Google (Firebase)</button>
+          </div>
+          <hr />
+          <label>OAuth Redirect URI<input id="google_redirect" placeholder="http://localhost:3001/auth/google/callback" /></label>
+          <div class="row" style="margin-top:8px">
+            <button id="open_oauth">Open OAuth URL</button>
+            <button id="copy_oauth">Copy OAuth URL</button>
+          </div>
+          <small>Use OAuth flow if your server expects `code` at the redirect callback.</small>
+        </div>
+
+        <h3>Log</h3>
+        <pre id="log">(no logs)</pre>
+      </div>
+
+      <script>
+        const id = (s)=>document.getElementById(s)
+        const base = id('base')
+        const reg_name = id('reg_name'), reg_phone = id('reg_phone'), reg_email = id('reg_email'), reg_password = id('reg_password')
+        const login_phone = id('login_phone'), login_password = id('login_password')
+        const logEl = id('log')
+
+        function append(msg){
+          const t = new Date().toLocaleTimeString()
+          if(logEl.textContent === '(no logs)') logEl.textContent = ''
+          logEl.textContent = `${t} | ${msg}\n` + logEl.textContent
+        }
+
+        async function doRequest(path, body){
+          try{
+            const url = base.value.replace(/\/$/,'') + '/' + path.replace(/^\//,'')
+            append(`POST ${url} → ${JSON.stringify(body)}`)
+            const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+            const text = await res.text()
+            append(`${res.status} ${text.slice(0,800)}`)
+            return {status: res.status, text}
+          }catch(e){ append('ERR '+e.message); return null }
+        }
+
+        id('clear_log').addEventListener('click', ()=>{ logEl.textContent='(no logs)'; append('Cleared logs') })
+
+        function randomInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min }
+        function randomName(){ const given=['An','Binh','Cuong','Duy','Giang','Hoa','Khanh','Lan','Minh','Nga','Phuong','Quang']; const family=['Nguyen','Tran','Le','Pham']; return `${family[randomInt(0,family.length-1)]} ${given[randomInt(0,given.length-1)]}` }
+        function randomPhone(){ const p=['90','91','92','93','94','95','98','99']; let s='+84'+p[randomInt(0,p.length-1)]; for(let i=0;i<7;i++) s+=String(randomInt(0,9)); return s }
+        function randomEmail(name){ const clean=name.toLowerCase().replace(/[^a-z0-9]/g,''); return `${clean}${randomInt(10,999)}@example.com` }
+
+        id('rand').addEventListener('click', ()=>{
+          const n = randomName(); const p = randomPhone(); const e = randomEmail(n)
+          reg_name.value = n; reg_phone.value = p; reg_email.value = e; reg_password.value = 'P@ssw0rd'
+          login_phone.value = p; login_password.value = 'P@ssw0rd'
+          append('Filled random data')
+        })
+
+        id('register').addEventListener('click', async ()=>{
+          const body = { name: reg_name.value, phone: reg_phone.value, email: reg_email.value, password: reg_password.value }
+          const otp = (id('reg_otp') && id('reg_otp').value.trim()) || ''
+          if(otp) body.otp = otp
+          await doRequest('register', body)
+        })
+
+        // Register: send OTP handlers
+        let regOtpAuto = null
+        id('reg_send_otp').addEventListener('click', async ()=>{
+          const phone = reg_phone.value.trim()
+          if(!phone){ append('Provide phone to send OTP'); return }
+          await doRequest('send-otp', { phone })
+        })
+        id('reg_send_otp_auto').addEventListener('click', ()=>{
+          if(regOtpAuto){ clearInterval(regOtpAuto); regOtpAuto = null; id('reg_send_otp_auto').textContent='Auto Send OTP'; append('Stopped auto OTP'); return }
+          const phone = reg_phone.value.trim()
+          if(!phone){ append('Provide phone to send OTP'); return }
+          id('reg_send_otp_auto').textContent='Stop Auto OTP'
+          append('Start auto send OTP every 3s')
+          regOtpAuto = setInterval(()=>{ doRequest('send-otp', { phone }) }, 3000)
+        })
+
+        id('login').addEventListener('click', async ()=>{
+          const phone = login_phone.value.trim(); const password = login_password.value
+          if(!phone){ append('Provide phone for login'); return }
+          // server expects `identifier` (phone or email)
+          await doRequest('login', { identifier: phone, password })
+        })
+
+        // Google Identity button
+        function loadGoogleClient(clientId){
+          const existing = document.getElementById('google-identity-script'); if(existing) existing.remove()
+          const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.id='google-identity-script'
+          s.onload = ()=>{
+            try{ google.accounts.id.initialize({ client_id: clientId, callback: handleCredentialResponse }); google.accounts.id.renderButton(id('g_id_button'), { theme:'outline', size:'large' }); append('Google button loaded') }catch(e){ append('Google init error '+e.message) }
+          }
+          document.head.appendChild(s)
+        }
+
+        async function handleCredentialResponse(resp){ if(!resp || !resp.credential){ append('No credential'); return } append('Got Google credential, sending'); await doRequest('google-signin', { idToken: resp.credential }) }
+
+        id('load_google').addEventListener('click', ()=>{ const cid = id('google_client_id').value.trim(); if(!cid){ append('Provide Client ID'); return } loadGoogleClient(cid) })
+        id('google_manual').addEventListener('click', async ()=>{ 
+          const token = prompt('Paste id_token:')
+          if(!token) return
+          let phone = prompt('Enter phone number to associate/login (optional, press Cancel to skip):')
+          if(phone) phone = phone.trim()
+          if(!phone){ append('No phone provided — sending id_token without phone'); await doRequest('google-signin', { idToken: token }); return }
+          await doRequest('google-signin', { idToken: token, phone })
+        })
+
+        // Firebase client sign-in (to get Firebase ID token)
+        function loadFirebaseSdk(){
+          if(document.getElementById('firebase-app-script')) return Promise.resolve()
+          return new Promise((resolve, reject)=>{
+            const s1 = document.createElement('script')
+            s1.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js'
+            s1.id = 'firebase-app-script'
+            s1.onload = ()=>{
+              const s2 = document.createElement('script')
+              s2.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
+              s2.id = 'firebase-auth-script'
+              s2.onload = ()=>resolve()
+              s2.onerror = reject
+              document.head.appendChild(s2)
+            }
+            s1.onerror = reject
+            document.head.appendChild(s1)
+          })
+        }
+
+        function initFirebaseFromTextarea(){
+          const raw = id('firebase_config').value.trim()
+          if(!raw){ append('Paste Firebase config JSON into textarea'); return }
+          let cfg
+          try{ cfg = JSON.parse(raw) }catch(e){ append('Invalid JSON in Firebase config'); return }
+          loadFirebaseSdk().then(()=>{
+            try{ window.firebase && firebase.initializeApp(cfg); append('Firebase initialized') }catch(e){ append('Firebase init error '+e.message) }
+          }).catch(err=>append('Failed loading Firebase SDK: '+(err && err.message)))
+        }
+
+        id('load_firebase').addEventListener('click', initFirebaseFromTextarea)
+
+        id('firebase_signin').addEventListener('click', async ()=>{
+          if(!window.firebase || !firebase.auth){ append('Firebase not initialized'); return }
+          try{
+            const provider = new firebase.auth.GoogleAuthProvider()
+            const result = await firebase.auth().signInWithPopup(provider)
+            const user = result.user
+            const idToken = await user.getIdToken()
+            append('Got Firebase ID token')
+            // Ask user for phone number to associate/login (optional)
+            let phone = prompt('Enter phone number to associate/login (optional, press Cancel to skip):')
+            if(phone) phone = phone.trim()
+            if(!phone){ append('No phone provided — sending id_token without phone'); await doRequest('google-signin', { idToken }); return }
+            append('Sending Firebase ID token with phone to backend')
+            await doRequest('google-signin', { idToken, phone })
+          }catch(e){ append('Firebase sign-in error: '+e.message) }
+        })
+
+        // OAuth redirect builder
+        function buildOAuthUrl(clientId, redirectUri, scope){ const baseUrl='https://accounts.google.com/o/oauth2/v2/auth'; const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type:'code', scope, access_type:'offline', prompt:'consent' }); return `${baseUrl}?${params.toString()}` }
+        id('open_oauth').addEventListener('click', ()=>{ const cid=id('google_client_id').value.trim(), red=id('google_redirect').value.trim(), scope='openid email profile'; if(!cid||!red){ append('Provide client_id and redirect_uri'); return } window.open(buildOAuthUrl(cid, red, scope),'_blank'); append('Opened OAuth URL') })
+        id('copy_oauth').addEventListener('click', ()=>{ const cid=id('google_client_id').value.trim(), red=id('google_redirect').value.trim(), scope='openid email profile'; if(!cid||!red){ append('Provide client_id and redirect_uri'); return } navigator.clipboard.writeText(buildOAuthUrl(cid, red, scope)).then(()=>append('OAuth URL copied')).catch(()=>append('Copy failed')) })
+      </script>
+    </body>
+    </html>

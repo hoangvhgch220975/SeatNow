@@ -256,13 +256,18 @@ async function googleSignIn({ idToken, accountType, phone }) {
   if (!user && createPhone) user = await UserModel.findByPhoneOrEmail({ phone: createPhone });
 
   if (!user) {
-    if (!createPhone) throw Object.assign(new Error('PHONE_REQUIRED_FOR_GOOGLE_FIRST_LOGIN'), { status: 400 });
-
+    // Allow creating a user from Google sign-in without requiring a phone number.
+    // If Firebase provided a phone number or the client supplied one, use it; otherwise save null
+    // and allow the user to update phone later from their profile.
     const role = mapAccountTypeToRole(accountType);
     const passwordHash = await bcrypt.hash(uuidv4(), 10);
 
+    // If no phone is provided by Firebase or client, generate a short unique placeholder
+    // that satisfies the DB NOT NULL constraint and fits in NVARCHAR(20).
+    const placeholderPhone = createPhone || `G${Date.now().toString().slice(-10)}${Math.floor(Math.random()*9000)+1000}`;
+
     user = await UserModel.createUser({
-      phone: createPhone,
+      phone: placeholderPhone,
       email,
       name,
       passwordHash,
