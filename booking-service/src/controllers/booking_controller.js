@@ -103,6 +103,36 @@ async function myBookings(req, res) {
   }
 }
 
+// Get booking details with access control
+async function getBooking(req, res) {
+  try {
+    const id = req.params.id;
+    const details = await bookingSvc.getBookingDetails(id);
+    if (!details || !details.booking) return res.status(404).json({ message: 'Not found' });
+
+    const { booking, restaurant } = details;
+    const user = req.user;
+    if (!user) return res.status(401).json({ message: 'Unauthorized' });
+
+    if (user.role === 'ADMIN') return res.json({ booking, restaurant });
+
+    if (user.role === 'CUSTOMER') {
+      if (!booking.customerId || String(booking.customerId) !== String(user.id)) return res.status(403).json({ message: 'Forbidden' });
+      return res.json({ booking, restaurant });
+    }
+
+    if (user.role === 'RESTAURANT_OWNER') {
+      if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' });
+      if (String(restaurant.ownerId) !== String(user.id)) return res.status(403).json({ message: 'Forbidden' });
+      return res.json({ booking, restaurant });
+    }
+
+    return res.status(403).json({ message: 'Forbidden' });
+  } catch (e) {
+    return res.status(400).json({ message: e.message });
+  }
+}
+
 // Liệt kê booking của nhà hàng (dành cho owner/admin)
 async function restaurantBookings(req, res) {
   try {
@@ -158,13 +188,13 @@ module.exports = {
   availability,
   guestLookup,
   myBookings,
+  getBooking,
   restaurantBookings,
   confirm,
   arrived,
   complete,
   cancel,
-  noShow
-  ,
+  noShow,
   getQr
 };
 

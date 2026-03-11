@@ -158,23 +158,14 @@
       
       <label>Table ID:</label>
       <select id="tableId">
-        <option value="AA07C586-38BB-423A-8554-1FE87348D2C1">T01 (2 guests)</option>
-        <option value="84A298F5-4582-4E6B-880E-5D450EF5EA09">T02 (4 guests)</option>
-        <option value="74C4A3F6-A29C-4F06-9D43-B0BDF3FF637A">OUT01 (6 guests outdoor)</option>
-        <option value="4ABCE72D-F331-472F-BAD0-088DEF05A8DD">VIP01 (8 guests VIP)</option>
+        <option value="">-- Chọn bàn (tải từ DB) --</option>
       </select>
       
       <label>Booking Date:</label>
-      <input type="date" id="bookingDate" value="2026-02-10">
+      <input type="date" id="bookingDate">
       
       <label>Booking Time:</label>
-      <select id="bookingTime">
-        <option value="17:00">17:00</option>
-        <option value="18:00" selected>18:00</option>
-        <option value="19:00">19:00</option>
-        <option value="20:00">20:00</option>
-        <option value="21:00">21:00</option>
-      </select>
+      <select id="bookingTime"></select>
       
       <button onclick="joinRestaurant()" class="secondary">Join Restaurant Room</button>
     </div>
@@ -398,6 +389,84 @@
 
     // Auto-connect on page load (optional)
     // window.onload = () => connectSocket();
+
+    // Utility: generate 2-hour time slots from start to end (inclusive)
+    function generateTimeSlots(startHour = 7, endHour = 21, slotMinutes = 120) {
+      const slots = [];
+      for (let h = startHour; h <= endHour; h += slotMinutes / 60) {
+        const hh = Math.floor(h).toString().padStart(2, '0');
+        const mm = Math.round((h - Math.floor(h)) * 60).toString().padStart(2, '0');
+        slots.push(`${hh}:${mm}`);
+      }
+      return slots;
+    }
+
+    function populateBookingTimes() {
+      const select = document.getElementById('bookingTime');
+      select.innerHTML = '';
+      const slots = generateTimeSlots(7, 21, 120);
+      slots.forEach((s, i) => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        if (i === 0) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function setDefaultDateToToday() {
+      const d = new Date();
+      const iso = d.toISOString().slice(0, 10);
+      const el = document.getElementById('bookingDate');
+      if (!el.value) el.value = iso;
+    }
+
+    function updateTableSelect(tables) {
+      const sel = document.getElementById('tableId');
+      sel.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '-- Chọn bàn (tải từ DB) --';
+      sel.appendChild(placeholder);
+      for (const t of tables) {
+        const o = document.createElement('option');
+        o.value = t.id;
+        o.textContent = `${t.tableNumber} (${t.capacity} chỗ) - ${t.type}`;
+        sel.appendChild(o);
+      }
+      if (tables.length > 0) sel.selectedIndex = 1;
+    }
+
+    // Enhance checkAvailability to populate table list from real DB
+    async function checkAvailability() {
+      const restaurantId = document.getElementById('restaurantId').value;
+      const date = document.getElementById('bookingDate').value;
+      const time = document.getElementById('bookingTime').value;
+      const guests = 4;
+
+      const url = `http://localhost:3004/api/v1/restaurants/${restaurantId}/availability?date=${date}&time=${time}&guests=${guests}`;
+      
+      log(`📋 Checking availability: ${date} ${time}`, 'info');
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        log(`✅ Available tables: ${data.items.length}`, 'success');
+        data.items.forEach(table => {
+          log(`   - ${table.tableNumber} (${table.capacity} guests, ${table.type})`, 'info');
+        });
+        updateTableSelect(data.items);
+      } catch (err) {
+        log(`❌ Error checking availability: ${err.message}`, 'error');
+      }
+    }
+
+    // Initialize UI
+    document.addEventListener('DOMContentLoaded', () => {
+      populateBookingTimes();
+      setDefaultDateToToday();
+    });
   </script>
 </body>
 </html>

@@ -6,6 +6,7 @@ const { acquireLock, releaseLock } = require('../utils/lock_redis');
 const bookingSql = require('../models/booking_sql');
 const availability = require('./availability_service');
 const socket = require('../sockets/booking_socket');
+const { getBooking } = require('../controllers/booking_controller');
 
 // Hàm sinh mã booking
 function genCode() {
@@ -183,10 +184,19 @@ async function noShow(id) {
   return updated;
 }
 
+// Lấy chi tiết booking kèm thông tin restaurant (dùng cho access control và trả về dữ liệu)
+async function getBookingDetails(id) {
+  const booking = await bookingSql.findById(id);
+  if (!booking) return null;
+  const restaurant = booking.restaurantId ? await bookingSql.getRestaurant(booking.restaurantId) : null;
+  return { booking, restaurant };
+}
+
 module.exports = {
   createBooking,
   guestLookup,
   myBookings,
+  getBookingDetails,
   restaurantBookings,
   confirm,
   arrived,
