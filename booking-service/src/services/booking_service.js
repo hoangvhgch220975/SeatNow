@@ -192,6 +192,27 @@ async function getBookingDetails(id) {
   return { booking, restaurant };
 }
 
+
+// Lấy tình trạng đặt cọc (payment status)
+async function getPaymentStatus(id) {
+  const booking = await bookingSql.findById(id);
+  if (!booking) { const e = new Error('Booking not found'); e.status = 404; throw e; }
+  
+  return {
+    bookingId: booking.id,
+    bookingCode: booking.bookingCode,
+    bookingStatus: booking.status,
+    depositRequired: booking.depositRequired,
+    depositAmount: booking.depositAmount,
+    depositPaid: booking.depositPaid,
+    depositPaidAt: booking.depositPaidAt,
+    depositRefunded: booking.depositRefunded,
+    message: booking.depositRequired 
+      ? (booking.depositPaid ? 'Đã thanh toán đặt cọc' : 'Chưa thanh toán đặt cọc')
+      : 'Không yêu cầu đặt cọc'
+  };
+}
+
 module.exports = {
   createBooking,
   guestLookup,
@@ -202,6 +223,7 @@ module.exports = {
   arrived,
   complete,
   cancel,
-  noShow
+  noShow,
+  getPaymentStatus
 };
 

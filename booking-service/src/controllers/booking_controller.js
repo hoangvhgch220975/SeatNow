@@ -183,6 +183,17 @@ async function noShow(req, res) {
   catch (e) { return res.status(e.status || 400).json({ message: e.message }); }
 }
 
+// Kiểm tra tình trạng đặt cọc (payment status)
+async function paymentStatus(req, res) {
+  try {
+    const bookingId = req.params.id;
+    const status = await bookingSvc.getPaymentStatus(bookingId);
+    return res.json(status);
+  } catch (e) {
+    return res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
 module.exports = {
   create,
   availability,
@@ -195,6 +206,7 @@ module.exports = {
   complete,
   cancel,
   noShow,
+  paymentStatus,
   getQr
 };
 
