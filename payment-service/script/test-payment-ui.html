@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeatNow Payment Test UI</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --panel: rgba(255, 252, 247, 0.92);
+      --panel-strong: #fffaf2;
+      --text: #1f1a17;
+      --muted: #6f6258;
+      --line: rgba(92, 72, 58, 0.14);
+      --accent: #c7682f;
+      --accent-2: #214f4b;
+      --danger: #9a2f2f;
+      --shadow: 0 20px 50px rgba(65, 46, 29, 0.12);
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(199, 104, 47, 0.22), transparent 30%),
+        radial-gradient(circle at top right, rgba(33, 79, 75, 0.18), transparent 28%),
+        linear-gradient(135deg, #efe3d2 0%, #f8f4ee 45%, #e8efe9 100%);
+      padding: 28px;
+    }
+
+    .shell {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+
+    .hero-card,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-card {
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      right: -30px;
+      top: -40px;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: rgba(199, 104, 47, 0.08);
+    }
+
+    .eyebrow {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(33, 79, 75, 0.1);
+      color: var(--accent-2);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      margin: 0;
+      max-width: 720px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .hero-side {
+      padding: 24px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .stat {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px 18px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      word-break: break-all;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .panel {
+      padding: 22px;
+    }
+
+    .panel h2 {
+      margin: 0 0 6px;
+      font-size: 22px;
+    }
+
+    .panel p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      font: inherit;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1px solid rgba(92, 72, 58, 0.18);
+      border-radius: 14px;
+      background: #fffdf9;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: rgba(199, 104, 47, 0.6);
+      box-shadow: 0 0 0 4px rgba(199, 104, 47, 0.12);
+    }
+
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .primary {
+      background: linear-gradient(135deg, var(--accent), #df8a47);
+      color: white;
+      box-shadow: 0 10px 24px rgba(199, 104, 47, 0.25);
+    }
+
+    .secondary {
+      background: linear-gradient(135deg, var(--accent-2), #2d6b65);
+      color: white;
+      box-shadow: 0 10px 24px rgba(33, 79, 75, 0.22);
+    }
+
+    .ghost {
+      background: #f6efe5;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .danger {
+      background: linear-gradient(135deg, #a83939, #cd5353);
+      color: white;
+      box-shadow: 0 10px 24px rgba(154, 47, 47, 0.2);
+    }
+
+    .output {
+      margin-top: 18px;
+      border-radius: 16px;
+      background: #191614;
+      color: #f5eee6;
+      padding: 16px;
+      min-height: 230px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .hint {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .inline-note {
+      margin-top: 10px;
+      color: var(--danger);
+      font-size: 13px;
+    }
+
+    .footer-note {
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .grid,
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="hero-card">
+        <div class="eyebrow">SeatNow Payment Service</div>
+        <h1>Test UI trực quan cho luồng đặt cọc</h1>
+        <p class="subtitle">
+          Dùng file này để gọi nhanh các API của payment-service: tạo giao dịch đặt cọc, xem transaction,
+          mô phỏng webhook và mở luồng return. Chỉ cần điền booking ID rồi bấm test trực tiếp trong trình duyệt.
+        </p>
+      </div>
+      <div class="hero-side hero-card">
+        <div class="stat">
+          <div class="stat-label">Base URL</div>
+          <div class="stat-value" id="baseUrlPreview">http://localhost:3005/api/v1/payment</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Transaction ID gần nhất</div>
+          <div class="stat-value" id="lastTransactionId">Chưa có</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Reference Code gần nhất</div>
+          <div class="stat-value" id="lastReferenceCode">Chưa có</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Tạo thanh toán đặt cọc</h2>
+        <p>Gọi endpoint tạo QR hoặc link thanh toán cho booking. Kết quả sẽ tự lưu lại transaction ID và reference code.</p>
+        <div class="form-grid">
+          <div class="field full">
+            <label for="baseUrl">Base URL</label>
+            <input id="baseUrl" value="http://localhost:3005/api/v1/payment">
+          </div>
+          <div class="field">
+            <label for="bookingId">Booking ID</label>
+            <input id="bookingId" placeholder="Nhap booking id">
+          </div>
+          <div class="field">
+            <label for="provider">Provider</label>
+            <select id="provider">
+              <option value="MOMO">MOMO</option>
+              <option value="VNPAY">VNPAY</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="primary" id="generatePaymentBtn">Generate Deposit QR</button>
+          <button class="ghost" id="copyReferenceBtn" type="button">Copy Reference</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Xem transaction</h2>
+        <p>Tra cứu transaction theo ID sau khi tạo giao dịch hoặc sau khi webhook xử lý xong.</p>
+        <div class="form-grid">
+          <div class="field full">
+            <label for="transactionId">Transaction ID</label>
+            <input id="transactionId" placeholder="Nhap transaction id">
+          </div>
+        </div>
+        <div class="actions">
+          <button class="secondary" id="getTransactionBtn">Get Transaction</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Giả lập webhook</h2>
+        <p>Điền payload webhook rồi gửi trực tiếp tới payment-service. Nếu đang verify chữ ký, bạn phải cung cấp signature/hash hợp lệ.</p>
+        <div class="form-grid">
+          <div class="field">
+            <label for="webhookProvider">Provider</label>
+            <select id="webhookProvider">
+              <option value="MOMO">MOMO</option>
+              <option value="VNPAY">VNPAY</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="webhookMethod">Method</label>
+            <select id="webhookMethod">
+              <option value="POST">POST</option>
+              <option value="GET">GET</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="webhookPayload">Payload JSON / Query Object</label>
+            <textarea id="webhookPayload">{
+  "partnerCode": "MOMO",
+  "orderId": "",
+  "requestId": "",
+  "amount": "10000",
+  "orderInfo": "Deposit test",
+  "orderType": "momo_wallet",
+  "transId": "1234567890",
+  "resultCode": 0,
+  "message": "Successful.",
+  "payType": "qr",
+  "responseTime": "1710000000000",
+  "extraData": "",
+  "signature": "REPLACE_WITH_VALID_SIGNATURE"
+}</textarea>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="secondary" id="sendWebhookBtn">Send Webhook</button>
+          <button class="ghost" id="fillMomoBtn" type="button">Mau MOMO</button>
+          <button class="ghost" id="fillVnpayBtn" type="button">Mau VNPAY</button>
+        </div>
+        <div class="inline-note">Luu y: webhook se loi neu signature/hash khong hop le.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Mở return URL</h2>
+        <p>Dùng để test luồng redirect sau thanh toán. Nút này sẽ mở endpoint return trong tab mới.</p>
+        <div class="form-grid">
+          <div class="field">
+            <label for="returnProvider">Provider</label>
+            <select id="returnProvider">
+              <option value="MOMO">MOMO</option>
+              <option value="VNPAY">VNPAY</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="returnSuccess">Kết quả</label>
+            <select id="returnSuccess">
+              <option value="success">success</option>
+              <option value="failed">failed</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="openReturnBtn">Open Return URL</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top: 20px;">
+      <h2>Kết quả trả về</h2>
+      <p>Mọi response, error và URL đang gọi sẽ hiển thị ở đây để bạn theo dõi nhanh.</p>
+      <div class="actions">
+        <button class="danger" id="clearOutputBtn" type="button">Clear Output</button>
+      </div>
+      <div class="output" id="output">San sang test payment-service...</div>
+      <div class="hint">Mẹo: sau khi tạo deposit thành công, file sẽ tự điền `transactionId` và `referenceCode` cho các bước tiếp theo.</div>
+    </section>
+
+    <div class="footer-note">File HTML nay goi truc tiep payment-service local qua fetch. Dam bao backend dang chay va cho phep CORS.</div>
+  </div>
+
+  <script>
+    const baseUrlInput = document.getElementById('baseUrl');
+    const bookingIdInput = document.getElementById('bookingId');
+    const providerSelect = document.getElementById('provider');
+    const transactionIdInput = document.getElementById('transactionId');
+    const webhookProviderSelect = document.getElementById('webhookProvider');
+    const webhookMethodSelect = document.getElementById('webhookMethod');
+    const webhookPayloadInput = document.getElementById('webhookPayload');
+    const returnProviderSelect = document.getElementById('returnProvider');
+    const returnSuccessSelect = document.getElementById('returnSuccess');
+    const output = document.getElementById('output');
+    const baseUrlPreview = document.getElementById('baseUrlPreview');
+    const lastTransactionId = document.getElementById('lastTransactionId');
+    const lastReferenceCode = document.getElementById('lastReferenceCode');
+
+    let latestReferenceCode = '';
+
+    function logBlock(title, data) {
+      const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      output.textContent = `[${new Date().toLocaleTimeString()}] ${title}\n${text}\n\n${output.textContent}`;
+    }
+
+    function getBaseUrl() {
+      return baseUrlInput.value.trim().replace(/\/$/, '');
+    }
+
+    function syncHeaderStats() {
+      baseUrlPreview.textContent = getBaseUrl() || 'Chua co base URL';
+      lastTransactionId.textContent = transactionIdInput.value.trim() || 'Chua co';
+      lastReferenceCode.textContent = latestReferenceCode || 'Chua co';
+    }
+
+    function setLatestTransaction(transactionId, referenceCode) {
+      if (transactionId) {
+        transactionIdInput.value = transactionId;
+      }
+      if (referenceCode) {
+        latestReferenceCode = referenceCode;
+      }
+      syncHeaderStats();
+    }
+
+    async function fetchJson(url, options) {
+      const response = await fetch(url, options);
+      const contentType = response.headers.get('content-type') || '';
+      const body = contentType.includes('application/json')
+        ? await response.json()
+        : await response.text();
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        body,
+        headers: Object.fromEntries(response.headers.entries())
+      };
+    }
+
+    document.getElementById('generatePaymentBtn').addEventListener('click', async () => {
+      const bookingId = bookingIdInput.value.trim();
+      const provider = providerSelect.value;
+
+      if (!bookingId) {
+        logBlock('Loi', 'Ban chua nhap bookingId');
+        return;
+      }
+
+      const url = `${getBaseUrl()}/deposit/generate-qr`;
+      const payload = { bookingId, provider };
+      logBlock('Request', { method: 'POST', url, payload });
+
+      try {
+        const result = await fetchJson(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (result.body && result.body.data) {
+          setLatestTransaction(result.body.data.transactionId, result.body.data.referenceCode);
+        }
+
+        logBlock(`Response ${result.status}`, result.body);
+      } catch (error) {
+        logBlock('Fetch error', error.message);
+      }
+    });
+
+    document.getElementById('getTransactionBtn').addEventListener('click', async () => {
+      const transactionId = transactionIdInput.value.trim();
+
+      if (!transactionId) {
+        logBlock('Loi', 'Ban chua nhap transactionId');
+        return;
+      }
+
+      const url = `${getBaseUrl()}/transaction/${encodeURIComponent(transactionId)}`;
+      logBlock('Request', { method: 'GET', url });
+
+      try {
+        const result = await fetchJson(url, { method: 'GET' });
+        logBlock(`Response ${result.status}`, result.body);
+      } catch (error) {
+        logBlock('Fetch error', error.message);
+      }
+    });
+
+    document.getElementById('sendWebhookBtn').addEventListener('click', async () => {
+      const provider = webhookProviderSelect.value;
+      const method = webhookMethodSelect.value;
+      const route = provider === 'MOMO' ? 'momo' : 'vnpay';
+      let payload;
+
+      try {
+        payload = JSON.parse(webhookPayloadInput.value);
+      } catch (error) {
+        logBlock('Loi JSON', 'Webhook payload khong hop le');
+        return;
+      }
+
+      if (!payload.orderId && !payload.vnp_TxnRef && latestReferenceCode) {
+        if (provider === 'MOMO') {
+          payload.orderId = latestReferenceCode;
+          payload.requestId = latestReferenceCode;
+        } else {
+          payload.vnp_TxnRef = latestReferenceCode;
+        }
+      }
+
+      let url = `${getBaseUrl()}/webhook/${route}`;
+      const options = { method };
+
+      if (method === 'GET') {
+        const qs = new URLSearchParams(payload).toString();
+        url += `?${qs}`;
+      } else {
+        options.headers = { 'Content-Type': 'application/json' };
+        options.body = JSON.stringify(payload);
+      }
+
+      logBlock('Request', { method, url, payload });
+
+      try {
+        const result = await fetchJson(url, options);
+        logBlock(`Response ${result.status}`, result.body);
+      } catch (error) {
+        logBlock('Fetch error', error.message);
+      }
+    });
+
+    document.getElementById('openReturnBtn').addEventListener('click', () => {
+      const provider = returnProviderSelect.value;
+      const success = returnSuccessSelect.value === 'success';
+      const route = provider === 'MOMO' ? 'momo' : 'vnpay';
+      const params = new URLSearchParams();
+
+      if (provider === 'MOMO') {
+        params.set('orderId', latestReferenceCode || '');
+        params.set('resultCode', success ? '0' : '1001');
+      } else {
+        params.set('vnp_TxnRef', latestReferenceCode || '');
+        params.set('vnp_ResponseCode', success ? '00' : '24');
+        params.set('vnp_TransactionStatus', success ? '00' : '02');
+      }
+
+      const url = `${getBaseUrl()}/return/${route}?${params.toString()}`;
+      logBlock('Open return URL', url);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    });
+
+    document.getElementById('copyReferenceBtn').addEventListener('click', async () => {
+      if (!latestReferenceCode) {
+        logBlock('Thong bao', 'Chua co referenceCode de copy');
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(latestReferenceCode);
+        logBlock('Copy', `Da copy referenceCode: ${latestReferenceCode}`);
+      } catch (error) {
+        logBlock('Copy error', error.message);
+      }
+    });
+
+    document.getElementById('clearOutputBtn').addEventListener('click', () => {
+      output.textContent = 'San sang test payment-service...';
+    });
+
+    document.getElementById('fillMomoBtn').addEventListener('click', () => {
+      webhookProviderSelect.value = 'MOMO';
+      webhookMethodSelect.value = 'POST';
+      webhookPayloadInput.value = JSON.stringify({
+        partnerCode: 'MOMO',
+        orderId: latestReferenceCode || '',
+        requestId: latestReferenceCode || '',
+        amount: '10000',
+        orderInfo: 'Deposit test',
+        orderType: 'momo_wallet',
+        transId: '1234567890',
+        resultCode: 0,
+        message: 'Successful.',
+        payType: 'qr',
+        responseTime: '1710000000000',
+        extraData: '',
+        signature: 'REPLACE_WITH_VALID_SIGNATURE'
+      }, null, 2);
+    });
+
+    document.getElementById('fillVnpayBtn').addEventListener('click', () => {
+      webhookProviderSelect.value = 'VNPAY';
+      webhookMethodSelect.value = 'GET';
+      webhookPayloadInput.value = JSON.stringify({
+        vnp_TxnRef: latestReferenceCode || '',
+        vnp_TransactionNo: '12345678',
+        vnp_ResponseCode: '00',
+        vnp_TransactionStatus: '00',
+        vnp_SecureHash: 'REPLACE_WITH_VALID_HASH'
+      }, null, 2);
+    });
+
+    baseUrlInput.addEventListener('input', syncHeaderStats);
+    transactionIdInput.addEventListener('input', syncHeaderStats);
+    syncHeaderStats();
+  </script>
+</body>
+</html>

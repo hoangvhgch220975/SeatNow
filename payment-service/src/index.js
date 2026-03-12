@@ -1,14 +1,50 @@
-/**
- * payment-service index - bootstrap express app (placeholder)
- */
 const express = require('express');
-const app = express();
-app.use(express.json());
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+require('dotenv').config();
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+const { getPool } = require('./config/db');
+const { getRedis } = require('./config/redis');
+const paymentRoute = require('./routes/payment_route');
+const webhookRoute = require('./routes/webhook_route');
+const { errorMiddleware } = require('./middlewares/error_middleware');
 
-const paymentRoutes = require('./routes/payment.route');
-app.use('/api/v1/payments', paymentRoutes);
+async function bootstrap() {
+  await getPool();
+  await getRedis();
 
-const PORT = process.env.PORT || 3004;
-app.listen(PORT, () => console.log(`payment-service listening on ${PORT}`));
+  const app = express();
+  app.use(helmet());
+  app.use(cors());
+  app.use(morgan('dev'));
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  app.get('/health', (req, res) => {
+    res.json({ success: true, service: 'payment-service' });
+  });
+
+  app.get('/home', (req, res) => {
+  res.json({ message: 'Welcome to the Payment Service Home Page' });
+});
+    app .get('/bookings/:bookingId', (req, res) => {
+  const bookingId = req.params.bookingId;
+  res.json({ message: `Booking details for ID: ${bookingId}` });
+});
+  app.use('/api/v1/payment', paymentRoute);
+  app.use('/api/v1/payment', webhookRoute);
+  app.use(errorMiddleware);
+
+  app.listen(process.env.PORT || 3005, () => {
+    console.log(`payment-service listening on ${process.env.PORT || 3005}`);
+    console.log("http://localhost:" + (process.env.PORT || 3005));
+    
+  });
+}
+
+
+bootstrap().catch((err) => {
+  console.error('Bootstrap failed:', err);
+  process.exit(1);
+});

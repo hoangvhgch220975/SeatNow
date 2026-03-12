@@ -1,0 +1,311 @@
+{
+  "info": {
+    "_postman_id": "payment-service-2026",
+    "name": "SeatNow - Payment Service",
+    "description": "Postman collection for SeatNow Payment Service (deposit, transaction, webhook, return)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3005/api/v1/payment",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "",
+      "type": "string",
+      "description": "Booking ID from booking-service"
+    },
+    {
+      "key": "transactionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "referenceCode",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Deposit Payment",
+      "item": [
+        {
+          "name": "Generate Deposit QR (MOMO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "if (res && res.success && res.data) {",
+                  "    pm.collectionVariables.set('transactionId', res.data.transactionId || '');",
+                  "    pm.collectionVariables.set('referenceCode', res.data.referenceCode || '');",
+                  "    console.log('transactionId:', res.data.transactionId);",
+                  "    console.log('referenceCode:', res.data.referenceCode);",
+                  "    console.log('paymentUrl:', res.data.paymentUrl);",
+                  "}",
+                  "",
+                  "pm.test('Has transactionId and referenceCode', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.data).to.have.property('transactionId');",
+                  "    pm.expect(res.data).to.have.property('referenceCode');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"provider\": \"MOMO\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/deposit/generate-qr",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "deposit",
+                "generate-qr"
+              ]
+            },
+            "description": "Tao giao dich dat coc va lay QR/link thanh toan MOMO"
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Deposit QR (VNPAY)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "if (res && res.success && res.data) {",
+                  "    pm.collectionVariables.set('transactionId', res.data.transactionId || '');",
+                  "    pm.collectionVariables.set('referenceCode', res.data.referenceCode || '');",
+                  "    console.log('transactionId:', res.data.transactionId);",
+                  "    console.log('referenceCode:', res.data.referenceCode);",
+                  "    console.log('paymentUrl:', res.data.paymentUrl);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"provider\": \"VNPAY\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/deposit/generate-qr",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "deposit",
+                "generate-qr"
+              ]
+            },
+            "description": "Tao giao dich dat coc va lay link thanh toan VNPAY"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transaction/{{transactionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaction",
+                "{{transactionId}}"
+              ]
+            },
+            "description": "Lay chi tiet transaction theo ID da luu tu request tao thanh toan"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Webhook / Return",
+      "item": [
+        {
+          "name": "Webhook MOMO (Simulate)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"partnerCode\": \"MOMO\",\n  \"orderId\": \"{{referenceCode}}\",\n  \"requestId\": \"{{referenceCode}}\",\n  \"amount\": \"10000\",\n  \"orderInfo\": \"Deposit test\",\n  \"orderType\": \"momo_wallet\",\n  \"transId\": \"1234567890\",\n  \"resultCode\": 0,\n  \"message\": \"Successful.\",\n  \"payType\": \"qr\",\n  \"responseTime\": \"1710000000000\",\n  \"extraData\": \"\",\n  \"signature\": \"REPLACE_WITH_VALID_SIGNATURE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhook/momo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "momo"
+              ]
+            },
+            "description": "Gia lap webhook MOMO. Can signature hop le tu MOMO_SECRET_KEY neu bat verifySignature=true"
+          },
+          "response": []
+        },
+        {
+          "name": "Webhook VNPAY (Simulate)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/webhook/vnpay?vnp_TxnRef={{referenceCode}}&vnp_TransactionNo=12345678&vnp_ResponseCode=00&vnp_TransactionStatus=00&vnp_SecureHash=REPLACE_WITH_VALID_HASH",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "vnpay"
+              ],
+              "query": [
+                {
+                  "key": "vnp_TxnRef",
+                  "value": "{{referenceCode}}"
+                },
+                {
+                  "key": "vnp_TransactionNo",
+                  "value": "12345678"
+                },
+                {
+                  "key": "vnp_ResponseCode",
+                  "value": "00"
+                },
+                {
+                  "key": "vnp_TransactionStatus",
+                  "value": "00"
+                },
+                {
+                  "key": "vnp_SecureHash",
+                  "value": "REPLACE_WITH_VALID_HASH"
+                }
+              ]
+            },
+            "description": "Gia lap webhook VNPAY. Can hash hop le tu VNPAY_HASH_SECRET"
+          },
+          "response": []
+        },
+        {
+          "name": "Return MOMO",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/return/momo?orderId={{referenceCode}}&resultCode=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "return",
+                "momo"
+              ],
+              "query": [
+                {
+                  "key": "orderId",
+                  "value": "{{referenceCode}}"
+                },
+                {
+                  "key": "resultCode",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Test luong return MOMO (endpoint se redirect)"
+          },
+          "response": []
+        },
+        {
+          "name": "Return VNPAY",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/return/vnpay?vnp_TxnRef={{referenceCode}}&vnp_ResponseCode=00&vnp_TransactionStatus=00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "return",
+                "vnpay"
+              ],
+              "query": [
+                {
+                  "key": "vnp_TxnRef",
+                  "value": "{{referenceCode}}"
+                },
+                {
+                  "key": "vnp_ResponseCode",
+                  "value": "00"
+                },
+                {
+                  "key": "vnp_TransactionStatus",
+                  "value": "00"
+                }
+              ]
+            },
+            "description": "Test luong return VNPAY (endpoint se redirect)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
