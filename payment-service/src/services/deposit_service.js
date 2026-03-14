@@ -31,6 +31,14 @@ async function generateDepositPayment({ bookingId, provider, req }) {
     if (!booking.depositRequired) throw new Error('Booking does not require deposit');
     if (booking.depositPaid) throw new Error('Deposit already paid');
 
+    // Chan tao nhieu request thanh toan neu booking da co transaction dang pending
+    const pending = await paymentModel.findPendingDepositByBookingId(bookingId);
+    if (pending) {
+      const e = new Error('Deposit payment is pending for this booking');
+      e.status = 409;
+      throw e;
+    }
+
     // Chan truong hop da co giao dich dat coc hoan tat truoc do
     const completed = await paymentModel.findCompletedDepositByBookingId(bookingId);
     if (completed) throw new Error('Deposit already completed');

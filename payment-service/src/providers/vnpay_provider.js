@@ -3,7 +3,17 @@
 // Nhiệm vụ chính: tạo URL thanh toán, ký/xác thực chữ ký và chuẩn hóa dữ liệu callback.
 
 const { VNPay, ignoreLogger, ProductCode, dateFormat } = require('vnpay');
-const { hmacSha512, sortObject } = require('../utils/signature');
+
+function getVNPayClient() {
+  return new VNPay({
+    tmnCode: process.env.VNPAY_TMN_CODE,
+    secureSecret: process.env.VNPAY_HASH_SECRET,
+    vnpayHost: 'https://sandbox.vnpayment.vn',
+    testMode: true,
+    hashAlgorithm: 'SHA512',
+    loggerFn: ignoreLogger
+  });
+}
 
 // Lấy IP client để gửi cho VNPay
 function getClientIp(req) {
@@ -18,14 +28,7 @@ function getClientIp(req) {
 
 // Tạo URL thanh toán VNPay
 async function createPayment({ amount, referenceCode, bookingId, bookingCode, req }) {
-  const vnpay = new VNPay({
-    tmnCode: process.env.VNPAY_TMN_CODE,
-    secureSecret: process.env.VNPAY_HASH_SECRET,
-    vnpayHost: 'https://sandbox.vnpayment.vn',
-    testMode: true,
-    hashAlgorithm: 'SHA512',
-    loggerFn: ignoreLogger
-  });
+  const vnpay = getVNPayClient();
 
   const paymentUrl = await vnpay.buildPaymentUrl({
     vnp_Amount: Math.floor(Number(amount)),
@@ -48,20 +51,14 @@ async function createPayment({ amount, referenceCode, bookingId, bookingCode, re
 
 // Xác thực chữ ký trả về từ VNPay
 function verifyVNPaySignature(query) {
-  const secureHash = query.vnp_SecureHash;
-  if (!secureHash) return false;
-
-  const cloned = { ...query };
-  delete cloned.vnp_SecureHash;
-  delete cloned.vnp_SecureHashType;
-
-  const sorted = sortObject(cloned);
-  const signData = Object.keys(sorted)
-    .map((key) => `${key}=${sorted[key]}`)
-    .join('&');
-
-  const expected = hmacSha512(process.env.VNPAY_HASH_SECRET, signData);
-  return expected === secureHash;
+  try {
+    if (!query || !query.vnp_SecureHash) return false;
+    const vnpay = getVNPayClient();
+    const result = vnpay.verifyReturnUrl(query);
+    return !!result.isVerified;
+  } catch {
+    return false;
+  }
 }
 
 // Chuẩn hóa payload callback/webhook của VNPay

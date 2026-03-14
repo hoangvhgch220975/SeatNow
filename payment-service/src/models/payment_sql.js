@@ -41,8 +41,25 @@ async function findCompletedDepositByBookingId(bookingId) {
       SELECT TOP 1 *
       FROM dbo.Transactions
       WHERE bookingId = @bookingId
-        AND type = 'DEPOSIT'
+        AND type = 'DEPOSIT_PAYMENT'
         AND status = 'completed'
+      ORDER BY createdAt DESC
+    `);
+
+  return rs.recordset[0] || null;
+}
+
+// Kiem tra booking da co giao dich dat coc dang pending hay chua.
+async function findPendingDepositByBookingId(bookingId) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('bookingId', sql.UniqueIdentifier, bookingId)
+    .query(`
+      SELECT TOP 1 *
+      FROM dbo.Transactions
+      WHERE bookingId = @bookingId
+        AND type = 'DEPOSIT_PAYMENT'
+        AND status = 'pending'
       ORDER BY createdAt DESC
     `);
 
@@ -54,7 +71,7 @@ async function createPendingDepositTransaction(data) {
   const pool = await getPool();
   const rs = await pool.request()
     .input('bookingId', sql.UniqueIdentifier, data.bookingId)
-    .input('type', sql.NVarChar(30), 'DEPOSIT')
+    .input('type', sql.NVarChar(30), 'DEPOSIT_PAYMENT')
     .input('amount', sql.Decimal(18, 2), data.amount)
     .input('currency', sql.NVarChar(10), data.currency)
     .input('paymentMethod', sql.NVarChar(50), data.paymentMethod)
@@ -176,6 +193,7 @@ async function failTransaction({ referenceCode, providerTxnId, metadataJson }) {
 
 module.exports = {
   findBookingForDeposit,
+  findPendingDepositByBookingId,
   findCompletedDepositByBookingId,
   createPendingDepositTransaction,
   findTransactionById,

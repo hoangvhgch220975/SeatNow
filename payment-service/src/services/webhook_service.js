@@ -54,7 +54,7 @@ async function processProviderResult({ provider, payload, verifySignature = true
 
   // Neu thanh toan thanh cong thi complete transaction va mark booking da dat coc
   if (success) {
-    return paymentModel.completeDepositTransactionAndMarkPaid({
+    return paymentModel.completeDepositTransaction({
       referenceCode,
       providerTxnId,
       metadataJson: JSON.stringify(rawPayload)
