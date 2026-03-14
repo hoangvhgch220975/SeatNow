@@ -43,6 +43,10 @@ r.put('/bookings/:id/cancel', jwt.requireAuth, requireRole('CUSTOMER'), c.cancel
 // List bookings for a restaurant (owner/admin)
 r.get('/restaurants/:id/bookings', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.restaurantBookings);
 
+// Commission summary/settlement (owner/admin)
+r.get('/restaurants/:id/commissions/summary', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.commissionSummary);
+r.post('/restaurants/:id/commissions/settle', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.settleCommission);
+
 // Owner/Admin actions on bookings
 r.put('/bookings/:id/confirm', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.confirm);
 r.put('/bookings/:id/arrived', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.arrived);

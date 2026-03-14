@@ -5,6 +5,7 @@ const cron = require('node-cron');
 const { sql, getPool } = require('../config/db');
 const availability = require('../services/availability_service');
 const bookingSql = require('../models/booking_sql');
+const bookingSvc = require('../services/booking_service');
 
 // Job để hủy các booking ở trạng thái PENDING quá hạn
 async function expirePending() {
@@ -72,6 +73,19 @@ function startBookingJobs() {
   cron.schedule('*/1 * * * *', async () => {
     try { await expirePending(); } catch (e) { console.warn('[job] expirePending', e.message); }
     try { await markNoShow(); } catch (e) { console.warn('[job] markNoShow', e.message); }
+  });
+
+  // Job chốt commission theo lịch (mặc định chạy mỗi ngày 01:30 UTC)
+  const commissionCron = process.env.COMMISSION_SETTLE_CRON || '30 1 * * *';
+  cron.schedule(commissionCron, async () => {
+    try {
+      const result = await bookingSvc.autoSettleCommissions();
+      if (result.length) {
+        console.log('[job] autoSettleCommissions settled:', result.length, 'restaurants');
+      }
+    } catch (e) {
+      console.warn('[job] autoSettleCommissions', e.message || e);
+    }
   });
 }
 

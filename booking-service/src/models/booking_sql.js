@@ -110,7 +110,7 @@ async function insertBookingTx(payload) {
       .input('specialRequests', sql.NVarChar(sql.MAX), payload.specialRequests || null)
       .input('depositRequired', sql.Bit, payload.depositRequired ? 1 : 0)
       .input('depositAmount', sql.Float, payload.depositRequired ? payload.depositAmount : null)
-      .input('commissionFee', sql.Float, payload.commissionFee || null)
+      .input('commissionFee', sql.Float, payload.commissionFee ?? null)
       .query(`
         INSERT INTO dbo.Bookings (
           bookingCode, customerId, guestName, guestPhone, guestEmail,
@@ -127,6 +127,117 @@ async function insertBookingTx(payload) {
 
     await tx.commit();
     return rs.recordset[0];
+  } catch (e) {
+    await tx.rollback();
+    throw e;
+  }
+}
+
+// Tổng hợp commission theo nhà hàng và khoảng thời gian (dựa trên completedAt)
+async function getCommissionSummaryByRestaurant(restaurantId, { from, to } = {}) {
+  const pool = await getPool();
+  const req = pool.request()
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId);
+
+  // Tính commission khi booking đã xác nhận trở lên và đã thanh toán cọc
+  const eligibleStatuses = ['CONFIRMED', 'ARRIVED', 'COMPLETED'];
+  const timeExpr = 'COALESCE(depositPaidAt, completedAt, confirmedAt, createdAt)';
+
+  const where = [
+    'restaurantId=@restaurantId',
+    `status IN (${eligibleStatuses.map((_, i) => `@st${i}`).join(',')})`,
+    'depositRequired=1',
+    'depositPaid=1',
+    'ISNULL(commissionFee, 0) > 0'
+  ];
+
+  eligibleStatuses.forEach((s, i) => req.input(`st${i}`, sql.NVarChar(30), s));
+
+  if (from) {
+    where.push(`${timeExpr} >= @from`);
+    req.input('from', sql.DateTime2, new Date(from));
+  }
+
+  if (to) {
+    where.push(`${timeExpr} <= @to`);
+    req.input('to', sql.DateTime2, new Date(to));
+  }
+
+  const rs = await req.query(`
+    SELECT
+      COUNT(1) AS totalEligibleBookings,
+      ISNULL(SUM(CASE WHEN commissionPaid = 1 THEN 1 ELSE 0 END), 0) AS settledBookings,
+      ISNULL(SUM(CASE WHEN commissionPaid = 0 THEN 1 ELSE 0 END), 0) AS unsettledBookings,
+      ISNULL(SUM(commissionFee), 0) AS totalCommission,
+      ISNULL(SUM(CASE WHEN commissionPaid = 1 THEN commissionFee ELSE 0 END), 0) AS settledCommission,
+      ISNULL(SUM(CASE WHEN commissionPaid = 0 THEN commissionFee ELSE 0 END), 0) AS unsettledCommission
+    FROM dbo.Bookings
+    WHERE ${where.join(' AND ')}
+  `);
+
+  return rs.recordset[0] || {
+    totalEligibleBookings: 0,
+    settledBookings: 0,
+    unsettledBookings: 0,
+    totalCommission: 0,
+    settledCommission: 0,
+    unsettledCommission: 0
+  };
+}
+
+// Chốt thu commission: đánh dấu commissionPaid=1 cho các booking đủ điều kiện
+async function settleCommissionByRestaurant(restaurantId, { from, to, minAgeMinutes = 0 } = {}) {
+  const pool = await getPool();
+  const tx = new sql.Transaction(pool);
+
+  await tx.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+  try {
+    const req = new sql.Request(tx)
+      .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+      .input('minAgeMinutes', sql.Int, Number(minAgeMinutes || 0));
+
+    const eligibleStatuses = ['CONFIRMED', 'ARRIVED', 'COMPLETED'];
+    const timeExpr = 'COALESCE(depositPaidAt, completedAt, confirmedAt, createdAt)';
+
+    const where = [
+      'restaurantId=@restaurantId',
+      `status IN (${eligibleStatuses.map((_, i) => `@st${i}`).join(',')})`,
+      'depositRequired=1',
+      'depositPaid=1',
+      'commissionPaid=0',
+      'ISNULL(commissionFee, 0) > 0',
+      `${timeExpr} <= DATEADD(minute, -@minAgeMinutes, SYSUTCDATETIME())`
+    ];
+
+    eligibleStatuses.forEach((s, i) => req.input(`st${i}`, sql.NVarChar(30), s));
+
+    if (from) {
+      where.push(`${timeExpr} >= @from`);
+      req.input('from', sql.DateTime2, new Date(from));
+    }
+
+    if (to) {
+      where.push(`${timeExpr} <= @to`);
+      req.input('to', sql.DateTime2, new Date(to));
+    }
+
+    const rs = await req.query(`
+      UPDATE dbo.Bookings
+      SET commissionPaid = 1,
+          updatedAt = SYSUTCDATETIME()
+      OUTPUT INSERTED.id, INSERTED.commissionFee
+      WHERE ${where.join(' AND ')}
+    `);
+
+    const affected = rs.recordset || [];
+    const totalAmount = affected.reduce((sum, row) => sum + Number(row.commissionFee || 0), 0);
+
+    await tx.commit();
+    return {
+      affectedCount: affected.length,
+      totalAmount,
+      bookingIds: affected.map((x) => x.id)
+    };
   } catch (e) {
     await tx.rollback();
     throw e;
@@ -250,6 +361,8 @@ module.exports = {
   listByCustomer,
   listByRestaurant,
   insertBookingTx,
+  getCommissionSummaryByRestaurant,
+  settleCommissionByRestaurant,
   updateStatus,
   cancelBooking
 };

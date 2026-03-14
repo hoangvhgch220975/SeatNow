@@ -57,6 +57,18 @@
 			"description": "VIP01 - 8 guests VIP room"
 		},
 		{
+			"key": "depositRestaurantId",
+			"value": "1D106F0B-F292-405B-9E3A-76B219141863",
+			"type": "string",
+			"description": "Restaurant co yeu cau dat coc"
+		},
+		{
+			"key": "depositTableId",
+			"value": "7C326061-FB2C-4A2D-BC97-206C9127974A",
+			"type": "string",
+			"description": "Ban dung cho test case dat coc"
+		},
+		{
 			"key": "bookingId",
 			"value": "",
 			"type": "string"
@@ -172,6 +184,68 @@
 							"path": ["bookings"]
 						},
 						"description": "Create a new booking as an authenticated customer"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Booking (Customer - Deposit Required)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const res = pm.response.json();",
+									"    const booking = res.booking || res.data?.booking || res.data;",
+									"    const depositRequired = res.depositRequired ?? res.data?.depositRequired;",
+									"    const depositAmount = res.depositAmount ?? res.data?.depositAmount;",
+									"",
+									"    if (booking) {",
+									"        pm.collectionVariables.set('bookingId', booking.id);",
+									"        pm.collectionVariables.set('bookingCode', booking.bookingCode);",
+									"        console.log('Booking ID:', booking.id);",
+									"        console.log('Booking Code:', booking.bookingCode);",
+									"        console.log('Status:', booking.status);",
+									"    }",
+									"",
+									"    pm.test('Booking requires deposit', function () {",
+									"        pm.expect(depositRequired).to.eql(true);",
+									"    });",
+									"",
+									"    pm.test('Deposit amount exists', function () {",
+									"        pm.expect(Number(depositAmount)).to.be.greaterThan(0);",
+									"    });",
+									"",
+									"    console.log('Deposit required:', depositRequired);",
+									"    console.log('Deposit amount:', depositAmount);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"restaurantId\": \"{{depositRestaurantId}}\",\n  \"tableId\": \"{{depositTableId}}\",\n  \"bookingDate\": \"2026-12-20\",\n  \"bookingTime\": \"19:30\",\n  \"numGuests\": 4,\n  \"specialRequests\": \"Test case booking yeu cau dat coc\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/bookings",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings"]
+						},
+						"description": "Create booking cho nha hang co yeu cau dat coc bang depositRestaurantId va depositTableId"
 					},
 					"response": []
 				},
@@ -358,6 +432,147 @@
 							]
 						},
 						"description": "Get all bookings for a restaurant (Owner/Admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Check Booking Payment Status (Deposit)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const res = pm.response.json();",
+									"pm.test('Has payment status fields', function () {",
+									"    pm.expect(res).to.have.property('bookingId');",
+									"    pm.expect(res).to.have.property('bookingStatus');",
+									"    pm.expect(res).to.have.property('depositRequired');",
+									"    pm.expect(res).to.have.property('depositPaid');",
+									"});",
+									"",
+									"pm.test('Booking requires deposit (expected)', function () {",
+									"    pm.expect(res.depositRequired).to.eql(true);",
+									"});",
+									"",
+									"console.log('Deposit required:', res.depositRequired);",
+									"console.log('Deposit paid:', res.depositPaid);",
+									"console.log('Booking status:', res.bookingStatus);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/payment-status",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}", "payment-status"]
+						},
+						"description": "Owner/Admin check if a booking requires a deposit and whether it has been paid"
+					},
+					"response": []
+				},
+				{
+					"name": "Commission Summary",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const res = pm.response.json();",
+									"pm.test('Has commission summary fields', function () {",
+									"    pm.expect(res).to.have.property('restaurantId');",
+									"    pm.expect(res).to.have.property('totalEligibleBookings');",
+									"    pm.expect(res).to.have.property('totalCommission');",
+									"    pm.expect(res).to.have.property('unsettledCommission');",
+									"});",
+									"",
+									"console.log('Total commission:', res.totalCommission);",
+									"console.log('Unsettled commission:', res.unsettledCommission);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/restaurants/{{restaurantId}}/commissions/summary",
+							"host": ["{{baseUrl}}"],
+							"path": ["restaurants", "{{restaurantId}}", "commissions", "summary"]
+						},
+						"description": "Xem tổng commission hiện tại cho nhà hàng (Owner/Admin)"
+					},
+					"response": []
+				},
+				{
+					"name": "Settle Commission",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const res = pm.response.json();",
+									"pm.test('Has settle result fields', function () {",
+									"    pm.expect(res).to.have.property('restaurantId');",
+									"    pm.expect(res).to.have.property('affectedCount');",
+									"    pm.expect(res).to.have.property('totalAmount');",
+									"});",
+									"",
+									"console.log('Settled bookings:', res.affectedCount);",
+									"console.log('Settled amount:', res.totalAmount);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"minAgeMinutes\": 0\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/restaurants/{{restaurantId}}/commissions/settle",
+							"host": ["{{baseUrl}}"],
+							"path": ["restaurants", "{{restaurantId}}", "commissions", "settle"]
+						},
+						"description": "Chốt thu commission ngay tại thời điểm hiện tại (test realtime)"
 					},
 					"response": []
 				},

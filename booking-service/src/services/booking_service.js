@@ -2,11 +2,11 @@
  * booking.service.js - core booking rules (placeholder)
  */
 const { getRedis } = require('../config/redis');
+const { getPool } = require('../config/db');
 const { acquireLock, releaseLock } = require('../utils/lock_redis');
 const bookingSql = require('../models/booking_sql');
 const availability = require('./availability_service');
 const socket = require('../sockets/booking_socket');
-const { getBooking } = require('../controllers/booking_controller');
 
 // Hàm sinh mã booking
 function genCode() {
@@ -22,16 +22,36 @@ function genCode() {
 function computeDeposit(restaurant, numGuests) {
   if (!restaurant.depositEnabled) return { depositRequired: false, depositAmount: 0 };
 
+  // Hỗ trợ cả trường hợp policy lưu dạng object hoặc JSON string
   let policy = null;
-  try { policy = restaurant.depositPolicyJson ? JSON.parse(restaurant.depositPolicyJson) : null; } catch {}
+  try {
+    policy = typeof restaurant.depositPolicyJson === 'string'
+      ? (restaurant.depositPolicyJson ? JSON.parse(restaurant.depositPolicyJson) : null)
+      : (restaurant.depositPolicyJson || null);
+  } catch {}
   if (!policy) return { depositRequired: true, depositAmount: 0 };
 
-  const minGuests = Number(policy.minGuests || 0);
+  // Nếu policy khai báo không yêu cầu đặt cọc thì bỏ qua
+  if (policy.required === false) return { depositRequired: false, depositAmount: 0 };
+
+  // Chấp nhận nhiều tên key để tương thích dữ liệu cũ/mới
+  const minGuests = Number(
+    policy.minGuests ?? policy.min_guests ?? policy.minimumGuests ?? policy.minPartySize ?? 0
+  );
   if (numGuests < minGuests) return { depositRequired: false, depositAmount: 0 };
 
-  const amount = policy.type === 'per_person'
-    ? Number(policy.amount || 0) * numGuests
-    : Number(policy.amount || 0);
+  const rawType = String(policy.type ?? policy.depositType ?? '').toLowerCase();
+  const isPerPerson = rawType === 'per_person' || rawType === 'perperson' || rawType === 'per-person';
+
+  // Theo format hiện tại: chỉ lấy tiền cọc từ minAmount
+  // Hỗ trợ thêm monAmount trong trường hợp dữ liệu cũ bị gõ nhầm key.
+  const baseAmount = Number(policy.minAmount ?? policy.monAmount ?? 0);
+
+  let amount = isPerPerson
+    ? baseAmount * Number(numGuests || 0)
+    : baseAmount;
+
+  if (!Number.isFinite(amount) || amount < 0) amount = 0;
 
   return { depositRequired: true, depositAmount: amount };
 }
@@ -136,6 +156,59 @@ async function restaurantBookings(restaurantId, actor, filters) {
   
 }
 
+// Kiểm tra actor có quyền owner/admin trên restaurant
+async function ensureRestaurantAccess(restaurantId, actor) {
+  const r = await bookingSql.getRestaurant(restaurantId);
+  if (!r) { const e = new Error('Restaurant not found'); e.status = 404; throw e; }
+  if (actor.role !== 'ADMIN' && String(r.ownerId) !== String(actor.id)) {
+    const e = new Error('Forbidden');
+    e.status = 403;
+    throw e;
+  }
+  return r;
+}
+
+// Xem tổng hợp commission theo nhà hàng
+async function commissionSummary(restaurantId, actor, { from, to } = {}) {
+  await ensureRestaurantAccess(restaurantId, actor);
+  return bookingSql.getCommissionSummaryByRestaurant(restaurantId, { from, to });
+}
+
+// Chốt thu commission theo kỳ (đánh dấu commissionPaid=1)
+async function settleCommission(restaurantId, actor, { from, to, minAgeMinutes } = {}) {
+  await ensureRestaurantAccess(restaurantId, actor);
+  const effectiveMinAge = Number(minAgeMinutes ?? process.env.COMMISSION_SETTLE_MIN_AGE_MIN ?? 0);
+  return bookingSql.settleCommissionByRestaurant(restaurantId, {
+    from,
+    to,
+    minAgeMinutes: Number.isFinite(effectiveMinAge) ? effectiveMinAge : 0
+  });
+}
+
+// Job tự động chốt commission cho tất cả nhà hàng có booking đủ điều kiện
+async function autoSettleCommissions() {
+  const pool = await getPool();
+  const rs = await pool.request().query(`
+    SELECT DISTINCT restaurantId
+    FROM dbo.Bookings
+    WHERE status='COMPLETED'
+      AND depositRequired=1
+      AND depositPaid=1
+      AND commissionPaid=0
+      AND ISNULL(commissionFee, 0) > 0
+  `);
+
+  const minAgeMinutes = Number(process.env.COMMISSION_SETTLE_MIN_AGE_MIN || 0);
+  const out = [];
+  for (const row of rs.recordset || []) {
+    const result = await bookingSql.settleCommissionByRestaurant(row.restaurantId, { minAgeMinutes });
+    if (result.affectedCount > 0) {
+      out.push({ restaurantId: row.restaurantId, ...result });
+    }
+  }
+  return out;
+}
+
 /** transitions (flow strict) */
 // PENDING -> CONFIRMED
 async function confirm(id) {
@@ -208,8 +281,8 @@ async function getPaymentStatus(id) {
     depositPaidAt: booking.depositPaidAt,
     depositRefunded: booking.depositRefunded,
     message: booking.depositRequired 
-      ? (booking.depositPaid ? 'Đã thanh toán đặt cọc' : 'Chưa thanh toán đặt cọc')
-      : 'Không yêu cầu đặt cọc'
+      ? (booking.depositPaid ? 'Deposit Paid' : 'Deposit Pending')
+      : 'No Deposit Required'
   };
 }
 
@@ -219,6 +292,9 @@ module.exports = {
   myBookings,
   getBookingDetails,
   restaurantBookings,
+  commissionSummary,
+  settleCommission,
+  autoSettleCommissions,
   confirm,
   arrived,
   complete,

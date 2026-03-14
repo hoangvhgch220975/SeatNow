@@ -194,6 +194,35 @@ async function paymentStatus(req, res) {
   }
 }
 
+// Tổng hợp commission theo nhà hàng
+async function commissionSummary(req, res) {
+  try {
+    const restaurantId = req.params.id;
+    const data = await bookingSvc.commissionSummary(restaurantId, req.user, {
+      from: req.query.from,
+      to: req.query.to
+    });
+    return res.json({ restaurantId, ...data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
+// Chốt thu commission theo kỳ
+async function settleCommission(req, res) {
+  try {
+    const restaurantId = req.params.id;
+    const data = await bookingSvc.settleCommission(restaurantId, req.user, {
+      from: req.body?.from ?? req.query?.from,
+      to: req.body?.to ?? req.query?.to,
+      minAgeMinutes: req.body?.minAgeMinutes ?? req.query?.minAgeMinutes
+    });
+    return res.json({ restaurantId, ...data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
 module.exports = {
   create,
   availability,
@@ -207,6 +236,8 @@ module.exports = {
   cancel,
   noShow,
   paymentStatus,
+  commissionSummary,
+  settleCommission,
   getQr
 };
 
