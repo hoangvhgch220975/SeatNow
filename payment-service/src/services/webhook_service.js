@@ -52,13 +52,30 @@ async function processProviderResult({ provider, payload, verifySignature = true
     return { duplicated: true };
   }
 
-  // Neu thanh toan thanh cong thi complete transaction va mark booking da dat coc
+  const tx = await paymentModel.findTransactionByReferenceCode(referenceCode);
+  if (!tx) {
+    throw new Error('Transaction not found');
+  }
+
+  // Neu thanh cong, re nhanh theo loai giao dich.
   if (success) {
-    return paymentModel.completeDepositTransaction({
-      referenceCode,
-      providerTxnId,
-      metadataJson: JSON.stringify(rawPayload)
-    });
+    if (tx.type === 'DEPOSIT' || tx.type === 'DEPOSIT_PAYMENT') {
+      return paymentModel.completeDepositTransaction({
+        referenceCode,
+        providerTxnId,
+        metadataJson: JSON.stringify(rawPayload)
+      });
+    }
+
+    if (tx.type === 'TOP_UP') {
+      return paymentModel.completeWalletTopupTransactionAndIncreaseBalance({
+        referenceCode,
+        providerTxnId,
+        metadataJson: JSON.stringify(rawPayload)
+      });
+    }
+
+    throw new Error(`Unsupported success flow for transaction type ${tx.type}`);
   }
 
   // Neu that bai thi cap nhat transaction sang FAILED
@@ -98,6 +115,11 @@ async function handleProviderReturn({ provider, query, body }) {
   const tx = await paymentModel.findTransactionByReferenceCode(parsed.referenceCode);
   if (!tx) {
     return `${process.env.GUEST_HOME_URL}?payment=failed`;
+  }
+
+  // Giao dich top-up khong gan booking, redirect ve trang chung.
+  if (!tx.bookingId) {
+    return `${process.env.GUEST_HOME_URL}?payment=${parsed.success ? 'success' : 'failed'}`;
   }
 
   const booking = await paymentModel.findBookingForDeposit(tx.bookingId);

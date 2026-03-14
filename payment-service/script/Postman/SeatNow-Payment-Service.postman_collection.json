@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "payment-service-2026",
     "name": "SeatNow - Payment Service",
-    "description": "Postman collection for SeatNow Payment Service (deposit, transaction, webhook, return)",
+    "description": "Postman collection for SeatNow Payment Service (deposit, wallet, webhook, return)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -25,6 +25,28 @@
     {
       "key": "referenceCode",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "restaurantId",
+      "value": "",
+      "type": "string",
+      "description": "Restaurant ID that owns a wallet"
+    },
+    {
+      "key": "adminUserId",
+      "value": "",
+      "type": "string",
+      "description": "Admin user ID that owns admin wallet"
+    },
+    {
+      "key": "topupAmount",
+      "value": "100000",
+      "type": "string"
+    },
+    {
+      "key": "commissionAmount",
+      "value": "20000",
       "type": "string"
     }
   ],
@@ -160,7 +182,199 @@
       ]
     },
     {
-      "name": "2. Webhook / Return",
+      "name": "2. Wallet",
+      "item": [
+        {
+          "name": "Get Wallet Balance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wallet/balance?restaurantId={{restaurantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wallet",
+                "balance"
+              ],
+              "query": [
+                {
+                  "key": "restaurantId",
+                  "value": "{{restaurantId}}"
+                }
+              ]
+            },
+            "description": "Lay so du vi restaurant"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Wallet Topup (MOMO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "if (res && res.success && res.data) {",
+                  "    pm.collectionVariables.set('transactionId', res.data.transactionId || '');",
+                  "    pm.collectionVariables.set('referenceCode', res.data.referenceCode || '');",
+                  "    console.log('wallet topup transactionId:', res.data.transactionId);",
+                  "    console.log('wallet topup referenceCode:', res.data.referenceCode);",
+                  "    console.log('paymentUrl:', res.data.paymentUrl);",
+                  "}",
+                  "",
+                  "pm.test('Has wallet topup transactionId and referenceCode', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.data).to.have.property('transactionId');",
+                  "    pm.expect(res.data).to.have.property('referenceCode');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"provider\": \"MOMO\",\n  \"amount\": {{topupAmount}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/wallet/topup/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wallet",
+                "topup",
+                "create"
+              ]
+            },
+            "description": "Tao giao dich top-up vi restaurant qua MOMO"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Wallet Topup (VNPAY)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "if (res && res.success && res.data) {",
+                  "    pm.collectionVariables.set('transactionId', res.data.transactionId || '');",
+                  "    pm.collectionVariables.set('referenceCode', res.data.referenceCode || '');",
+                  "    console.log('wallet topup transactionId:', res.data.transactionId);",
+                  "    console.log('wallet topup referenceCode:', res.data.referenceCode);",
+                  "    console.log('paymentUrl:', res.data.paymentUrl);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"provider\": \"VNPAY\",\n  \"amount\": {{topupAmount}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/wallet/topup/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wallet",
+                "topup",
+                "create"
+              ]
+            },
+            "description": "Tao giao dich top-up vi restaurant qua VNPAY"
+          },
+          "response": []
+        },
+        {
+          "name": "Charge Commission",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"adminUserId\": \"{{adminUserId}}\",\n  \"amount\": {{commissionAmount}},\n  \"description\": \"Charge commission for test\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/wallet/commission/charge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wallet",
+                "commission",
+                "charge"
+              ]
+            },
+            "description": "Admin thu commission tu vi restaurant sang vi admin"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Wallet Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/wallet/transactions?restaurantId={{restaurantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wallet",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "restaurantId",
+                  "value": "{{restaurantId}}"
+                }
+              ]
+            },
+            "description": "Lay lich su giao dich vi restaurant"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Webhook / Return",
       "item": [
         {
           "name": "Webhook MOMO (Simulate)",

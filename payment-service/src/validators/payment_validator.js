@@ -1,11 +1,22 @@
 // payment.validator.js
-// Purpose: request validation schemas (Joi / Zod) for payment endpoints.
-// Examples:
-// - generateDepositQrSchema: { bookingId, amount, provider }
-// - webhook schemas per provider to validate required fields
+// Validate payload cho cac API payment/wallet.
 
-// Placeholder: import Joi and export schemas
+const Joi = require('joi');
+
+const createWalletTopupSchema = Joi.object({
+  restaurantId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required(),
+  provider: Joi.string().valid('MOMO', 'VNPAY').required(),
+  amount: Joi.number().positive().required()
+});
+
+const chargeCommissionSchema = Joi.object({
+  restaurantId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required(),
+  adminUserId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required(),
+  amount: Joi.number().positive().required(),
+  description: Joi.string().allow('', null).max(1000).optional()
+});
 
 module.exports = {
-  // generateDepositQrSchema: Joi.object({...})
+  createWalletTopupSchema,
+  chargeCommissionSchema
 };

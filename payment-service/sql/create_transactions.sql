@@ -18,6 +18,13 @@ CREATE TABLE dbo.Transactions (
   CONSTRAINT PK_Transactions PRIMARY KEY (id),
   CONSTRAINT FK_Transactions_wallet FOREIGN KEY (walletId) REFERENCES dbo.Wallets(id),
   CONSTRAINT FK_Transactions_booking FOREIGN KEY (bookingId) REFERENCES dbo.Bookings(id),
-  CONSTRAINT CK_Transactions_type CHECK (type IN ('TOP_UP','DEPOSIT_PAYMENT','DEPOSIT_REFUND','COMMISSION_FEE','WITHDRAWAL')),
+  CONSTRAINT CK_Transactions_type CHECK (type IN (
+    'DEPOSIT_PAYMENT',
+    'TOP_UP',
+    'COMMISSION',
+    'REFUND',
+    'WITHDRAWAL',
+    'SETTLEMENT'
+  )),
   CONSTRAINT CK_Transactions_status CHECK (status IN ('pending','completed','failed'))
 );

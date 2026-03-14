@@ -1,5 +1,6 @@
 // Import service xử lý đặt cọc và model giao dịch
 const depositService = require('../services/deposit_service');
+const walletService = require('../services/wallet_service');
 const paymentModel = require('../models/payment_sql');
 
 // Tạo QR/link thanh toán đặt cọc cho booking
@@ -38,8 +39,70 @@ async function getTransaction(req, res, next) {
   }
 }
 
+// Tao top-up payment cho vi nha hang.
+async function createWalletTopup(req, res, next) {
+  try {
+    const { restaurantId, provider, amount } = req.body;
+
+    const result = await walletService.createWalletTopup({
+      restaurantId,
+      provider,
+      amount,
+      req
+    });
+
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Lay so du vi theo restaurant.
+async function getWalletBalance(req, res, next) {
+  try {
+    const { restaurantId } = req.query;
+    const data = await walletService.getWalletBalance({ restaurantId });
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Lay lich su giao dich vi theo restaurant.
+async function getWalletTransactions(req, res, next) {
+  try {
+    const { restaurantId } = req.query;
+    const data = await walletService.getWalletHistory({ restaurantId });
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Admin charge commission tu vi restaurant sang vi admin.
+async function chargeCommission(req, res, next) {
+  try {
+    const { restaurantId, adminUserId, amount, description } = req.body;
+
+    const result = await walletService.chargeCommission({
+      restaurantId,
+      adminUserId,
+      amount,
+      description
+    });
+
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Export các handler để route sử dụng
 module.exports = {
   generateDepositQR,
-  getTransaction
+  getTransaction,
+  createWalletTopup,
+  getWalletBalance,
+  getWalletTransactions,
+  chargeCommission
 };

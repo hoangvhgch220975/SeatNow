@@ -1,12 +1,135 @@
 // wallet.service.js
-// Purpose: encapsulate wallet operations (top-up, withdraw, balance checks)
-// Responsibilities:
-// - Create Transactions rows (pending/completed)
-// - Update Wallet balances inside SQL transactions
-// - Return standardized responses for controllers
+// Xu ly nghiep vu vi: top-up, xem so du, lich su va thu commission.
 
-const paymentSql = require('../models/payment_sql');
+const paymentModel = require('../models/payment_sql');
+const { getRedis } = require('../config/redis');
+const { generateReferenceCode } = require('../utils/reference-code');
+const { normalizeAmount } = require('../utils/money');
+const momoProvider = require('../providers/momo_provider');
+const vnpayProvider = require('../providers/vnpay_provider');
+
+async function createWalletTopup({ restaurantId, provider, amount, req }) {
+  const normalizedProvider = String(provider || '').toUpperCase();
+  const redis = await getRedis();
+  const lockKey = `payment:wallet:topup:create:${restaurantId}`;
+  const locked = await redis.set(lockKey, '1', { NX: true, EX: 30 });
+
+  if (!locked) {
+    const e = new Error('Wallet top-up is being processed');
+    e.status = 409;
+    throw e;
+  }
+
+  try {
+    const wallet = await paymentModel.findWalletByRestaurantId(restaurantId);
+
+    if (!wallet) throw new Error('Restaurant wallet not found');
+    if (wallet.status !== 'active') throw new Error('Wallet is not active');
+
+    const pending = await paymentModel.findPendingTopupByWalletId(wallet.id);
+    if (pending) {
+      const e = new Error('Wallet top-up is pending for this restaurant');
+      e.status = 409;
+      throw e;
+    }
+
+    const normalizedAmount = normalizeAmount(amount);
+    const referenceCode = generateReferenceCode('TOP');
+
+    const tx = await paymentModel.createPendingWalletTopupTransaction({
+      walletId: wallet.id,
+      amount: normalizedAmount,
+      currency: wallet.currency,
+      paymentMethod: normalizedProvider,
+      referenceCode,
+      provider: normalizedProvider,
+      description: `Top-up wallet for restaurant ${restaurantId}`,
+      idempotencyKey: referenceCode
+    });
+
+    let providerPayload;
+    if (normalizedProvider === 'MOMO') {
+      providerPayload = await momoProvider.createPayment({
+        amount: normalizedAmount,
+        referenceCode,
+        bookingCode: `TOPUP-${restaurantId}`,
+        bookingId: null
+      });
+    } else if (normalizedProvider === 'VNPAY') {
+      providerPayload = await vnpayProvider.createPayment({
+        amount: normalizedAmount,
+        referenceCode,
+        bookingCode: `TOPUP-${restaurantId}`,
+        bookingId: null,
+        req
+      });
+    } else {
+      throw new Error('Unsupported provider');
+    }
+
+    return {
+      transactionId: tx.id,
+      referenceCode,
+      provider: normalizedProvider,
+      amount: normalizedAmount,
+      currency: wallet.currency,
+      ...providerPayload
+    };
+  } finally {
+    await redis.del(lockKey);
+  }
+}
+
+async function getWalletBalance({ restaurantId }) {
+  const wallet = await paymentModel.findWalletByRestaurantId(restaurantId);
+  if (!wallet) throw new Error('Restaurant wallet not found');
+  return wallet;
+}
+
+async function getWalletHistory({ restaurantId }) {
+  const wallet = await paymentModel.findWalletByRestaurantId(restaurantId);
+  if (!wallet) throw new Error('Restaurant wallet not found');
+  return paymentModel.getWalletTransactions(wallet.id);
+}
+
+async function chargeCommission({ restaurantId, adminUserId, amount, description }) {
+  const redis = await getRedis();
+  const lockKey = `payment:wallet:commission:charge:${restaurantId}:${adminUserId}`;
+  const locked = await redis.set(lockKey, '1', { NX: true, EX: 15 });
+
+  if (!locked) {
+    const e = new Error('Commission charge is being processed');
+    e.status = 409;
+    throw e;
+  }
+
+  try {
+    const restaurantWallet = await paymentModel.findWalletByRestaurantId(restaurantId);
+    if (!restaurantWallet) throw new Error('Restaurant wallet not found');
+
+    const adminWallet = await paymentModel.findWalletByUserId(adminUserId);
+    if (!adminWallet) throw new Error('Admin wallet not found');
+
+    if (restaurantWallet.currency !== adminWallet.currency) {
+      throw new Error('Wallet currency mismatch');
+    }
+
+    return paymentModel.chargeCommissionFromRestaurantToAdmin({
+      restaurantWalletId: restaurantWallet.id,
+      adminWalletId: adminWallet.id,
+      amount: normalizeAmount(amount),
+      currency: restaurantWallet.currency,
+      description,
+      referenceCode: generateReferenceCode('COM')
+    });
+  } finally {
+    await redis.del(lockKey);
+  }
+}
 
 module.exports = {
-  // Implement topUp, withdraw, getTransactions
+  createWalletTopup,
+  getWalletBalance,
+  getWalletHistory,
+  chargeCommission
 };

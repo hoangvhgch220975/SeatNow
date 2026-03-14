@@ -98,6 +98,305 @@ async function createPendingDepositTransaction(data) {
   return rs.recordset[0];
 }
 
+// Tim vi theo restaurantId.
+async function findWalletByRestaurantId(restaurantId) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+    .query(`
+      SELECT TOP 1 *
+      FROM dbo.Wallets
+      WHERE restaurantId = @restaurantId
+    `);
+
+  return rs.recordset[0] || null;
+}
+
+// Tim vi admin theo userId (vi khong gan restaurant).
+async function findWalletByUserId(userId) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('userId', sql.UniqueIdentifier, userId)
+    .query(`
+      SELECT TOP 1 *
+      FROM dbo.Wallets
+      WHERE userId = @userId
+        AND restaurantId IS NULL
+    `);
+
+  return rs.recordset[0] || null;
+}
+
+// Lay lich su giao dich theo wallet.
+async function getWalletTransactions(walletId) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('walletId', sql.UniqueIdentifier, walletId)
+    .query(`
+      SELECT *
+      FROM dbo.Transactions
+      WHERE walletId = @walletId
+      ORDER BY createdAt DESC
+    `);
+
+  return rs.recordset;
+}
+
+// Kiem tra vi da co top-up pending de chan click doi tao giao dich trung.
+async function findPendingTopupByWalletId(walletId) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('walletId', sql.UniqueIdentifier, walletId)
+    .query(`
+      SELECT TOP 1 *
+      FROM dbo.Transactions
+      WHERE walletId = @walletId
+        AND type = 'TOP_UP'
+        AND status = 'pending'
+      ORDER BY createdAt DESC
+    `);
+
+  return rs.recordset[0] || null;
+}
+
+// Tao pending transaction cho top-up vi restaurant.
+async function createPendingWalletTopupTransaction({
+  walletId,
+  amount,
+  currency,
+  paymentMethod,
+  referenceCode,
+  provider,
+  description,
+  idempotencyKey
+}) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('walletId', sql.UniqueIdentifier, walletId)
+    .input('type', sql.NVarChar(30), 'TOP_UP')
+    .input('amount', sql.Decimal(18, 2), amount)
+    .input('currency', sql.NVarChar(10), currency)
+    .input('paymentMethod', sql.NVarChar(50), paymentMethod)
+    .input('referenceCode', sql.NVarChar(100), referenceCode)
+    .input('status', sql.NVarChar(20), 'pending')
+    .input('payerType', sql.NVarChar(30), 'RESTAURANT')
+    .input('provider', sql.NVarChar(30), provider)
+    .input('description', sql.NVarChar(sql.MAX), description || null)
+    .input('idempotencyKey', sql.NVarChar(100), idempotencyKey || null)
+    .query(`
+      INSERT INTO dbo.Transactions (
+        walletId, type, amount, currency, paymentMethod,
+        referenceCode, status, payerType, provider,
+        description, idempotencyKey, createdAt
+      )
+      OUTPUT INSERTED.*
+      VALUES (
+        @walletId, @type, @amount, @currency, @paymentMethod,
+        @referenceCode, @status, @payerType, @provider,
+        @description, @idempotencyKey, SYSUTCDATETIME()
+      )
+    `);
+
+  return rs.recordset[0];
+}
+
+// Hoan tat TOP_UP va cong so du vi an toan trong transaction SQL.
+async function completeWalletTopupTransactionAndIncreaseBalance({
+  referenceCode,
+  providerTxnId,
+  metadataJson
+}) {
+  const pool = await getPool();
+  const tx = new sql.Transaction(pool);
+
+  try {
+    await tx.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+    const req = new sql.Request(tx);
+
+    const txRes = await req
+      .input('referenceCode', sql.NVarChar(100), referenceCode)
+      .query(`
+        SELECT TOP 1 *
+        FROM dbo.Transactions WITH (UPDLOCK, ROWLOCK)
+        WHERE referenceCode = @referenceCode
+      `);
+
+    const row = txRes.recordset[0];
+    if (!row) throw new Error('Transaction not found');
+
+    if (row.status === 'completed') {
+      await tx.commit();
+      return { alreadyCompleted: true };
+    }
+
+    const walletRes = await req
+      .input('walletId', sql.UniqueIdentifier, row.walletId)
+      .query(`
+        SELECT TOP 1 *
+        FROM dbo.Wallets WITH (UPDLOCK, ROWLOCK)
+        WHERE id = @walletId
+      `);
+
+    const wallet = walletRes.recordset[0];
+    if (!wallet) throw new Error('Wallet not found');
+
+    const balanceBefore = Number(wallet.balance);
+    const balanceAfter = balanceBefore + Number(row.amount);
+
+    await req
+      .input('walletId2', sql.UniqueIdentifier, wallet.id)
+      .input('balanceAfter', sql.Decimal(18, 2), balanceAfter)
+      .query(`
+        UPDATE dbo.Wallets
+        SET balance = @balanceAfter,
+            updatedAt = SYSUTCDATETIME()
+        WHERE id = @walletId2
+      `);
+
+    await req
+      .input('txId', sql.UniqueIdentifier, row.id)
+      .input('providerTxnId', sql.NVarChar(100), providerTxnId || null)
+      .input('metadataJson', sql.NVarChar(sql.MAX), metadataJson || null)
+      .input('balanceBefore', sql.Decimal(18, 2), balanceBefore)
+      .input('balanceAfter2', sql.Decimal(18, 2), balanceAfter)
+      .query(`
+        UPDATE dbo.Transactions
+        SET status = 'completed',
+            providerTxnId = @providerTxnId,
+            metadataJson = @metadataJson,
+            balanceBefore = @balanceBefore,
+            balanceAfter = @balanceAfter2,
+            completedAt = SYSUTCDATETIME()
+        WHERE id = @txId
+      `);
+
+    await tx.commit();
+    return { success: true };
+  } catch (err) {
+    await tx.rollback();
+    throw err;
+  }
+}
+
+// Internal transfer: tru commission tu vi restaurant sang vi admin.
+async function chargeCommissionFromRestaurantToAdmin({
+  restaurantWalletId,
+  adminWalletId,
+  amount,
+  currency,
+  description,
+  referenceCode
+}) {
+  const pool = await getPool();
+  const tx = new sql.Transaction(pool);
+
+  try {
+    await tx.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+    const req = new sql.Request(tx);
+
+    const restaurantWalletRes = await req
+      .input('restaurantWalletId', sql.UniqueIdentifier, restaurantWalletId)
+      .query(`
+        SELECT TOP 1 *
+        FROM dbo.Wallets WITH (UPDLOCK, ROWLOCK)
+        WHERE id = @restaurantWalletId
+      `);
+
+    const adminWalletRes = await req
+      .input('adminWalletId', sql.UniqueIdentifier, adminWalletId)
+      .query(`
+        SELECT TOP 1 *
+        FROM dbo.Wallets WITH (UPDLOCK, ROWLOCK)
+        WHERE id = @adminWalletId
+      `);
+
+    const restaurantWallet = restaurantWalletRes.recordset[0];
+    const adminWallet = adminWalletRes.recordset[0];
+
+    if (!restaurantWallet) throw new Error('Restaurant wallet not found');
+    if (!adminWallet) throw new Error('Admin wallet not found');
+
+    const restaurantBefore = Number(restaurantWallet.balance);
+    if (restaurantBefore < Number(amount)) {
+      throw new Error('Insufficient wallet balance');
+    }
+
+    const adminBefore = Number(adminWallet.balance);
+    const restaurantAfter = restaurantBefore - Number(amount);
+    const adminAfter = adminBefore + Number(amount);
+
+    await req
+      .input('restaurantWalletId2', sql.UniqueIdentifier, restaurantWallet.id)
+      .input('restaurantAfter', sql.Decimal(18, 2), restaurantAfter)
+      .query(`
+        UPDATE dbo.Wallets
+        SET balance = @restaurantAfter,
+            updatedAt = SYSUTCDATETIME()
+        WHERE id = @restaurantWalletId2
+      `);
+
+    await req
+      .input('adminWalletId2', sql.UniqueIdentifier, adminWallet.id)
+      .input('adminAfter', sql.Decimal(18, 2), adminAfter)
+      .query(`
+        UPDATE dbo.Wallets
+        SET balance = @adminAfter,
+            updatedAt = SYSUTCDATETIME()
+        WHERE id = @adminWalletId2
+      `);
+
+    await req
+      .input('rwId', sql.UniqueIdentifier, restaurantWallet.id)
+      .input('amount1', sql.Decimal(18, 2), amount)
+      .input('currency1', sql.NVarChar(10), currency)
+      .input('ref1', sql.NVarChar(100), `${referenceCode}-D`)
+      .input('desc1', sql.NVarChar(sql.MAX), description || 'Commission charged from restaurant wallet')
+      .input('rbf', sql.Decimal(18, 2), restaurantBefore)
+      .input('raf', sql.Decimal(18, 2), restaurantAfter)
+      .query(`
+        INSERT INTO dbo.Transactions (
+          walletId, type, amount, currency, balanceBefore, balanceAfter,
+          description, paymentMethod, referenceCode, status, payerType, provider, createdAt, completedAt
+        )
+        VALUES (
+          @rwId, 'COMMISSION', @amount1, @currency1, @rbf, @raf,
+          @desc1, 'INTERNAL_WALLET', @ref1, 'completed', 'RESTAURANT', 'INTERNAL',
+          SYSUTCDATETIME(), SYSUTCDATETIME()
+        )
+      `);
+
+    await req
+      .input('awId', sql.UniqueIdentifier, adminWallet.id)
+      .input('amount2', sql.Decimal(18, 2), amount)
+      .input('currency2', sql.NVarChar(10), currency)
+      .input('ref2', sql.NVarChar(100), `${referenceCode}-C`)
+      .input('desc2', sql.NVarChar(sql.MAX), description || 'Commission received by admin wallet')
+      .input('abf', sql.Decimal(18, 2), adminBefore)
+      .input('aaf', sql.Decimal(18, 2), adminAfter)
+      .query(`
+        INSERT INTO dbo.Transactions (
+          walletId, type, amount, currency, balanceBefore, balanceAfter,
+          description, paymentMethod, referenceCode, status, payerType, provider, createdAt, completedAt
+        )
+        VALUES (
+          @awId, 'SETTLEMENT', @amount2, @currency2, @abf, @aaf,
+          @desc2, 'INTERNAL_WALLET', @ref2, 'completed', 'ADMIN', 'INTERNAL',
+          SYSUTCDATETIME(), SYSUTCDATETIME()
+        )
+      `);
+
+    await tx.commit();
+    return {
+      success: true,
+      restaurantBalanceAfter: restaurantAfter,
+      adminBalanceAfter: adminAfter
+    };
+  } catch (err) {
+    await tx.rollback();
+    throw err;
+  }
+}
+
 // Tim giao dich theo id noi bo.
 async function findTransactionById(id) {
   const pool = await getPool();
@@ -196,8 +495,15 @@ module.exports = {
   findPendingDepositByBookingId,
   findCompletedDepositByBookingId,
   createPendingDepositTransaction,
+  findWalletByRestaurantId,
+  findWalletByUserId,
+  getWalletTransactions,
+  findPendingTopupByWalletId,
+  createPendingWalletTopupTransaction,
   findTransactionById,
   findTransactionByReferenceCode,
   completeDepositTransaction,
+  completeWalletTopupTransactionAndIncreaseBalance,
+  chargeCommissionFromRestaurantToAdmin,
   failTransaction
 };
