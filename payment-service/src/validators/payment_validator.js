@@ -13,7 +13,8 @@ const chargeCommissionSchema = Joi.object({
   restaurantId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required(),
   adminUserId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required(),
   amount: Joi.number().positive().required(),
-  description: Joi.string().allow('', null).max(1000).optional()
+  description: Joi.string().allow('', null).max(1000).optional(),
+  idempotencyKey: Joi.string().trim().max(100).optional()
 });
 
 module.exports = {

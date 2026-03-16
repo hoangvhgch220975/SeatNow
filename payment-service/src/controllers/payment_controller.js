@@ -1,6 +1,7 @@
 // Import service xử lý đặt cọc và model giao dịch
 const depositService = require('../services/deposit_service');
 const walletService = require('../services/wallet_service');
+const withdrawalService = require('../services/withdrawal_service');
 const paymentModel = require('../models/payment_sql');
 
 // Tạo QR/link thanh toán đặt cọc cho booking
@@ -82,15 +83,60 @@ async function getWalletTransactions(req, res, next) {
 // Admin charge commission tu vi restaurant sang vi admin.
 async function chargeCommission(req, res, next) {
   try {
-    const { restaurantId, adminUserId, amount, description } = req.body;
+    const { restaurantId, adminUserId, amount, description, idempotencyKey } = req.body;
 
     const result = await walletService.chargeCommission({
       restaurantId,
       adminUserId,
       amount,
-      description
+      description,
+      idempotencyKey
     });
 
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Tạo yêu cầu rút tiền
+async function createWithdrawal(req, res, next) {
+  try {
+    const { restaurantId, amount, description } = req.body;
+    const result = await withdrawalService.createWithdrawal({
+      restaurantId,
+      amount,
+      description
+    });
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Admin duyệt rút tiền
+async function approveWithdrawal(req, res, next) {
+  try {
+    const { providerTxnId, metadataJson } = req.body;
+    const result = await withdrawalService.approveWithdrawal({
+      transactionId: req.params.id,
+      providerTxnId,
+      metadataJson
+    });
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Admin từ chối rút tiền
+async function rejectWithdrawal(req, res, next) {
+  try {
+    const { reason } = req.body;
+    const result = await withdrawalService.rejectWithdrawal({
+      transactionId: req.params.id,
+      reason
+    });
     return res.json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -104,5 +150,8 @@ module.exports = {
   createWalletTopup,
   getWalletBalance,
   getWalletTransactions,
-  chargeCommission
+  chargeCommission,
+  createWithdrawal,
+  approveWithdrawal,
+  rejectWithdrawal
 };

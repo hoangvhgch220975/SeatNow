@@ -285,7 +285,8 @@ async function chargeCommissionFromRestaurantToAdmin({
   amount,
   currency,
   description,
-  referenceCode
+  referenceCode,
+  idempotencyKey
 }) {
   const pool = await getPool();
   const tx = new sql.Transaction(pool);
@@ -350,17 +351,18 @@ async function chargeCommissionFromRestaurantToAdmin({
       .input('amount1', sql.Decimal(18, 2), amount)
       .input('currency1', sql.NVarChar(10), currency)
       .input('ref1', sql.NVarChar(100), `${referenceCode}-D`)
+      .input('idempotencyKey1', sql.NVarChar(100), idempotencyKey || null)
       .input('desc1', sql.NVarChar(sql.MAX), description || 'Commission charged from restaurant wallet')
       .input('rbf', sql.Decimal(18, 2), restaurantBefore)
       .input('raf', sql.Decimal(18, 2), restaurantAfter)
       .query(`
         INSERT INTO dbo.Transactions (
           walletId, type, amount, currency, balanceBefore, balanceAfter,
-          description, paymentMethod, referenceCode, status, payerType, provider, createdAt, completedAt
+          description, paymentMethod, referenceCode, status, payerType, provider, idempotencyKey, createdAt, completedAt
         )
         VALUES (
           @rwId, 'COMMISSION', @amount1, @currency1, @rbf, @raf,
-          @desc1, 'INTERNAL_WALLET', @ref1, 'completed', 'RESTAURANT', 'INTERNAL',
+          @desc1, 'INTERNAL_WALLET', @ref1, 'completed', 'RESTAURANT', 'INTERNAL', @idempotencyKey1,
           SYSUTCDATETIME(), SYSUTCDATETIME()
         )
       `);
@@ -370,17 +372,18 @@ async function chargeCommissionFromRestaurantToAdmin({
       .input('amount2', sql.Decimal(18, 2), amount)
       .input('currency2', sql.NVarChar(10), currency)
       .input('ref2', sql.NVarChar(100), `${referenceCode}-C`)
+      .input('idempotencyKey2', sql.NVarChar(100), idempotencyKey || null)
       .input('desc2', sql.NVarChar(sql.MAX), description || 'Commission received by admin wallet')
       .input('abf', sql.Decimal(18, 2), adminBefore)
       .input('aaf', sql.Decimal(18, 2), adminAfter)
       .query(`
         INSERT INTO dbo.Transactions (
           walletId, type, amount, currency, balanceBefore, balanceAfter,
-          description, paymentMethod, referenceCode, status, payerType, provider, createdAt, completedAt
+          description, paymentMethod, referenceCode, status, payerType, provider, idempotencyKey, createdAt, completedAt
         )
         VALUES (
           @awId, 'SETTLEMENT', @amount2, @currency2, @abf, @aaf,
-          @desc2, 'INTERNAL_WALLET', @ref2, 'completed', 'ADMIN', 'INTERNAL',
+          @desc2, 'INTERNAL_WALLET', @ref2, 'completed', 'ADMIN', 'INTERNAL', @idempotencyKey2,
           SYSUTCDATETIME(), SYSUTCDATETIME()
         )
       `);
@@ -395,6 +398,20 @@ async function chargeCommissionFromRestaurantToAdmin({
     await tx.rollback();
     throw err;
   }
+}
+
+async function findTransactionByIdempotencyKey(idempotencyKey) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('idempotencyKey', sql.NVarChar(100), idempotencyKey)
+    .query(`
+      SELECT TOP 1 *
+      FROM dbo.Transactions
+      WHERE idempotencyKey = @idempotencyKey
+      ORDER BY createdAt DESC
+    `);
+
+  return rs.recordset[0] || null;
 }
 
 // Tim giao dich theo id noi bo.
@@ -440,13 +457,57 @@ async function completeDepositTransaction({ referenceCode, providerTxnId, metada
       return { alreadyCompleted: true };
     }
 
+    // Lấy thông tin booking
+    const bookingRes = await req
+      .input('bookingId', sql.UniqueIdentifier, row.bookingId)
+      .query(`
+        SELECT TOP 1 * 
+        FROM dbo.Bookings WITH (UPDLOCK, ROWLOCK)
+        WHERE id = @bookingId
+      `);
+      
+    const booking = bookingRes.recordset[0];
+    if (!booking) throw new Error('Booking not found');
+
+    // Lấy ví của nhà hàng để cộng tiền cọc
+    const walletRes = await req
+      .input('restaurantId', sql.UniqueIdentifier, booking.restaurantId)
+      .query(`
+        SELECT TOP 1 *
+        FROM dbo.Wallets WITH (UPDLOCK, ROWLOCK)
+        WHERE restaurantId = @restaurantId
+      `);
+      
+    const wallet = walletRes.recordset[0];
+    if (!wallet) throw new Error('Restaurant wallet not found');
+
+    const balanceBefore = Number(wallet.balance);
+    const balanceAfter = balanceBefore + Number(row.amount); // Cộng tiền cọc vào ví
+
+    // Cập nhật số dư ví
+    await req
+      .input('walletId2', sql.UniqueIdentifier, wallet.id)
+      .input('balanceAfter', sql.Decimal(18, 2), balanceAfter)
+      .query(`
+        UPDATE dbo.Wallets
+        SET balance = @balanceAfter,
+            updatedAt = SYSUTCDATETIME()
+        WHERE id = @walletId2
+      `);
+
     await req
       .input('txId', sql.UniqueIdentifier, row.id)
       .input('providerTxnId', sql.NVarChar(100), providerTxnId || null)
       .input('metadataJson', sql.NVarChar(sql.MAX), metadataJson || null)
+      .input('walletIdTx', sql.UniqueIdentifier, wallet.id)
+      .input('balanceBeforeTx', sql.Decimal(18, 2), balanceBefore)
+      .input('balanceAfterTx', sql.Decimal(18, 2), balanceAfter)
       .query(`
         UPDATE dbo.Transactions
         SET status = 'completed',
+            walletId = @walletIdTx,
+            balanceBefore = @balanceBeforeTx,
+            balanceAfter = @balanceAfterTx,
             providerTxnId = @providerTxnId,
             metadataJson = @metadataJson,
             completedAt = SYSUTCDATETIME()
@@ -454,7 +515,6 @@ async function completeDepositTransaction({ referenceCode, providerTxnId, metada
       `);
 
     await req
-      .input('bookingId', sql.UniqueIdentifier, row.bookingId)
       .query(`
         UPDATE dbo.Bookings
         SET depositPaid = 1,
@@ -465,7 +525,7 @@ async function completeDepositTransaction({ referenceCode, providerTxnId, metada
       `);
 
     await tx.commit();
-    return { success: true };
+    return { success: true, bookingId: row.bookingId };
   } catch (err) {
     await tx.rollback();
     throw err;
@@ -490,6 +550,221 @@ async function failTransaction({ referenceCode, providerTxnId, metadataJson }) {
     `);
 }
 
+// Tạo yêu cầu rút tiền
+async function createWithdrawalRequest({ restaurantId, amount, description, referenceCode, idempotencyKey }) {
+  const pool = await getPool();
+  const tx = new sql.Transaction(pool);
+
+  try {
+    await tx.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+    const req = new sql.Request(tx);
+
+    const walletRes = await req
+      .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+      .query(`
+        SELECT TOP 1 *
+        FROM dbo.Wallets WITH (UPDLOCK, ROWLOCK)
+        WHERE restaurantId = @restaurantId
+      `);
+
+    const wallet = walletRes.recordset[0];
+    if (!wallet) throw new Error('Restaurant wallet not found');
+
+    const balanceBefore = Number(wallet.balance);
+    const lockedBefore = Number(wallet.lockedAmount || 0);
+    const withdrawAmount = Number(amount);
+
+    if (balanceBefore < withdrawAmount) {
+      throw new Error('Insufficient wallet balance');
+    }
+
+    const balanceAfter = balanceBefore - withdrawAmount;
+    const lockedAfter = lockedBefore + withdrawAmount;
+
+    await req
+      .input('walletId', sql.UniqueIdentifier, wallet.id)
+      .input('balanceAfter', sql.Decimal(18, 2), balanceAfter)
+      .input('lockedAfter', sql.Decimal(18, 2), lockedAfter)
+      .query(`
+        UPDATE dbo.Wallets
+        SET balance = @balanceAfter,
+            lockedAmount = @lockedAfter,
+            updatedAt = SYSUTCDATETIME()
+        WHERE id = @walletId
+      `);
+
+    const txRes = await req
+      .input('amount', sql.Decimal(18, 2), withdrawAmount)
+      .input('currency', sql.NVarChar(10), wallet.currency || 'VND')
+      .input('referenceCode', sql.NVarChar(100), referenceCode)
+      .input('description', sql.NVarChar(sql.MAX), description || 'Withdrawal request')
+      .input('idempotencyKey', sql.NVarChar(100), idempotencyKey || null)
+      .input('payerType', sql.NVarChar(30), 'RESTAURANT')
+      .input('provider', sql.NVarChar(30), 'INTERNAL')
+      .input('bb', sql.Decimal(18, 2), balanceBefore)
+      .input('ba', sql.Decimal(18, 2), balanceAfter)
+      .query(`
+        INSERT INTO dbo.Transactions (
+          walletId, type, amount, currency, balanceBefore, balanceAfter,
+          description, paymentMethod, referenceCode, status, payerType, provider, idempotencyKey, createdAt
+        )
+        OUTPUT INSERTED.*
+        VALUES (
+          @walletId, 'WITHDRAWAL', @amount, @currency, @bb, @ba,
+          @description, 'BANK_TRANSFER', @referenceCode, 'pending', @payerType, @provider, @idempotencyKey, SYSUTCDATETIME()
+        )
+      `);
+
+    await tx.commit();
+    return txRes.recordset[0];
+  } catch (err) {
+    await tx.rollback();
+    throw err;
+  }
+}
+
+// Admin duyệt yêu cầu rút tiền
+async function approveWithdrawalRequest(transactionId, { providerTxnId, metadataJson }) {
+  const pool = await getPool();
+  const tx = new sql.Transaction(pool);
+
+  try {
+    await tx.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+    const req = new sql.Request(tx);
+
+    const txRes = await req
+      .input('txId', sql.UniqueIdentifier, transactionId)
+      .query(`
+        SELECT TOP 1 *
+        FROM dbo.Transactions WITH (UPDLOCK, ROWLOCK)
+        WHERE id = @txId AND type = 'WITHDRAWAL'
+      `);
+
+    const transaction = txRes.recordset[0];
+    if (!transaction) throw new Error('Withdrawal transaction not found');
+    if (transaction.status !== 'pending') throw new Error('Transaction is not pending');
+
+    const walletRes = await req
+      .input('walletId', sql.UniqueIdentifier, transaction.walletId)
+      .query(`
+        SELECT TOP 1 *
+        FROM dbo.Wallets WITH (UPDLOCK, ROWLOCK)
+        WHERE id = @walletId
+      `);
+
+    const wallet = walletRes.recordset[0];
+    if (!wallet) throw new Error('Wallet not found');
+
+    const lockedBefore = Number(wallet.lockedAmount || 0);
+    const withdrawAmount = Number(transaction.amount);
+
+    if (lockedBefore < withdrawAmount) {
+      throw new Error('Inconsistent wallet locked amount');
+    }
+
+    const lockedAfter = lockedBefore - withdrawAmount;
+
+    await req
+      .input('lockedAfterApprove', sql.Decimal(18, 2), lockedAfter)
+      .query(`
+        UPDATE dbo.Wallets
+        SET lockedAmount = @lockedAfterApprove,
+            updatedAt = SYSUTCDATETIME()
+        WHERE id = @walletId
+      `);
+
+    await req
+      .input('providerTxnId', sql.NVarChar(100), providerTxnId || null)
+      .input('metadataJson', sql.NVarChar(sql.MAX), metadataJson ? JSON.stringify(metadataJson) : null)
+      .query(`
+        UPDATE dbo.Transactions
+        SET status = 'completed',
+            providerTxnId = @providerTxnId,
+            metadataJson = @metadataJson,
+            completedAt = SYSUTCDATETIME()
+        WHERE id = @txId
+      `);
+
+    await tx.commit();
+    return { success: true };
+  } catch (err) {
+    await tx.rollback();
+    throw err;
+  }
+}
+
+// Admin từ chối yêu cầu rút tiền
+async function rejectWithdrawalRequest(transactionId, { reason }) {
+  const pool = await getPool();
+  const tx = new sql.Transaction(pool);
+
+  try {
+    await tx.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+    const req = new sql.Request(tx);
+
+    const txRes = await req
+      .input('txId', sql.UniqueIdentifier, transactionId)
+      .query(`
+        SELECT TOP 1 *
+        FROM dbo.Transactions WITH (UPDLOCK, ROWLOCK)
+        WHERE id = @txId AND type = 'WITHDRAWAL'
+      `);
+
+    const transaction = txRes.recordset[0];
+    if (!transaction) throw new Error('Withdrawal transaction not found');
+    if (transaction.status !== 'pending') throw new Error('Transaction is not pending');
+
+    const walletRes = await req
+      .input('walletId', sql.UniqueIdentifier, transaction.walletId)
+      .query(`
+        SELECT TOP 1 *
+        FROM dbo.Wallets WITH (UPDLOCK, ROWLOCK)
+        WHERE id = @walletId
+      `);
+
+    const wallet = walletRes.recordset[0];
+    if (!wallet) throw new Error('Wallet not found');
+
+    const balanceBefore = Number(wallet.balance);
+    const lockedBefore = Number(wallet.lockedAmount || 0);
+    const withdrawAmount = Number(transaction.amount);
+
+    const balanceAfter = balanceBefore + withdrawAmount;
+    const lockedAfter = lockedBefore - withdrawAmount;
+
+    await req
+      .input('balanceAfterReject', sql.Decimal(18, 2), balanceAfter)
+      .input('lockedAfterReject', sql.Decimal(18, 2), lockedAfter)
+      .query(`
+        UPDATE dbo.Wallets
+        SET balance = @balanceAfterReject,
+            lockedAmount = @lockedAfterReject,
+            updatedAt = SYSUTCDATETIME()
+        WHERE id = @walletId
+      `);
+
+    await req
+      .input('reason', sql.NVarChar(sql.MAX), reason ? JSON.stringify({ reason }) : null)
+      .input('bb', sql.Decimal(18, 2), balanceBefore)
+      .input('ba', sql.Decimal(18, 2), balanceAfter)
+      .query(`
+        UPDATE dbo.Transactions
+        SET status = 'failed',
+            balanceBefore = @bb,
+            balanceAfter = @ba,
+            metadataJson = @reason,
+            failedAt = SYSUTCDATETIME()
+        WHERE id = @txId
+      `);
+
+    await tx.commit();
+    return { success: true };
+  } catch (err) {
+    await tx.rollback();
+    throw err;
+  }
+}
+
 module.exports = {
   findBookingForDeposit,
   findPendingDepositByBookingId,
@@ -497,12 +772,16 @@ module.exports = {
   createPendingDepositTransaction,
   findWalletByRestaurantId,
   findWalletByUserId,
+  findTransactionByIdempotencyKey,
   getWalletTransactions,
   findPendingTopupByWalletId,
   createPendingWalletTopupTransaction,
   findTransactionById,
   findTransactionByReferenceCode,
   completeDepositTransaction,
+  createWithdrawalRequest,
+  approveWithdrawalRequest,
+  rejectWithdrawalRequest,
   completeWalletTopupTransactionAndIncreaseBalance,
   chargeCommissionFromRestaurantToAdmin,
   failTransaction

@@ -92,9 +92,11 @@ async function getWalletHistory({ restaurantId }) {
   return paymentModel.getWalletTransactions(wallet.id);
 }
 
-async function chargeCommission({ restaurantId, adminUserId, amount, description }) {
+async function chargeCommission({ restaurantId, adminUserId, amount, description, idempotencyKey }) {
   const redis = await getRedis();
-  const lockKey = `payment:wallet:commission:charge:${restaurantId}:${adminUserId}`;
+  const lockKey = idempotencyKey
+    ? `payment:wallet:commission:idempotency:${idempotencyKey}`
+    : `payment:wallet:commission:charge:${restaurantId}:${adminUserId}`;
   const locked = await redis.set(lockKey, '1', { NX: true, EX: 15 });
 
   if (!locked) {
@@ -104,23 +106,42 @@ async function chargeCommission({ restaurantId, adminUserId, amount, description
   }
 
   try {
+    if (idempotencyKey) {
+      const existing = await paymentModel.findTransactionByIdempotencyKey(idempotencyKey);
+      if (existing) {
+        return {
+          success: true,
+          idempotent: true,
+          transactionId: existing.id,
+          referenceCode: existing.referenceCode,
+          amount: Number(existing.amount || 0),
+          status: existing.status
+        };
+      }
+    }
+
     const restaurantWallet = await paymentModel.findWalletByRestaurantId(restaurantId);
     if (!restaurantWallet) throw new Error('Restaurant wallet not found');
+    if (restaurantWallet.status !== 'active') throw new Error('Restaurant wallet is not active');
 
     const adminWallet = await paymentModel.findWalletByUserId(adminUserId);
     if (!adminWallet) throw new Error('Admin wallet not found');
+    if (adminWallet.status !== 'active') throw new Error('Admin wallet is not active');
 
     if (restaurantWallet.currency !== adminWallet.currency) {
       throw new Error('Wallet currency mismatch');
     }
 
+    const normalizedAmount = normalizeAmount(amount);
+
     return paymentModel.chargeCommissionFromRestaurantToAdmin({
       restaurantWalletId: restaurantWallet.id,
       adminWalletId: adminWallet.id,
-      amount: normalizeAmount(amount),
+      amount: normalizedAmount,
       currency: restaurantWallet.currency,
       description,
-      referenceCode: generateReferenceCode('COM')
+      referenceCode: generateReferenceCode('COM'),
+      idempotencyKey
     });
   } finally {
     await redis.del(lockKey);

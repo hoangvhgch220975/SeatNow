@@ -60,11 +60,28 @@ async function processProviderResult({ provider, payload, verifySignature = true
   // Neu thanh cong, re nhanh theo loai giao dich.
   if (success) {
     if (tx.type === 'DEPOSIT' || tx.type === 'DEPOSIT_PAYMENT') {
-      return paymentModel.completeDepositTransaction({
+      const depositResult = await paymentModel.completeDepositTransaction({
         referenceCode,
         providerTxnId,
         metadataJson: JSON.stringify(rawPayload)
       });
+      
+      // Notify booking-service internal API for realtime socket update
+      if (depositResult && depositResult.success && depositResult.bookingId) {
+        try {
+          const bookingBase = process.env.BOOKING_SERVICE_URL || 'http://localhost:3004/api/v1';
+          const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+          const headers = internalToken ? { 'x-internal-token': internalToken, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+          
+          fetch(`${bookingBase}/internal/bookings/${depositResult.bookingId}/payment-success`, {
+            method: 'POST',
+            headers
+          }).catch(e => console.error('Failed to trigger payment success webhook to booking service', e));
+        } catch (e) {
+          console.error('Error triggering booking service socket', e);
+        }
+      }
+      return depositResult;
     }
 
     if (tx.type === 'TOP_UP') {

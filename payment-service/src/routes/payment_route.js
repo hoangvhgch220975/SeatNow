@@ -2,6 +2,7 @@
 const express = require('express');
 const controller = require('../controllers/payment_controller');
 const validate = require('../middlewares/validate_middleware');
+const internalAuth = require('../middlewares/internalAuth_middleware');
 const {
 	createWalletTopupSchema,
 	chargeCommissionSchema
@@ -20,7 +21,12 @@ r.get('/transaction/:id', controller.getTransaction);
 r.post('/wallet/topup/create', validate(createWalletTopupSchema), controller.createWalletTopup);
 r.get('/wallet/balance', controller.getWalletBalance);
 r.get('/wallet/transactions', controller.getWalletTransactions);
-r.post('/wallet/commission/charge', validate(chargeCommissionSchema), controller.chargeCommission);
+r.post('/wallet/commission/charge', internalAuth, validate(chargeCommissionSchema), controller.chargeCommission);
+
+// Withdrawal APIs (usually called via internal requests from admin/restaurant service)
+r.post('/wallet/withdraw', internalAuth, controller.createWithdrawal);
+r.post('/internal/wallet/withdraw/:id/approve', internalAuth, controller.approveWithdrawal);
+r.post('/internal/wallet/withdraw/:id/reject', internalAuth, controller.rejectWithdrawal);
 
 // Xuất router
 module.exports = r;
