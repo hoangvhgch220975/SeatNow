@@ -89,7 +89,11 @@ async function createBooking({ actor, body }) {
 
   const { depositRequired, depositAmount } = computeDeposit(r, body.numGuests);
   const status = 'PENDING'; // Booking mới luôn là PENDING, chờ restaurant xác nhận
-  const commissionFee = depositRequired ? depositAmount * (Number(r.commissionRate || 0) / 100) : 0;
+  
+  // Tổng commission = (Phần trăm tiền cọc nếu có) + (10.000 VNĐ x Số khách)
+  const depositCommission = depositRequired ? depositAmount * (Number(r.commissionRate || 0) / 100) : 0;
+  const guestCommission = Number(body.numGuests || 0) * 10000;
+  const commissionFee = depositCommission + guestCommission;
 
   // lock by table+slot
   const redis = await getRedis();
@@ -176,6 +180,12 @@ async function commissionSummary(restaurantId, actor, { from, to } = {}) {
 
 // Chốt thu commission theo kỳ (đánh dấu commissionPaid=1)
 async function settleCommission(restaurantId, actor, { from, to, minAgeMinutes } = {}) {
+  if (String(process.env.COMMISSION_SETTLE_VIA_BOOKING || '').toLowerCase() !== 'true') {
+    const e = new Error('Direct settle via booking-service is disabled. Use admin-service /commissions/settle-quarter');
+    e.status = 409;
+    throw e;
+  }
+
   await ensureRestaurantAccess(restaurantId, actor);
   const effectiveMinAge = Number(minAgeMinutes ?? process.env.COMMISSION_SETTLE_MIN_AGE_MIN ?? 0);
   return bookingSql.settleCommissionByRestaurant(restaurantId, {
@@ -185,8 +195,35 @@ async function settleCommission(restaurantId, actor, { from, to, minAgeMinutes }
   });
 }
 
+// Internal API: lay booking candidates de admin-service xu ly charge that.
+async function getCommissionCandidatesInternal({ from, to, minAgeMinutes, restaurantIds } = {}) {
+  const effectiveMinAge = Number(minAgeMinutes ?? process.env.COMMISSION_SETTLE_MIN_AGE_MIN ?? 0);
+  const rows = await bookingSql.listCommissionCandidates({
+    from,
+    to,
+    minAgeMinutes: Number.isFinite(effectiveMinAge) ? effectiveMinAge : 0,
+    restaurantIds: Array.isArray(restaurantIds) ? restaurantIds : []
+  });
+
+  return {
+    totalBookings: rows.length,
+    totalAmount: rows.reduce((sum, x) => sum + Number(x.commissionFee || 0), 0),
+    items: rows
+  };
+}
+
+// Internal API: booking nao charge thanh cong thi moi mark commissionPaid.
+async function markCommissionPaidInternal({ bookingIds } = {}) {
+  return bookingSql.markCommissionPaidByBookingIds(Array.isArray(bookingIds) ? bookingIds : []);
+}
+
 // Job tự động chốt commission cho tất cả nhà hàng có booking đủ điều kiện
 async function autoSettleCommissions() {
+  // Legacy mode: auto mark chi de tuong thich ban cu, mac dinh tat.
+  if (String(process.env.COMMISSION_AUTO_MARK_LEGACY || '').toLowerCase() !== 'true') {
+    return [];
+  }
+
   const pool = await getPool();
   const rs = await pool.request().query(`
     SELECT DISTINCT restaurantId
@@ -286,6 +323,27 @@ async function getPaymentStatus(id) {
   };
 }
 
+// Xử lý tín hiệu nạp tiền cọc thành công (trigger từ payment-service)
+async function paymentSuccess(id) {
+  const booking = await bookingSql.findById(id);
+  if (!booking) { 
+    const e = new Error('Booking not found'); 
+    e.status = 404; 
+    throw e; 
+  }
+  
+  try { 
+    socket.emitBookingChanged({ 
+      restaurantId: booking.restaurantId, 
+      customerId: booking.customerId, 
+      payload: { type: 'payment_success', booking } 
+    }); 
+  } catch (e) {
+    console.error('Error emitting payment_success socket event', e);
+  }
+  return booking;
+}
+
 module.exports = {
   createBooking,
   guestLookup,
@@ -294,12 +352,15 @@ module.exports = {
   restaurantBookings,
   commissionSummary,
   settleCommission,
+  getCommissionCandidatesInternal,
+  markCommissionPaidInternal,
   autoSettleCommissions,
   confirm,
   arrived,
   complete,
   cancel,
   noShow,
-  getPaymentStatus
+  getPaymentStatus,
+  paymentSuccess
 };
 

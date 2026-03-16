@@ -6,6 +6,17 @@ const availabilitySvc = require('../services/availability_service');
 const { createBookingSchema } = require('../validators/booking_validator');
 const qrcode = require('qrcode');
 
+function ensureInternalAccess(req) {
+  const expected = process.env.INTERNAL_SERVICE_TOKEN;
+  if (!expected) return;
+  const got = req.headers['x-internal-token'];
+  if (got !== expected) {
+    const e = new Error('Forbidden internal endpoint');
+    e.status = 403;
+    throw e;
+  }
+}
+
 // Hàm lấy thông tin phân trang từ query parameters
 function pickPaging(q, defLimit) {
   return {
@@ -223,6 +234,46 @@ async function settleCommission(req, res) {
   }
 }
 
+// Internal: lay danh sach booking commission chua thu.
+async function internalCommissionCandidates(req, res) {
+  try {
+    ensureInternalAccess(req);
+    const data = await bookingSvc.getCommissionCandidatesInternal({
+      from: req.body?.from ?? req.query?.from,
+      to: req.body?.to ?? req.query?.to,
+      minAgeMinutes: req.body?.minAgeMinutes ?? req.query?.minAgeMinutes,
+      restaurantIds: req.body?.restaurantIds
+    });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+}
+
+// Internal: mark commissionPaid=1 cho booking charge thanh cong.
+async function internalMarkCommissionPaid(req, res) {
+  try {
+    ensureInternalAccess(req);
+    const data = await bookingSvc.markCommissionPaidInternal({
+      bookingIds: req.body?.bookingIds
+    });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+}
+
+// Internal: trigger socket cho payment success
+async function internalPaymentSuccess(req, res) {
+  try {
+    ensureInternalAccess(req);
+    const data = await bookingSvc.paymentSuccess(req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+}
+
 module.exports = {
   create,
   availability,
@@ -238,6 +289,9 @@ module.exports = {
   paymentStatus,
   commissionSummary,
   settleCommission,
+  internalCommissionCandidates,
+  internalMarkCommissionPaid,
+  internalPaymentSuccess,
   getQr
 };
 

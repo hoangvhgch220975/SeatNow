@@ -56,4 +56,11 @@ r.put('/bookings/:id/no-show', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 
 // QR for check-in (owner/admin)
 r.get('/bookings/:id/qr', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.getQr);
 
+// --- Internal service endpoints (admin-service orchestration) ---
+r.post('/internal/commissions/candidates', c.internalCommissionCandidates);
+r.post('/internal/commissions/mark-paid', c.internalMarkCommissionPaid);
+
+// Internal endpoint triggered by payment-service after successful deposit
+r.post('/internal/bookings/:id/payment-success', c.internalPaymentSuccess);
+
 module.exports = r;

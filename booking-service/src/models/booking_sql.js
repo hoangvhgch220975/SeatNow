@@ -146,8 +146,6 @@ async function getCommissionSummaryByRestaurant(restaurantId, { from, to } = {})
   const where = [
     'restaurantId=@restaurantId',
     `status IN (${eligibleStatuses.map((_, i) => `@st${i}`).join(',')})`,
-    'depositRequired=1',
-    'depositPaid=1',
     'ISNULL(commissionFee, 0) > 0'
   ];
 
@@ -202,8 +200,6 @@ async function settleCommissionByRestaurant(restaurantId, { from, to, minAgeMinu
     const where = [
       'restaurantId=@restaurantId',
       `status IN (${eligibleStatuses.map((_, i) => `@st${i}`).join(',')})`,
-      'depositRequired=1',
-      'depositPaid=1',
       'commissionPaid=0',
       'ISNULL(commissionFee, 0) > 0',
       `${timeExpr} <= DATEADD(minute, -@minAgeMinutes, SYSUTCDATETIME())`
@@ -242,6 +238,79 @@ async function settleCommissionByRestaurant(restaurantId, { from, to, minAgeMinu
     await tx.rollback();
     throw e;
   }
+}
+
+// Lay danh sach booking du dieu kien thu commission de service khac orchestrate.
+async function listCommissionCandidates({ from, to, minAgeMinutes = 0, restaurantIds = [] } = {}) {
+  const pool = await getPool();
+  const req = pool.request()
+    .input('minAgeMinutes', sql.Int, Number(minAgeMinutes || 0));
+
+  const where = [
+    "status='COMPLETED'",
+    'commissionPaid=0',
+    'ISNULL(commissionFee, 0) > 0',
+    'COALESCE(depositPaidAt, completedAt, confirmedAt, createdAt) <= DATEADD(minute, -@minAgeMinutes, SYSUTCDATETIME())'
+  ];
+
+  if (from) {
+    where.push('COALESCE(depositPaidAt, completedAt, confirmedAt, createdAt) >= @from');
+    req.input('from', sql.DateTime2, new Date(from));
+  }
+
+  if (to) {
+    where.push('COALESCE(depositPaidAt, completedAt, confirmedAt, createdAt) <= @to');
+    req.input('to', sql.DateTime2, new Date(to));
+  }
+
+  if (Array.isArray(restaurantIds) && restaurantIds.length) {
+    const placeholders = restaurantIds.map((_, i) => `@rid${i}`).join(', ');
+    restaurantIds.forEach((id, i) => req.input(`rid${i}`, sql.UniqueIdentifier, id));
+    where.push(`restaurantId IN (${placeholders})`);
+  }
+
+  const rs = await req.query(`
+    SELECT
+      id,
+      restaurantId,
+      bookingCode,
+      commissionFee,
+      COALESCE(depositPaidAt, completedAt, confirmedAt, createdAt) AS eligibleAt
+    FROM dbo.Bookings
+    WHERE ${where.join(' AND ')}
+    ORDER BY restaurantId, eligibleAt ASC
+  `);
+
+  return rs.recordset || [];
+}
+
+// Danh dau commissionPaid=1 cho cac booking da charge thanh cong.
+async function markCommissionPaidByBookingIds(bookingIds = []) {
+  if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+    return { affectedCount: 0, bookingIds: [] };
+  }
+
+  const pool = await getPool();
+  const req = pool.request();
+  const placeholders = bookingIds.map((_, i) => `@bid${i}`).join(', ');
+  bookingIds.forEach((id, i) => req.input(`bid${i}`, sql.UniqueIdentifier, id));
+
+  const rs = await req.query(`
+    UPDATE dbo.Bookings
+    SET commissionPaid = 1,
+        updatedAt = SYSUTCDATETIME()
+    OUTPUT INSERTED.id
+    WHERE id IN (${placeholders})
+      AND commissionPaid = 0
+      AND status = 'COMPLETED'
+      AND ISNULL(commissionFee, 0) > 0
+  `);
+
+  const affected = rs.recordset || [];
+  return {
+    affectedCount: affected.length,
+    bookingIds: affected.map((x) => x.id)
+  };
 }
 
 // Hàm cập nhật trạng thái booking với điều kiện trạng thái hiện tại
@@ -363,6 +432,8 @@ module.exports = {
   insertBookingTx,
   getCommissionSummaryByRestaurant,
   settleCommissionByRestaurant,
+  listCommissionCandidates,
+  markCommissionPaidByBookingIds,
   updateStatus,
   cancelBooking
 };
