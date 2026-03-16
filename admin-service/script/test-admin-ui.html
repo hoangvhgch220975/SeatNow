@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SeatNow Admin Service Test UI</title>
+  <style>
+    :root {
+      --bg: #f7f4ef;
+      --card: #ffffff;
+      --line: #ddd4c7;
+      --text: #1e1b18;
+      --muted: #6c6258;
+      --brand: #9d5c2f;
+      --brand-2: #244b45;
+      --danger: #a63c3c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(180deg, #f4ede2 0%, var(--bg) 100%);
+      color: var(--text);
+      padding: 20px;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+    }
+
+    .intro {
+      margin: 0 0 20px;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    }
+
+    .card.full {
+      grid-column: 1 / -1;
+    }
+
+    h2 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .hint {
+      margin: 0 0 14px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    input, textarea, button {
+      font: inherit;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fffdf9;
+    }
+
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--brand);
+      color: white;
+    }
+
+    button.secondary {
+      background: var(--brand-2);
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      border-radius: 12px;
+      background: #161616;
+      color: #d8f7e8;
+      min-height: 240px;
+      max-height: 420px;
+      overflow: auto;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    @media (max-width: 900px) {
+      .grid, .row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Admin Service Test UI</h1>
+    <p class="intro">Trang test nhanh cho admin-service: dashboard, restaurant gateway, pending/approve/suspend và settle commission.</p>
+
+    <div class="grid">
+      <section class="card full">
+        <h2>Cấu hình chung</h2>
+        <p class="hint">Điền token admin JWT trước khi test các API `/api/v1/admin/*`.</p>
+        <div class="row">
+          <div class="field">
+            <label for="baseUrl">Base URL</label>
+            <input id="baseUrl" value="http://localhost:3006" />
+          </div>
+          <div class="field">
+            <label for="restaurantId">Restaurant ID</label>
+            <input id="restaurantId" value="1" />
+          </div>
+          <div class="field full">
+            <label for="token">Bearer Token</label>
+            <textarea id="token" placeholder="Paste JWT token here"></textarea>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="btnHealth" class="secondary">GET Health</button>
+          <button id="btnStats">GET Dashboard Stats</button>
+          <button id="btnPending">GET Pending Restaurants</button>
+          <button id="btnClear" class="danger">Clear Output</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Create Restaurant</h2>
+        <p class="hint">Gateway qua admin-service tới restaurant-service. Chỉ ADMIN được tạo.</p>
+        <div class="field">
+          <label for="createBody">Body JSON</label>
+          <textarea id="createBody">{
+  "ownerId": "<owner-uuid>",
+  "name": "Nhà hàng Hoa Sen",
+  "address": "123 Đường Lê Lợi, Quận 1",
+  "latitude": 10.77653,
+  "longitude": 106.70098,
+  "phone": "+84900111222",
+  "email": "contact@hoasen.com",
+  "cuisineTypes": ["Vietnamese"],
+  "priceRange": 2,
+  "description": "Nhà hàng phục vụ phở và món Việt truyền thống.",
+  "images": ["https://example.com/hoasen.jpg"],
+  "openingHours": {"mon-fri": "10:00-22:00", "sat-sun": "08:00-23:00"},
+  "status": "pending",
+  "commissionRate": 0.1,
+  "isPremium": false,
+  "depositEnabled": false,
+  "depositPolicy": null
+}</textarea>
+        </div>
+        <div class="actions">
+          <button id="btnCreateRestaurant">POST Create Restaurant</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Update Restaurant</h2>
+        <p class="hint">Test sửa nhà hàng qua admin-service. Có thể sửa cả field nhạy cảm bằng role ADMIN.</p>
+        <div class="field">
+          <label for="updateBody">Body JSON</label>
+          <textarea id="updateBody">{
+  "name": "Nhà hàng Hoa Sen - CN1",
+  "address": "125 Đường Lê Lợi",
+  "priceRange": 3,
+  "commissionRate": 0.12,
+  "isPremium": true
+}</textarea>
+        </div>
+        <div class="actions">
+          <button id="btnUpdateRestaurant">PUT Update Restaurant</button>
+          <button id="btnApprove" class="secondary">PUT Approve</button>
+          <button id="btnSuspend" class="danger">PUT Suspend</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Settle Commission</h2>
+        <p class="hint">Dùng để dry-run hoặc chạy thật settlement quý.</p>
+        <div class="field">
+          <label for="commissionBody">Body JSON</label>
+          <textarea id="commissionBody">{
+  "year": 2026,
+  "quarter": 1,
+  "adminUserId": "49D42587-056D-4697-853C-52E69EC9A7A9",
+  "restaurantIds": [],
+  "dryRun": true,
+  "minAgeMinutes": 0
+}</textarea>
+        </div>
+        <div class="actions">
+          <button id="btnCommissionDry">POST Dry Run</button>
+          <button id="btnCommissionReal" class="secondary">POST Real Run</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Query APIs</h2>
+        <p class="hint">Test nhanh users, bookings, transactions bằng query string mẫu.</p>
+        <div class="field">
+          <label for="usersQuery">Users Query</label>
+          <input id="usersQuery" value="role=RESTAURANT_OWNER&page=1&limit=20" />
+        </div>
+        <div class="field">
+          <label for="bookingsQuery">Bookings Query</label>
+          <input id="bookingsQuery" value="status=COMPLETED&page=1&limit=20" />
+        </div>
+        <div class="field">
+          <label for="transactionsQuery">Transactions Query</label>
+          <input id="transactionsQuery" value="type=COMMISSION&page=1&limit=20" />
+        </div>
+        <div class="actions">
+          <button id="btnUsers">GET Users</button>
+          <button id="btnBookings">GET Bookings</button>
+          <button id="btnTransactions">GET Transactions</button>
+        </div>
+      </section>
+
+      <section class="card full">
+        <h2>Kết quả</h2>
+        <p class="hint">Log request/response để xem nhanh status code và payload.</p>
+        <pre id="output">(no output)</pre>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const output = $("output");
+
+    function appendLog(message, data) {
+      const time = new Date().toLocaleTimeString();
+      const line = typeof data === "undefined"
+        ? `[${time}] ${message}`
+        : `[${time}] ${message}\n${typeof data === "string" ? data : JSON.stringify(data, null, 2)}`;
+
+      output.textContent = output.textContent === "(no output)"
+        ? line
+        : `${line}\n\n${output.textContent}`;
+    }
+
+    function getAuthHeaders() {
+      const token = $("token").value.trim();
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+      return headers;
+    }
+
+    function parseJson(id) {
+      try {
+        return JSON.parse($(id).value);
+      } catch (err) {
+        throw new Error(`JSON không hợp lệ trong ô ${id}: ${err.message}`);
+      }
+    }
+
+    async function request(method, path, body) {
+      const baseUrl = $("baseUrl").value.trim().replace(/\/+$/, "");
+      const url = `${baseUrl}${path}`;
+      const options = {
+        method,
+        headers: getAuthHeaders()
+      };
+
+      if (typeof body !== "undefined") {
+        options.body = JSON.stringify(body);
+      }
+
+      appendLog(`${method} ${url}`, typeof body === "undefined" ? undefined : body);
+
+      try {
+        const res = await fetch(url, options);
+        const text = await res.text();
+        let parsed = text;
+        try { parsed = JSON.parse(text); } catch (_) {}
+        appendLog(`Response ${res.status}`, parsed);
+        return { status: res.status, data: parsed };
+      } catch (err) {
+        appendLog("Request error", err.message);
+        throw err;
+      }
+    }
+
+    $("btnClear").addEventListener("click", () => {
+      output.textContent = "(no output)";
+    });
+
+    $("btnHealth").addEventListener("click", () => request("GET", "/health"));
+    $("btnStats").addEventListener("click", () => request("GET", "/api/v1/admin/dashboard/stats"));
+    $("btnPending").addEventListener("click", () => request("GET", "/api/v1/admin/restaurants/pending"));
+    $("btnCreateRestaurant").addEventListener("click", () => request("POST", "/api/v1/admin/restaurants", parseJson("createBody")));
+    $("btnUpdateRestaurant").addEventListener("click", () => request("PUT", `/api/v1/admin/restaurants/${encodeURIComponent($("restaurantId").value.trim())}`, parseJson("updateBody")));
+    $("btnApprove").addEventListener("click", () => request("PUT", `/api/v1/admin/restaurants/${encodeURIComponent($("restaurantId").value.trim())}/approve`));
+    $("btnSuspend").addEventListener("click", () => request("PUT", `/api/v1/admin/restaurants/${encodeURIComponent($("restaurantId").value.trim())}/suspend`));
+
+    $("btnCommissionDry").addEventListener("click", () => {
+      const body = parseJson("commissionBody");
+      body.dryRun = true;
+      return request("POST", "/api/v1/admin/commissions/settle-quarter", body);
+    });
+
+    $("btnCommissionReal").addEventListener("click", () => {
+      const body = parseJson("commissionBody");
+      body.dryRun = false;
+      return request("POST", "/api/v1/admin/commissions/settle-quarter", body);
+    });
+
+    $("btnUsers").addEventListener("click", () => request("GET", `/api/v1/admin/users?${$("usersQuery").value.trim()}`));
+    $("btnBookings").addEventListener("click", () => request("GET", `/api/v1/admin/bookings?${$("bookingsQuery").value.trim()}`));
+    $("btnTransactions").addEventListener("click", () => request("GET", `/api/v1/admin/transactions?${$("transactionsQuery").value.trim()}`));
+  </script>
+</body>
+</html>

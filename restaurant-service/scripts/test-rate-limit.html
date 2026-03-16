@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rate Limit Tester</title>
+  <style>
+    body{font-family:Segoe UI,Roboto,Arial;margin:16px}
+    label{display:block;margin-top:8px}
+    input,select,button,textarea{margin-top:4px;padding:8px;font-size:14px;width:100%;box-sizing:border-box}
+    .row{display:flex;gap:8px}
+    .row > *{flex:1}
+    .stats{margin-top:12px;display:flex;gap:12px}
+    .panel{padding:10px;border:1px solid #ddd;border-radius:6px;background:#fafafa}
+    pre{max-height:200px;overflow:auto;background:#111;color:#dff; padding:8px}
+  </style>
+</head>
+<body>
+  <h2>Rate Limit Tester</h2>
+
+  <label>Request URL
+    <input id="url" type="text" value="http://localhost:3000/api/test" />
+  </label>
+
+  <div class="row">
+    <label>Method
+      <select id="method">
+        <option>GET</option>
+        <option>POST</option>
+        <option>PUT</option>
+        <option>DELETE</option>
+      </select>
+    </label>
+    <label>Interval (ms)
+      <input id="interval" type="number" value="500" />
+    </label>
+  </div>
+
+  <div class="row">
+    <label>Body (JSON)
+      <textarea id="body" rows="4" placeholder='{"key":"value"}'></textarea>
+    </label>
+    <label>Max requests (0 = unlimited)
+      <input id="max" type="number" value="0" />
+    </label>
+  </div>
+
+  <div style="margin-top:8px;display:flex;gap:8px">
+    <button id="start">Start</button>
+    <button id="stop" disabled>Stop</button>
+    <button id="clear">Clear Log</button>
+  </div>
+
+  <div class="stats">
+    <div class="panel">Sent: <strong id="sent">0</strong></div>
+    <div class="panel">Success: <strong id="ok">0</strong></div>
+    <div class="panel">Fail: <strong id="fail">0</strong></div>
+    <div class="panel">Last status: <strong id="last">-</strong></div>
+  </div>
+
+  <h3 style="margin-top:12px">Log</h3>
+  <pre id="log">(no logs)</pre>
+
+  <script>
+    const el = id=>document.getElementById(id)
+    const urlEl = el('url'), methodEl = el('method'), intervalEl = el('interval')
+    const bodyEl = el('body'), maxEl = el('max')
+    const startBtn = el('start'), stopBtn = el('stop'), clearBtn = el('clear')
+    const sentEl = el('sent'), okEl = el('ok'), failEl = el('fail'), lastEl = el('last'), logEl = el('log')
+
+    let timer = null
+    let counts = {sent:0,ok:0,fail:0}
+
+    function appendLog(text){
+      if(logEl.textContent === '(no logs)') logEl.textContent = ''
+      const time = new Date().toLocaleTimeString()
+      logEl.textContent = `${time} | ${text}\n` + logEl.textContent
+    }
+
+    async function sendOnce(){
+      const url = urlEl.value.trim()
+      if(!url) return
+      const method = methodEl.value
+      let options = {method,headers:{'Content-Type':'application/json'}}
+      if(method !== 'GET' && method !== 'HEAD'){
+        try{options.body = bodyEl.value ? JSON.stringify(JSON.parse(bodyEl.value)) : ''}catch(e){appendLog('Invalid JSON body'); return}
+      }
+      counts.sent++
+      sentEl.textContent = counts.sent
+      try{
+        const res = await fetch(url, options)
+        const text = await res.text()
+        lastEl.textContent = res.status
+        if(res.ok){counts.ok++; okEl.textContent = counts.ok} else {counts.fail++; failEl.textContent = counts.fail}
+        appendLog(`${res.status} ${method} ${url} -> ${text.slice(0,200)}`)
+      }catch(err){
+        counts.fail++
+        failEl.textContent = counts.fail
+        lastEl.textContent = 'ERR'
+        appendLog(`ERR ${method} ${url} -> ${err.message}`)
+      }
+    }
+
+    startBtn.addEventListener('click', ()=>{
+      const interval = Math.max(10, Number(intervalEl.value) || 500)
+      const max = Number(maxEl.value) || 0
+      startBtn.disabled = true; stopBtn.disabled = false
+      if(max > 0){ // stop after max
+        timer = setInterval(async ()=>{
+          if(max > 0 && counts.sent >= max){ clearInterval(timer); timer = null; startBtn.disabled = false; stopBtn.disabled = true; appendLog('Reached max requests'); return }
+          await sendOnce()
+        }, interval)
+      } else {
+        timer = setInterval(sendOnce, interval)
+      }
+      appendLog('Started')
+    })
+
+    stopBtn.addEventListener('click', ()=>{
+      if(timer){clearInterval(timer); timer = null}
+      startBtn.disabled = false; stopBtn.disabled = true
+      appendLog('Stopped')
+    })
+
+    clearBtn.addEventListener('click', ()=>{
+      logEl.textContent = '(no logs)'
+      counts = {sent:0,ok:0,fail:0}
+      sentEl.textContent = '0'; okEl.textContent = '0'; failEl.textContent = '0'; lastEl.textContent = '-'
+    })
+  </script>
+</body>
+</html>

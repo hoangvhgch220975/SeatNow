@@ -1,0 +1,197 @@
+{
+  "info": {
+    "name": "SeatNow Admin Service",
+    "_postman_id": "admin-service-collection",
+    "description": "Collection to test admin-service endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3006" },
+    { "key": "token", "value": "" },
+    { "key": "restaurantId", "value": "1" },
+    { "key": "restaurantOwnerId", "value": "<owner-uuid>" },
+    { "key": "adminUserId", "value": "49D42587-056D-4697-853C-52E69EC9A7A9" },
+    { "key": "userRole", "value": "RESTAURANT_OWNER" },
+    { "key": "keyword", "value": "" },
+    { "key": "bookingStatus", "value": "COMPLETED" },
+    { "key": "transactionStatus", "value": "SUCCESS" },
+    { "key": "transactionType", "value": "COMMISSION" },
+    { "key": "year", "value": "2026" },
+    { "key": "quarter", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "01. Health",
+      "item": [
+        {
+          "name": "GET Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Dashboard",
+      "item": [
+        {
+          "name": "GET Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/dashboard/stats"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Restaurants",
+      "item": [
+        {
+          "name": "POST Create Restaurant Gateway [ADMIN]",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerId\": \"{{restaurantOwnerId}}\",\n  \"name\": \"Nhà hàng Hoa Sen\",\n  \"address\": \"123 Đường Lê Lợi, Quận 1\",\n  \"latitude\": 10.77653,\n  \"longitude\": 106.70098,\n  \"phone\": \"+84900111222\",\n  \"email\": \"contact@hoasen.com\",\n  \"cuisineTypes\": [\"Vietnamese\"],\n  \"priceRange\": 2,\n  \"description\": \"Nhà hàng phục vụ phở và món Việt truyền thống.\",\n  \"images\": [\"https://example.com/hoasen.jpg\"],\n  \"openingHours\": {\"mon-fri\": \"10:00-22:00\", \"sat-sun\": \"08:00-23:00\"},\n  \"status\": \"pending\",\n  \"commissionRate\": 0.1,\n  \"isPremium\": false,\n  \"depositEnabled\": false,\n  \"depositPolicy\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/restaurants"
+          }
+        },
+        {
+          "name": "PUT Update Restaurant Gateway [ADMIN]",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nhà hàng Hoa Sen - CN1\",\n  \"address\": \"125 Đường Lê Lợi\",\n  \"priceRange\": 3,\n  \"commissionRate\": 0.12,\n  \"isPremium\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/restaurants/{{restaurantId}}"
+          }
+        },
+        {
+          "name": "GET Pending Restaurants",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/restaurants/pending"
+          }
+        },
+        {
+          "name": "PUT Approve Restaurant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/restaurants/{{restaurantId}}/approve"
+          }
+        },
+        {
+          "name": "PUT Suspend Restaurant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/restaurants/{{restaurantId}}/suspend"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Users",
+      "item": [
+        {
+          "name": "GET Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/users?role={{userRole}}&keyword={{keyword}}&page=1&limit=20"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Bookings",
+      "item": [
+        {
+          "name": "GET Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/bookings?status={{bookingStatus}}&restaurantId={{restaurantId}}&page=1&limit=20"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Transactions",
+      "item": [
+        {
+          "name": "GET Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/transactions?type={{transactionType}}&status={{transactionStatus}}&restaurantId={{restaurantId}}&page=1&limit=20"
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Commissions",
+      "item": [
+        {
+          "name": "POST Settle Quarter Commission Dry Run",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"year\": {{year}},\n  \"quarter\": {{quarter}},\n  \"adminUserId\": \"{{adminUserId}}\",\n  \"restaurantIds\": [],\n  \"dryRun\": true,\n  \"minAgeMinutes\": 0\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/commissions/settle-quarter"
+          }
+        },
+        {
+          "name": "POST Settle Quarter Commission Real Run",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"year\": {{year}},\n  \"quarter\": {{quarter}},\n  \"adminUserId\": \"{{adminUserId}}\",\n  \"restaurantIds\": [],\n  \"dryRun\": false,\n  \"minAgeMinutes\": 0\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/commissions/settle-quarter"
+          }
+        }
+      ]
+    }
+  ]
+}

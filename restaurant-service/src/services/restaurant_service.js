@@ -61,13 +61,47 @@ async function softDeleteRestaurant(id) {
   return restaurantSql.softDelete(id);
 }
 
+// Goi booking-service de lay availability theo nha hang.
+async function getAvailability({ restaurantId, date, time, guests }) {
+  if (!date || !time) {
+    const e = new Error('date and time are required');
+    e.status = 422;
+    throw e;
+  }
+
+  const baseRaw = process.env.BOOKING_SERVICE_URL || 'http://localhost:3004';
+  const base = String(baseRaw).replace(/\/+$/, '');
+  const apiBase = base.endsWith('/api/v1') ? base : `${base}/api/v1`;
+  const qs = new URLSearchParams({
+    date: String(date),
+    time: String(time)
+  });
+
+  if (guests !== undefined && guests !== null && String(guests).length) {
+    qs.set('guests', String(guests));
+  }
+
+  const url = `${apiBase}/restaurants/${restaurantId}/availability?${qs.toString()}`;
+  const res = await fetch(url);
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const e = new Error(json?.message || `Booking availability request failed (${res.status})`);
+    e.status = res.status;
+    throw e;
+  }
+
+  return json;
+}
+
 module.exports = {
   listRestaurants,
   getRestaurant,
   createRestaurant,
   updateRestaurant,
   updateDepositPolicy,
-  softDeleteRestaurant
+  softDeleteRestaurant,
+  getAvailability
 };
 
 

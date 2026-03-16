@@ -1,27 +1,30 @@
-/**
- * restaurant.route - placeholder routes
- */
+// restaurant.route.js
+// Dinh nghia route theo tung khu vuc nghiep vu de de doc va de bao tri.
+
 const router = require('express').Router();
 
+// ===== Middlewares =====
 const rateLimit = require('../middlewares/rateLimit_middleware');
 const { authOptional, requireAuth } = require('../middlewares/jwt_middleware');
 const requireRole = require('../middlewares/requireRole_middleware');
 
+// ===== Validators =====
 const { validateQuery, validateBody, listQuerySchema } = require('../validators/common_validator');
 const { upsertRestaurantSchema, depositPolicySchema } = require('../validators/restaurant_validator');
 const { upsertMenuItemSchema } = require('../validators/menu_validator');
 const { createReviewSchema } = require('../validators/review_validator');
 const { createTableSchema, updateTableSchema } = require('../validators/table_validator');
 
+// ===== Controllers =====
 const restaurantCtl = require('../controllers/restaurant_controller');
 const menuCtl = require('../controllers/menu_controller');
 const reviewCtl = require('../controllers/review_controller');
 const tableCtl = require('../controllers/table_controller');
 
-/**
- * ✅ PUBLIC search + near-me
- * FE gọi: GET /api/v1/restaurants?lat=...&lng=...&radiusKm=...&sort=distance
- */
+// ==================================================
+// PUBLIC: Search + Detail
+// FE goi: GET /api/v1/restaurants?lat=...&lng=...&radiusKm=...&sort=distance
+// ==================================================
 router.get(
   '/',
   authOptional,
@@ -36,7 +39,9 @@ router.get(
   restaurantCtl.detail
 );
 
-/* -------------------- Menu (Mongo) -------------------- */
+// ==================================================
+// MENU (Mongo)
+// ==================================================
 router.get(
   '/:id/menu',
   rateLimit({ limit: 120, windowSec: 60, key: 'restaurants_menu' }),
@@ -66,7 +71,9 @@ router.delete(
   menuCtl.remove
 );
 
-/* -------------------- Reviews (Mongo) -------------------- */
+// ==================================================
+// REVIEWS (Mongo)
+// ==================================================
 router.get(
   '/:id/reviews',
   rateLimit({ limit: 120, windowSec: 60, key: 'restaurants_reviews' }),
@@ -81,7 +88,9 @@ router.post(
   reviewCtl.create
 );
 
-/* -------------------- Tables (SQL) -------------------- */
+// ==================================================
+// TABLES (SQL)
+// ==================================================
 router.get(
   '/:id/tables',
   requireAuth,
@@ -112,7 +121,9 @@ router.delete(
   tableCtl.remove
 );
 
-/* -------------------- Restaurant CRUD (SQL) -------------------- */
+// ==================================================
+// RESTAURANT CRUD (SQL)
+// ==================================================
 router.post(
   '/',
   requireAuth,
@@ -144,9 +155,7 @@ router.delete(
   restaurantCtl.remove
 );
 
-/**
- * availability/bookings/dashboard
- */
-router.get('/:id/availability', (req, res) => res.status(501).json({ message: 'Implement via booking-service' }));
+
+router.get('/:id/availability', restaurantCtl.availability);
 
 module.exports = router;

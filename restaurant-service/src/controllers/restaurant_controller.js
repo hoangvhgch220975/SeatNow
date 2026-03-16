@@ -74,4 +74,28 @@ async function remove(req, res) {
   }
 }
 
-module.exports = { list, detail, create, update, updateDepositPolicy, remove };
+// Proxy availability sang booking-service de dung chung logic slot/table.
+async function availability(req, res) {
+  try {
+    const restaurantId = req.params.id;
+    const data = await restaurantSvc.getAvailability({
+      restaurantId,
+      date: req.query.date,
+      time: req.query.time,
+      guests: req.query.guests
+    });
+    res.json(data);
+  } catch (e) {
+    res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
+module.exports = {
+  list,
+  detail,
+  create,
+  update,
+  updateDepositPolicy,
+  remove,
+  availability
+};
