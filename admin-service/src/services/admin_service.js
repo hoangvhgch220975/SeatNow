@@ -326,9 +326,50 @@ async function settleQuarterCommission({ year, quarter, adminUserId, restaurantI
     candidateBookings: items.length,
     candidateRestaurants: group.size,
     totalCharged,
-    totalMarked,
     restaurants
   };
+}
+
+// Admin duyệt yêu cầu rút tiền của nhà hàng
+async function approveWithdrawal(transactionId, payload, authorization) {
+  if (!transactionId) throw createHttpError('transactionId is required', 422);
+
+  const paymentBase = process.env.PAYMENT_SERVICE_URL || 'http://localhost:3005/api/v1/payment';
+  const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+  const headers = internalToken ? { 'x-internal-token': internalToken } : {};
+
+  if (authorization) {
+    headers['Authorization'] = authorization;
+  }
+
+  const result = await postJson(
+    `${paymentBase}/internal/wallet/withdraw/${transactionId}/approve`,
+    payload,
+    headers
+  );
+
+  return result?.data ?? result;
+}
+
+// Admin từ chối yêu cầu rút tiền của nhà hàng
+async function rejectWithdrawal(transactionId, payload, authorization) {
+  if (!transactionId) throw createHttpError('transactionId is required', 422);
+
+  const paymentBase = process.env.PAYMENT_SERVICE_URL || 'http://localhost:3005/api/v1/payment';
+  const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+  const headers = internalToken ? { 'x-internal-token': internalToken } : {};
+
+  if (authorization) {
+    headers['Authorization'] = authorization;
+  }
+
+  const result = await postJson(
+    `${paymentBase}/internal/wallet/withdraw/${transactionId}/reject`,
+    payload,
+    headers
+  );
+
+  return result?.data ?? result;
 }
 
 module.exports = {
@@ -338,8 +379,9 @@ module.exports = {
   getPendingRestaurants,
   approveRestaurant,
   suspendRestaurant,
-  getUsers,
   getBookings,
   getTransactions,
-  settleQuarterCommission
+  settleQuarterCommission,
+  approveWithdrawal,
+  rejectWithdrawal
 };

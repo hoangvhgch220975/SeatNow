@@ -114,15 +114,35 @@ async function settleQuarterCommission(req, res, next) {
   }
 }
 
+// Admin duyệt yêu cầu rút tiền
+async function approveWithdrawal(req, res, next) {
+  try {
+    const data = await adminService.approveWithdrawal(req.params.id, req.body, req.headers.authorization);
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Admin từ chối yêu cầu rút tiền
+async function rejectWithdrawal(req, res, next) {
+  try {
+    const data = await adminService.rejectWithdrawal(req.params.id, req.body, req.headers.authorization);
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createRestaurant,
   updateRestaurant,
   getStats,
   getPendingRestaurants,
-  approveRestaurant,
-  suspendRestaurant,
   getUsers,
   getBookings,
   getTransactions,
-  settleQuarterCommission
+  settleQuarterCommission,
+  approveWithdrawal,
+  rejectWithdrawal
 };

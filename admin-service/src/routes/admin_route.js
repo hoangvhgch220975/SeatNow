@@ -25,4 +25,8 @@ router.get('/transactions', controller.getTransactions);
 // Quy trinh doi soat commission theo quy
 router.post('/commissions/settle-quarter', controller.settleQuarterCommission);
 
+// Quy trinh duyet / tu choi rut tien
+router.post('/withdrawals/:id/approve', controller.approveWithdrawal);
+router.post('/withdrawals/:id/reject', controller.rejectWithdrawal);
+
 module.exports = router;
