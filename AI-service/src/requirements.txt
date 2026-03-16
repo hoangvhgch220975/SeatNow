@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+google-generativeai
+pyodbc
+redis
+python-dotenv
+PyJWT
+pydantic

@@ -1,0 +1,714 @@
+{
+	"info": {
+		"_postman_id": "ai-service-seatnow-2026",
+		"name": "SeatNow - AI Service",
+		"description": "Test collection for SeatNow AI Service (port 3007).\n\n**2 main groups:**\n- Customer AI: restaurant recommendations + multi-turn chat\n- Admin AI: revenue analytics + business strategy chat\n\n**Setup:** Fill in `customerToken` and `adminToken` in the Variables tab before running tests.\n\nGet tokens via: POST http://localhost:3001/api/v1/auth/login",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3007",
+			"type": "string"
+		},
+		{
+			"key": "customerToken",
+			"value": "",
+			"type": "string",
+			"description": "JWT access token for a customer account (role=customer). Get from auth-service login."
+		},
+		{
+			"key": "adminToken",
+			"value": "",
+			"type": "string",
+			"description": "JWT access token for an admin account (role=admin). Alternatively use internal token: vhTony_24_internal_token"
+		}
+	],
+	"item": [
+		{
+			"name": "0. Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Service is running', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res.status).to.eql('OK');",
+									"    pm.expect(res.service).to.include('SeatNow AI');",
+									"    console.log('AI Service running on port:', res.port);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						},
+						"description": "Check if the AI service is running."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "1. Customer AI",
+			"item": [
+				{
+					"name": "Get Restaurant Recommendations (One-shot)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has recommendations field', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res).to.have.property('recommendations');",
+									"    pm.expect(res.recommendations).to.be.a('string').and.not.empty;",
+									"    console.log('Recommendations preview:', res.recommendations.substring(0, 200) + '...');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{customerToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/customer/recommend",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "customer", "recommend"]
+						},
+						"description": "One-shot restaurant recommendation based on the customer's booking history. No chat history is stored.\n\n**Auth:** Customer JWT (role=customer)"
+					},
+					"response": []
+				},
+				{
+					"name": "Customer Chat - First Message",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has reply and session_key', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res).to.have.property('reply');",
+									"    pm.expect(res).to.have.property('session_key');",
+									"    pm.expect(res.reply).to.be.a('string').and.not.empty;",
+									"    console.log('Session key:', res.session_key);",
+									"    console.log('Reply:', res.reply.substring(0, 300));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{customerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"I'm looking for a mid-range Japanese restaurant for 2 people tonight.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/customer/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "customer", "chat"]
+						},
+						"description": "Send the first message to the AI. Conversation history is saved to Redis (TTL 7 days)."
+					},
+					"response": []
+				},
+				{
+					"name": "Customer Chat - Follow-up (Multi-turn)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has reply with context from previous turn', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res).to.have.property('reply');",
+									"    pm.expect(res.reply).to.be.a('string').and.not.empty;",
+									"    console.log('Follow-up reply:', res.reply.substring(0, 300));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{customerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"Is that place suitable for a romantic date? I need a private setting.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/customer/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "customer", "chat"]
+						},
+						"description": "Follow-up message. The AI remembers context from the previous turn via Redis history."
+					},
+					"response": []
+				},
+				{
+					"name": "Customer Chat - Ask by Cuisine",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{customerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"I prefer traditional Vietnamese food. Any recommendations?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/customer/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "customer", "chat"]
+						},
+						"description": "Test recommendation filtered by cuisine type."
+					},
+					"response": []
+				},
+				{
+					"name": "Customer Chat - Ask by Budget",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{customerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"I have a tight budget today, around 100,000 VND per person. What do you suggest?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/customer/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "customer", "chat"]
+						},
+						"description": "Test recommendation filtered by price range / budget."
+					},
+					"response": []
+				},
+				{
+					"name": "Clear Customer Chat History",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Chat history cleared successfully', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res).to.have.property('message');",
+									"    pm.expect(res).to.have.property('session_key');",
+									"    console.log('Cleared session:', res.session_key);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{customerToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/customer/chat/history",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "customer", "chat", "history"]
+						},
+						"description": "Delete all chat history for this customer from Redis."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Admin AI",
+			"item": [
+				{
+					"name": "Revenue Summary (One-shot)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has summary field', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res).to.have.property('summary');",
+									"    pm.expect(res.summary).to.be.a('string').and.not.empty;",
+									"    console.log('Revenue summary preview:', res.summary.substring(0, 300) + '...');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/admin/revenue-summary",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "admin", "revenue-summary"]
+						},
+						"description": "One-shot analysis of the last 12 months of revenue data. Returns trends, insights, and near-future business direction suggestions.\n\n**Auth:** Admin JWT (role=admin) or internal service token."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin Chat - Peak Revenue Month",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has reply and session_key', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res).to.have.property('reply');",
+									"    pm.expect(res).to.have.property('session_key');",
+									"    pm.expect(res.reply).to.be.a('string').and.not.empty;",
+									"    console.log('Session key:', res.session_key);",
+									"    console.log('Reply:', res.reply.substring(0, 300));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"Which month had the highest revenue in the past 12 months and why?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/admin/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "admin", "chat"]
+						},
+						"description": "Ask about peak revenue month. History is stored in Redis with 7-day TTL."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin Chat - Next Month Strategy (Multi-turn)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"Based on that trend, which restaurant types and locations should we focus on next month to increase commission revenue?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/admin/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "admin", "chat"]
+						},
+						"description": "Multi-turn follow-up asking for strategy recommendations based on the previous answer."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin Chat - Cancellation Rate Analysis",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"What is the current booking cancellation rate? Is it concerning? What actions should we take to improve it?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/admin/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "admin", "chat"]
+						},
+						"description": "Analyze booking cancellation rate and get actionable recommendations."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin Chat - Top Restaurants",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"Which restaurants contribute the most commission to the platform? What strategies should we use to retain them as partners?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/admin/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "admin", "chat"]
+						},
+						"description": "Analyze top restaurants by commission and get partner retention strategies."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin Chat - Via Internal Service Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Internal service token accepted', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res).to.have.property('reply');",
+									"    console.log('Internal token accepted successfully');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer vhTony_24_internal_token",
+								"description": "Hardcoded INTERNAL_SERVICE_TOKEN from .env — used for service-to-service calls."
+							},
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"Give me a quick summary of this month's revenue performance.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/admin/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "admin", "chat"]
+						},
+						"description": "Test access via INTERNAL_SERVICE_TOKEN. Used for service-to-service calls without a user JWT.\n\nToken: `vhTony_24_internal_token`"
+					},
+					"response": []
+				},
+				{
+					"name": "Clear Admin Chat History",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Admin chat history cleared', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res).to.have.property('message');",
+									"    pm.expect(res).to.have.property('session_key');",
+									"    console.log('Cleared session:', res.session_key);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/admin/chat/history",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "admin", "chat", "history"]
+						},
+						"description": "Delete all admin chat history from Redis."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Error Cases",
+			"item": [
+				{
+					"name": "No Token → 401 Unauthorized",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Should return 401 Unauthorized', function () {",
+									"    pm.response.to.have.status(401);",
+									"    console.log('401 returned as expected (no token)');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"Recommend a restaurant\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/customer/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "customer", "chat"]
+						},
+						"description": "Request without Authorization header. Expects 401."
+					},
+					"response": []
+				},
+				{
+					"name": "Customer Token on Admin Endpoint → 403 Forbidden",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Should return 403 Forbidden', function () {",
+									"    pm.response.to.have.status(403);",
+									"    console.log('403 returned as expected (wrong role)');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}",
+								"description": "Using customer token to access an admin-only endpoint."
+							},
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"test\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/admin/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "admin", "chat"]
+						},
+						"description": "Customer tries to access an admin-only endpoint. Expects 403."
+					},
+					"response": []
+				},
+				{
+					"name": "Missing message Field → 422 Validation Error",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Should return 422 Unprocessable Entity', function () {",
+									"    pm.response.to.have.status(422);",
+									"    console.log('422 validation error returned as expected (missing message field)');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{customerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/customer/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "customer", "chat"]
+						},
+						"description": "Empty body without the required `message` field. Expects 422 from Pydantic validation."
+					},
+					"response": []
+				},
+				{
+					"name": "Invalid Token → 401 Unauthorized",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Should return 401 for invalid JWT', function () {",
+									"    pm.response.to.have.status(401);",
+									"    console.log('401 returned as expected (invalid token)');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer this.is.not.a.valid.jwt" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"test\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/customer/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "customer", "chat"]
+						},
+						"description": "Request with a malformed/invalid JWT. Expects 401."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
