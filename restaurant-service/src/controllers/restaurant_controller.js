@@ -3,6 +3,9 @@
  */
 const restaurantSvc = require('../services/restaurant_service');
 
+// Các trường chỉ ADMIN mới được thay đổi
+const ADMIN_ONLY_FIELDS = ['status', 'isPremium', 'commissionRate'];
+
 // Hàm liệt kê nhà hàng với phân trang và lọc
 async function list(req, res) {
   try {
@@ -24,11 +27,11 @@ async function detail(req, res) {
   }
 }
 
-// Hàm tạo mới một nhà hàng
+// Hàm tạo mới một nhà hàng (chỉ ADMIN)
+// ownerId lấy từ body - admin tạo nhà hàng thay cho owner
 async function create(req, res) {
   try {
-    const ownerId = req.user?.userId || req.user?.id;
-    const data = await restaurantSvc.createRestaurant(ownerId, req.body);
+    const data = await restaurantSvc.createRestaurant(req.body);
     res.status(201).json({ data });
   } catch (e) {
     res.status(400).json({ message: e.message });
@@ -36,14 +39,25 @@ async function create(req, res) {
 }
 
 // Hàm cập nhật thông tin nhà hàng
+// - ADMIN: cập nhật mọi trường
+// - RESTAURANT_OWNER: chỉ cập nhật thông tin thông thường, không được sửa trường nhạy cảm
 async function update(req, res) {
   try {
-    // Chỉ admin mới được cập nhật trường 'status'
     const payload = { ...req.body };
-    if (payload.hasOwnProperty('status') && req.user?.role !== 'ADMIN') {
-      delete payload.status;
-      res.status(403).json({ message: 'Permission denied' });
-      return;
+    const role = req.user?.role;
+
+    // Strip các trường admin-only nếu không phải ADMIN
+    if (role !== 'ADMIN') {
+      for (const f of ADMIN_ONLY_FIELDS) delete payload[f];
+    }
+
+    // Kiểm tra ownership nếu là RESTAURANT_OWNER
+    if (role === 'RESTAURANT_OWNER') {
+      const existing = await restaurantSvc.getRestaurant(req.params.id);
+      if (!existing) return res.status(404).json({ message: 'Not found' });
+      if (existing.ownerId !== req.user.id) {
+        return res.status(403).json({ message: 'Forbidden: not your restaurant' });
+      }
     }
 
     const data = await restaurantSvc.updateRestaurant(req.params.id, payload);

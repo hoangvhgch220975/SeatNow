@@ -37,10 +37,10 @@ async function getRestaurant(id) {
 }
 
 
-// Hàm tạo một nhà hàng mới với thông tin từ payload
-async function createRestaurant(ownerId, payload) {
+// Hàm tạo một nhà hàng mới - payload từ admin (bao gồm ownerId, commissionRate, status, ...)
+async function createRestaurant(payload) {
   const slug = makeSlug(payload.name);
-  return restaurantSql.createRestaurant({ ...payload, ownerId, slug });
+  return restaurantSql.createRestaurant({ ...payload, slug });
 }
 
 // Hàm cập nhật thông tin của một nhà hàng dựa trên ID và payload
