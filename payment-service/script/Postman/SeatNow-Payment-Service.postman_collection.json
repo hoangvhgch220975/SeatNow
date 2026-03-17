@@ -370,6 +370,38 @@
             "description": "Lay lich su giao dich vi restaurant"
           },
           "response": []
+        },
+        {
+          "name": "Create Withdrawal Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-internal-token",
+                "value": "{{internalToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"amount\": 50000,\n  \"description\": \"Yêu cầu rút tiền doanh thu\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/wallet/withdraw",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wallet",
+                "withdraw"
+              ]
+            },
+            "description": "Nhà hàng tạo yêu cầu rút tiền"
+          },
+          "response": []
         }
       ]
     },
