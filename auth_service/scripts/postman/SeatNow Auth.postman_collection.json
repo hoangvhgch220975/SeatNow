@@ -40,7 +40,7 @@
       "request": {
         "method": "POST",
         "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"accountType\": \"customer\",\n  \"otp\": \"123456\"\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"otp\": \"123456\"\n}" },
         "url": { "raw": "http://localhost:3001/api/v1/auth/register", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","register"] }
       }
     },
@@ -49,7 +49,7 @@
       "request": {
         "method": "POST",
         "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"accountType\": \"customer\",\n  \"firebaseToken\": \"<FIREBASE_ID_TOKEN>\"\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"firebaseToken\": \"<FIREBASE_ID_TOKEN>\"\n}" },
         "url": { "raw": "http://localhost:3001/api/v1/auth/register", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","register"] }
       }
     },

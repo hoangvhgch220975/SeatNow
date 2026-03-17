@@ -54,6 +54,9 @@ async function persistSession({ sid, userId, role, refreshToken }) {
 
 // ====== PUBLIC API ======
 async function register({ phone, email, name, password, accountType }) {
+  // force all public registrations to CUSTOMER regardless of requested account type
+  const role = 'CUSTOMER';
+  
   // check tồn tại (phone/email unique)
   const byPhone = await UserModel.findByPhoneOrEmail({ phone });
   if (byPhone) throw Object.assign(new Error('PHONE_ALREADY_EXISTS'), { status: 409 });
@@ -87,7 +90,6 @@ async function register({ phone, email, name, password, accountType }) {
     await verifyOtp({ phone, code: arguments[0].otp });
   }
 
-  const role = mapAccountTypeToRole(accountType);
   const passwordHash = await bcrypt.hash(password, 10);
 
   const user = await UserModel.createUser({ phone, email, name, passwordHash, role });
@@ -103,6 +105,30 @@ async function register({ phone, email, name, password, accountType }) {
     refreshToken
   };
 }
+
+// ====== INTERNAL / ADMIN API ======
+async function createRestaurantOwnerByAdmin({ phone, email, name, password }) {
+  // check tồn tại (phone/email unique)
+  const byPhone = await UserModel.findByPhoneOrEmail({ phone });
+  if (byPhone) throw Object.assign(new Error('PHONE_ALREADY_EXISTS'), { status: 409 });
+
+  if (email) {
+    const byEmail = await UserModel.findByPhoneOrEmail({ email });
+    if (byEmail) throw Object.assign(new Error('EMAIL_ALREADY_EXISTS'), { status: 409 });
+  }
+
+  if (!phone) throw Object.assign(new Error('PHONE_REQUIRED'), { status: 400 });
+  if (!password) throw Object.assign(new Error('PASSWORD_REQUIRED'), { status: 400 });
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const user = await UserModel.createUser({ phone, email, name, passwordHash, role: 'RESTAURANT_OWNER' });
+
+  return {
+    user: { id: user.id, phone: user.phone, email: user.email, name: user.name, role: user.role }
+  };
+}
+
 
 async function login({ identifier, password }) {
   const user = await UserModel.findByPhoneOrEmail({ phone: identifier, email: identifier });
@@ -296,5 +322,6 @@ module.exports = {
   sendOtp,
   verifyOtp,
   resetPassword,
-  googleSignIn
-};   
+  googleSignIn,
+  createRestaurantOwnerByAdmin
+};

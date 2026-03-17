@@ -71,3 +71,12 @@ exports.googleSignin = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.createRestaurantOwner = async (req, res, next) => {
+  try {
+    const data = await AuthService.createRestaurantOwnerByAdmin(req.body);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
