@@ -99,6 +99,29 @@ async function updateRestaurant({ restaurantId, payload, authorization }) {
   return result?.data ?? result;
 }
 
+// Tao tai khoan chu nha hang thong qua auth-service
+async function createRestaurantOwner({ payload, authorization }) {
+  if (!payload || typeof payload !== 'object') throw createHttpError('payload is required', 422);
+
+  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1').replace(/\/+$/, '');
+  const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+  const headers = internalToken ? { 'x-internal-token': internalToken } : {};
+
+  if (authorization) {
+    headers['Authorization'] = authorization;
+  }
+
+  const result = await requestJson(
+    'POST',
+    `${authBaseUrl}/internal/users/restaurant-owner`,
+    payload,
+    headers
+  );
+
+  return result?.data ?? result;
+}
+
+
 // Lay thong ke dashboard tu SQL model.
 async function getStats() {
   return adminModel.getDashboardStats();
@@ -383,5 +406,7 @@ module.exports = {
   getTransactions,
   settleQuarterCommission,
   approveWithdrawal,
-  rejectWithdrawal
+  rejectWithdrawal,
+  createRestaurantOwner
 };
+

@@ -125,6 +125,21 @@
             ],
             "url": "{{baseUrl}}/api/v1/admin/users?role={{userRole}}&keyword={{keyword}}&page=1&limit=20"
           }
+        },
+        {
+          "name": "POST Create Restaurant Owner [ADMIN]",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+84900111222\",\n  \"email\": \"owner@hoasen.com\",\n  \"name\": \"Chủ Nhà Hàng Hoa Sen\",\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/users/restaurant-owner"
+          }
         }
       ]
     },
@@ -189,6 +204,41 @@
               "raw": "{\n  \"year\": {{year}},\n  \"quarter\": {{quarter}},\n  \"adminUserId\": \"{{adminUserId}}\",\n  \"restaurantIds\": [],\n  \"dryRun\": false,\n  \"minAgeMinutes\": 0\n}"
             },
             "url": "{{baseUrl}}/api/v1/admin/commissions/settle-quarter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Withdrawals",
+      "item": [
+        {
+          "name": "POST Approve Withdrawal [ADMIN]",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"providerTxnId\": \"TXN001\",\n  \"metadataJson\": \"{\\\"note\\\":\\\"Duyệt rút tiền thành công\\\"}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/withdrawals/{{transactionId}}/approve"
+          }
+        },
+        {
+          "name": "POST Reject Withdrawal [ADMIN]",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Thông tin tài khoản ngân hàng không hợp lệ\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/withdrawals/{{transactionId}}/reject"
           }
         }
       ]

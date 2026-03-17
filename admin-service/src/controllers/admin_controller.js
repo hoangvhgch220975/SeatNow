@@ -1,5 +1,18 @@
 const adminService = require('../services/admin_service');
 
+// Tao tai khoan chu nha hang
+async function createRestaurantOwner(req, res, next) {
+  try {
+    const data = await adminService.createRestaurantOwner({
+      payload: req.body,
+      authorization: req.headers.authorization
+    });
+    return res.status(201).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Tao nha hang qua admin-service, sau do forward sang restaurant-service.
 async function createRestaurant(req, res, next) {
   try {
@@ -135,6 +148,7 @@ async function rejectWithdrawal(req, res, next) {
 }
 
 module.exports = {
+  createRestaurantOwner,
   createRestaurant,
   updateRestaurant,
   getStats,
