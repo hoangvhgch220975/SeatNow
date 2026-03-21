@@ -1,244 +1,166 @@
 {
   "info": {
-    "name": "SeatNow Admin Service",
-    "_postman_id": "admin-service-collection",
-    "description": "Collection to test admin-service endpoints",
+    "name": "SeatNow - Admin Service",
+    "_postman_id": "admin-service-v2",
+    "description": "Collection for Admin Service: Dashboard, User Management, Restaurant Management, Financials.\nBase URL: http://localhost:3006\nSetup: Login as Admin first to get {{token}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3006" },
-    { "key": "token", "value": "" },
-    { "key": "restaurantId", "value": "1" },
-    { "key": "restaurantOwnerId", "value": "<owner-uuid>" },
-    { "key": "adminUserId", "value": "49D42587-056D-4697-853C-52E69EC9A7A9" },
-    { "key": "userRole", "value": "RESTAURANT_OWNER" },
-    { "key": "keyword", "value": "" },
-    { "key": "bookingStatus", "value": "COMPLETED" },
-    { "key": "transactionStatus", "value": "SUCCESS" },
-    { "key": "transactionType", "value": "COMMISSION" },
-    { "key": "year", "value": "2026" },
-    { "key": "quarter", "value": "1" }
+    { "key": "baseUrl", "value": "http://localhost:3006/api/v1/admin", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "userId", "value": "", "type": "string" },
+    { "key": "restaurantId", "value": "", "type": "string" },
+    { "key": "withdrawalId", "value": "", "type": "string" }
   ],
   "item": [
     {
-      "name": "01. Health",
+      "name": "1. Dashboard",
       "item": [
         {
-          "name": "GET Health",
+          "name": "Get Dashboard Stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Has stats fields', function () {",
+                  "    pm.expect(res).to.have.property('totalUsers');",
+                  "    pm.expect(res).to.have.property('totalRestaurants');",
+                  "    pm.expect(res).to.have.property('totalBookings');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/health"
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/dashboard/stats"
           }
         }
       ]
     },
     {
-      "name": "02. Dashboard",
+      "name": "2. User Management",
       "item": [
         {
-          "name": "GET Dashboard Stats",
+          "name": "Get User List",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has users array', function () {",
+                  "    pm.expect(res.data || res).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/dashboard/stats"
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/users"
           }
-        }
-      ]
-    },
-    {
-      "name": "03. Restaurants",
-      "item": [
+        },
         {
-          "name": "POST Create Restaurant Gateway [ADMIN]",
+          "name": "Reset Owner Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"ownerId\": \"{{restaurantOwnerId}}\",\n  \"name\": \"Nhà hàng Hoa Sen\",\n  \"address\": \"123 Đường Lê Lợi, Quận 1\",\n  \"latitude\": 10.77653,\n  \"longitude\": 106.70098,\n  \"phone\": \"+84900111222\",\n  \"email\": \"contact@hoasen.com\",\n  \"cuisineTypes\": [\"Vietnamese\"],\n  \"priceRange\": 2,\n  \"description\": \"Nhà hàng phục vụ phở và món Việt truyền thống.\",\n  \"images\": [\"https://example.com/hoasen.jpg\"],\n  \"openingHours\": {\"mon-fri\": \"10:00-22:00\", \"sat-sun\": \"08:00-23:00\"},\n  \"status\": \"pending\",\n  \"commissionRate\": 0.1,\n  \"isPremium\": false,\n  \"depositEnabled\": false,\n  \"depositPolicy\": null\n}"
+              "raw": "{\n  \"newPassword\": \"AdminReset123!\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "url": "{{baseUrl}}/api/v1/admin/restaurants"
-          }
-        },
-        {
-          "name": "PUT Update Restaurant Gateway [ADMIN]",
-          "request": {
-            "method": "PUT",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Nhà hàng Hoa Sen - CN1\",\n  \"address\": \"125 Đường Lê Lợi\",\n  \"priceRange\": 3,\n  \"commissionRate\": 0.12,\n  \"isPremium\": true\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/restaurants/{{restaurantId}}"
-          }
-        },
-        {
-          "name": "GET Pending Restaurants",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/restaurants/pending"
-          }
-        },
-        {
-          "name": "PUT Approve Restaurant",
-          "request": {
-            "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/restaurants/{{restaurantId}}/approve"
-          }
-        },
-        {
-          "name": "PUT Suspend Restaurant",
-          "request": {
-            "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/restaurants/{{restaurantId}}/suspend"
+            "url": "{{baseUrl}}/users/owner/{{userId}}/reset-password",
+            "description": "Admin reset password cho account Restaurant Owner."
           }
         }
       ]
     },
     {
-      "name": "04. Users",
+      "name": "3. Restaurant Management",
       "item": [
         {
-          "name": "GET Users",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/users?role={{userRole}}&keyword={{keyword}}&page=1&limit=20"
-          }
-        },
-        {
-          "name": "POST Create Restaurant Owner [ADMIN]",
+          "name": "Approve Restaurant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"phone\": \"+84900111222\",\n  \"email\": \"owner@hoasen.com\",\n  \"name\": \"Chủ Nhà Hàng Hoa Sen\",\n  \"password\": \"SecurePass123!\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/users/restaurant-owner"
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/restaurants/{{restaurantId}}/approve"
           }
         }
       ]
     },
     {
-      "name": "05. Bookings",
+      "name": "4. Financials",
       "item": [
         {
-          "name": "GET Bookings",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/bookings?status={{bookingStatus}}&restaurantId={{restaurantId}}&page=1&limit=20"
-          }
-        }
-      ]
-    },
-    {
-      "name": "06. Transactions",
-      "item": [
-        {
-          "name": "GET Transactions",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/transactions?type={{transactionType}}&status={{transactionStatus}}&restaurantId={{restaurantId}}&page=1&limit=20"
-          }
-        }
-      ]
-    },
-    {
-      "name": "07. Commissions",
-      "item": [
-        {
-          "name": "POST Settle Quarter Commission Dry Run",
+          "name": "Approve Withdrawal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"year\": {{year}},\n  \"quarter\": {{quarter}},\n  \"adminUserId\": \"{{adminUserId}}\",\n  \"restaurantIds\": [],\n  \"dryRun\": true,\n  \"minAgeMinutes\": 0\n}"
+              "raw": "{\n  \"note\": \"Validated and approved by financial team\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "url": "{{baseUrl}}/api/v1/admin/commissions/settle-quarter"
-          }
-        },
-        {
-          "name": "POST Settle Quarter Commission Real Run",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"year\": {{year}},\n  \"quarter\": {{quarter}},\n  \"adminUserId\": \"{{adminUserId}}\",\n  \"restaurantIds\": [],\n  \"dryRun\": false,\n  \"minAgeMinutes\": 0\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/commissions/settle-quarter"
-          }
-        }
-      ]
-    },
-    {
-      "name": "08. Withdrawals",
-      "item": [
-        {
-          "name": "POST Approve Withdrawal [ADMIN]",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"providerTxnId\": \"TXN001\",\n  \"metadataJson\": \"{\\\"note\\\":\\\"Duyệt rút tiền thành công\\\"}\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/withdrawals/{{transactionId}}/approve"
-          }
-        },
-        {
-          "name": "POST Reject Withdrawal [ADMIN]",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reason\": \"Thông tin tài khoản ngân hàng không hợp lệ\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/admin/withdrawals/{{transactionId}}/reject"
+            "url": "{{baseUrl}}/withdrawals/{{withdrawalId}}/approve"
           }
         }
       ]

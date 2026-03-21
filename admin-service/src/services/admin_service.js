@@ -121,6 +121,28 @@ async function createRestaurantOwner({ payload, authorization }) {
   return result?.data ?? result;
 }
 
+// Admin reset mat khau cho restaurant owner
+async function resetOwnerPassword({ ownerId, authorization }) {
+  if (!ownerId) throw createHttpError('ownerId is required', 422);
+
+  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1').replace(/\/+$/, '');
+  const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+  const headers = internalToken ? { 'x-internal-token': internalToken } : {};
+
+  if (authorization) {
+    headers['Authorization'] = authorization;
+  }
+
+  const result = await requestJson(
+    'POST',
+    `${authBaseUrl}/internal/users/${ownerId}/reset-password`,
+    {},
+    headers
+  );
+
+  return result?.data ?? result;
+}
+
 
 // Lay thong ke dashboard tu SQL model.
 async function getStats() {
@@ -417,6 +439,7 @@ module.exports = {
   approveWithdrawal,
   rejectWithdrawal,
   createRestaurantOwner,
-  getAdminRevenueStats
+  getAdminRevenueStats,
+  resetOwnerPassword
 };
 

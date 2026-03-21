@@ -13,6 +13,19 @@ async function createRestaurantOwner(req, res, next) {
   }
 }
 
+// Admin reset mat khau chu nha hang
+async function resetOwnerPassword(req, res, next) {
+  try {
+    const data = await adminService.resetOwnerPassword({
+      ownerId: req.params.id,
+      authorization: req.headers.authorization
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Tao nha hang qua admin-service, sau do forward sang restaurant-service.
 async function createRestaurant(req, res, next) {
   try {
@@ -169,5 +182,6 @@ module.exports = {
   settleQuarterCommission,
   approveWithdrawal,
   rejectWithdrawal,
-  getAdminRevenueStats
+  getAdminRevenueStats,
+  resetOwnerPassword
 };
