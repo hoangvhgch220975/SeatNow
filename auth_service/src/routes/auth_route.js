@@ -10,10 +10,13 @@ router.post('/send-otp', c.sendOtp);
 router.post('/verify-otp', c.verifyOtp);
 // forgot-password có thể alias = send-otp 
 router.post('/forgot-password', c.sendOtp);
+router.post('/forgot-password/customer', c.forgotPasswordCustomer);
+
 router.post('/reset-password', c.resetPassword);
 router.post('/google-signin', c.googleSignin);
 
 // Internal API for Admin service
 router.post('/internal/users/restaurant-owner', c.createRestaurantOwner);
+router.post('/internal/users/:id/reset-password', c.resetPasswordOwnerByAdmin);
 
 module.exports = router;

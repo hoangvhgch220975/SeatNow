@@ -314,6 +314,63 @@ async function googleSignIn({ idToken, accountType, phone }) {
   };
 }
 
+function generateRandomPassword(length = 8) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
+const { sendNewPasswordEmail } = require('../utils/email_util');
+
+async function forgotPasswordCustomer({ phone, email }) {
+  if (!phone || !email) {
+    throw Object.assign(new Error('MISSING_PHONE_OR_EMAIL'), { status: 400 });
+  }
+
+  const user = await UserModel.findAuthByPhoneAndEmail(phone, email);
+  if (!user) {
+    throw Object.assign(new Error('USER_NOT_FOUND_OR_MISMATCH'), { status: 404 });
+  }
+  
+  if (user.role !== 'CUSTOMER') {
+    throw Object.assign(new Error('INVALID_ROLE_FOR_THIS_ACTION'), { status: 403 });
+  }
+
+  const newRawPassword = generateRandomPassword(8);
+  const passwordHash = await bcrypt.hash(newRawPassword, 10);
+
+  await UserModel.updatePasswordById(user.id, passwordHash);
+
+  await sendNewPasswordEmail(user.email, newRawPassword);
+
+  return { success: true, message: 'NEW_PASSWORD_SENT_TO_EMAIL' };
+}
+
+async function resetPasswordOwnerByAdmin(userId) {
+  const user = await UserModel.findById(userId);
+  if (!user) {
+    throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
+  }
+
+  if (user.role !== 'RESTAURANT_OWNER') {
+    throw Object.assign(new Error('USER_IS_NOT_OWNER'), { status: 400 });
+  }
+
+  const newRawPassword = generateRandomPassword(8);
+  const passwordHash = await bcrypt.hash(newRawPassword, 10);
+
+  await UserModel.updatePasswordById(user.id, passwordHash);
+
+  if (user.email) {
+    await sendNewPasswordEmail(user.email, newRawPassword);
+  }
+
+  return { success: true, message: 'OWNER_PASSWORD_RESET_SUCCESSFULLY', email: user.email };
+}
+
 module.exports = {
   register,
   login,
@@ -323,5 +380,7 @@ module.exports = {
   verifyOtp,
   resetPassword,
   googleSignIn,
-  createRestaurantOwnerByAdmin
+  createRestaurantOwnerByAdmin,
+  forgotPasswordCustomer,
+  resetPasswordOwnerByAdmin
 };

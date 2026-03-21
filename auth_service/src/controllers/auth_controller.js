@@ -80,3 +80,21 @@ exports.createRestaurantOwner = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.forgotPasswordCustomer = async (req, res, next) => {
+  try {
+    const data = await AuthService.forgotPasswordCustomer(req.body);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.resetPasswordOwnerByAdmin = async (req, res, next) => {
+  try {
+    const data = await AuthService.resetPasswordOwnerByAdmin(req.params.id);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};

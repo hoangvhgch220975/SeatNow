@@ -17,6 +17,15 @@ async function findByPhoneOrEmail({ phone, email }) {
   return result.recordset[0] || null;
 }
 
+async function findAuthByPhoneAndEmail(phone, email) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('phone', sql.NVarChar(20), phone)
+    .input('email', sql.NVarChar(255), email)
+    .query(`SELECT TOP 1 * FROM dbo.Users WHERE phone = @phone AND email = @email`);
+  return rs.recordset[0] || null;
+}
+
 async function findById(id) {
   const pool = await getPool();
   const res = await pool.request()
@@ -105,6 +114,7 @@ async function incrementLoyaltyPoints(userId, delta = 1) {
 
 module.exports = {
   findByPhoneOrEmail,
+  findAuthByPhoneAndEmail,
   findById,
   createUser,
   updatePasswordById,
