@@ -60,8 +60,9 @@ router.put('/:id', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), valida
 router.put('/:id/deposit-policy', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), validateBody(depositPolicySchema), restaurantCtl.updateDepositPolicy);
 router.delete('/:id', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), restaurantCtl.remove);
 
-
+// Lấy thông tin bàn trống
 router.get('/:id/availability', restaurantCtl.availability);
+// Lấy thông tin doanh thu
 router.get('/:id/revenue-stats', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), restaurantCtl.revenueStats);
 
 module.exports = router;

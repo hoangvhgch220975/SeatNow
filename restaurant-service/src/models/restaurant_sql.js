@@ -358,6 +358,19 @@ async function softDelete(id) {
   return updateRestaurant(id, { status: 'suspended' });
 }
 
+async function updateRestaurantRating(id, ratingAvg, ratingCount) {
+  const pool = await getPool();
+  await pool.request()
+    .input('id', sql.UniqueIdentifier, id)
+    .input('ratingAvg', sql.Float, ratingAvg)
+    .input('ratingCount', sql.Int, ratingCount)
+    .query(`
+      UPDATE dbo.Restaurants
+      SET ratingAvg=@ratingAvg, ratingCount=@ratingCount, updatedAt=SYSUTCDATETIME()
+      WHERE id=@id;
+    `);
+}
+
 module.exports = {
   findMany,
   findManyNearMe,
@@ -366,5 +379,6 @@ module.exports = {
   createRestaurant,
   updateRestaurant,
   updateDepositPolicy,
-  softDelete
+  softDelete,
+  updateRestaurantRating
 };
