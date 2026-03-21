@@ -62,5 +62,6 @@ router.delete('/:id', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), res
 
 
 router.get('/:id/availability', restaurantCtl.availability);
+router.get('/:id/revenue-stats', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), restaurantCtl.revenueStats);
 
 module.exports = router;

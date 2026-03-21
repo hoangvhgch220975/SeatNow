@@ -94,6 +94,34 @@ async function getAvailability({ restaurantId, date, time, guests }) {
   return json;
 }
 
+// Gọi booking-service để lấy revenue stats
+async function getRevenueStats({ restaurantId, period, from, to, token }) {
+  const baseRaw = process.env.BOOKING_SERVICE_URL || 'http://localhost:3004';
+  const base = String(baseRaw).replace(/\/+$/, '');
+  const apiBase = base.endsWith('/api/v1') ? base : `${base}/api/v1`;
+  
+  const qs = new URLSearchParams();
+  if (period) qs.set('period', period);
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+
+  const url = `${apiBase}/restaurants/${restaurantId}/revenue-stats?${qs.toString()}`;
+  const res = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const e = new Error(json?.message || `Booking revenue stats request failed (${res.status})`);
+    e.status = res.status;
+    throw e;
+  }
+
+  return json;
+}
+
 module.exports = {
   listRestaurants,
   getRestaurant,
@@ -101,7 +129,8 @@ module.exports = {
   updateRestaurant,
   updateDepositPolicy,
   softDeleteRestaurant,
-  getAvailability
+  getAvailability,
+  getRevenueStats
 };
 
 

@@ -104,6 +104,23 @@ async function availability(req, res) {
   }
 }
 
+// Hàm lấy thống kê doanh thu
+async function revenueStats(req, res) {
+  try {
+    const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : '';
+    const data = await restaurantSvc.getRevenueStats({
+      restaurantId: req.params.id,
+      period: req.query.period,
+      from: req.query.from,
+      to: req.query.to,
+      token
+    });
+    res.json(data);
+  } catch (e) {
+    res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
 module.exports = {
   list,
   detail,
@@ -111,5 +128,6 @@ module.exports = {
   update,
   updateDepositPolicy,
   remove,
-  availability
+  availability,
+  revenueStats
 };
