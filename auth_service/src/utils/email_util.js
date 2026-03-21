@@ -22,25 +22,36 @@ async function sendNewPasswordEmail(email, newPassword) {
       subject: "SeatNow - Password Reset Notification",
       text: `Your new password is: ${newPassword}`,
       html: `
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #eaebed; border-radius: 10px; background-color: #ffffff;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #1a1a1a; margin: 0; font-size: 28px; letter-spacing: 1px;">SeatNow</h1>
-            <div style="height: 3px; background-color: #d9534f; width: 60px; margin: 15px auto 0;"></div>
+        <div style="font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid #f0f0f0; background-color: #ffffff;">
+          <div style="background: linear-gradient(135deg, #6610f2 0%, #6f42c1 100%); padding: 40px 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">SeatNow</h1>
+            <p style="color: rgba(255,255,255,0.8); margin: 10px 0 0; font-size: 16px;">Security Notification</p>
           </div>
-          <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6;">Hello,</p>
-          <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6;">We have received a request to reset the password for your SeatNow account. Your temporary password has been successfully generated.</p>
-          <div style="text-align: center; margin: 35px 0;">
-            <p style="color: #888888; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px;"><strong>Your New Password</strong></p>
-            <div style="display: inline-block; padding: 18px 40px; background-color: #f8f9fa; border: 2px dashed #e2e8f0; border-radius: 8px;">
-              <span style="font-size: 28px; font-weight: bold; color: #d9534f; font-family: 'Courier New', Courier, monospace; letter-spacing: 3px;">${newPassword}</span>
+          <div style="padding: 40px; background-color: #ffffff;">
+            <p style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin-bottom: 16px;">Hello,</p>
+            <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Your request to reset your SeatNow password has been processed. Please find your temporary password below.</p>
+            
+            <div style="text-align: center; margin: 32px 0; padding: 24px; background-color: #f3f0ff; border-radius: 12px; border: 1px dashed #6f42c1;">
+              <p style="color: #6f42c1; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 12px 0;">Temporary Password</p>
+              <div style="font-size: 36px; font-weight: 800; color: #5227cc; font-family: 'Courier New', Courier, monospace; letter-spacing: 4px;">${newPassword}</div>
+            </div>
+
+            <div style="background-color: #fff9db; border-left: 4px solid #fcc419; padding: 16px; margin-bottom: 32px;">
+              <p style="color: #856404; font-size: 14px; margin: 0; line-height: 1.5;"><strong>Security Tip:</strong> For your protection, please log in and update this password immediately in your account settings.</p>
+            </div>
+
+            <div style="text-align: center;">
+              <p style="color: #718096; font-size: 14px; line-height: 1.6;">If you didn't request this change, you can safely ignore this email or contact support if you have concerns.</p>
+            </div>
+            
+            <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #edf2f7; text-align: center;">
+              <p style="color: #2d3748; font-size: 16px; font-weight: 600; margin: 0;">Best regards,</p>
+              <p style="color: #6f42c1; font-size: 16px; font-weight: 700; margin: 4px 0 20px;">The SeatNow Team</p>
             </div>
           </div>
-          <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6;">For your security, we strongly advise you to log in to your account and change this temporary password immediately.</p>
-          <br/>
-          <p style="color: #4a4a4a; font-size: 16px; line-height: 1.6; margin-top: 20px;">Best regards,<br><strong style="color: #1a1a1a;">The SeatNow Team</strong></p>
-          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eaebed; text-align: center; font-size: 12px; color: #9e9e9e; line-height: 1.5;">
-            <p style="margin: 0 0 5px 0;">If you did not request a password reset, please contact our support team immediately.</p>
-            <p style="margin: 0;">&copy; ${new Date().getFullYear()} SeatNow. All rights reserved.</p>
+          <div style="background-color: #f8fafc; padding: 20px; text-align: center; color: #a0aec0; font-size: 12px;">
+            <p style="margin: 0;">© ${new Date().getFullYear()} SeatNow. Premium Dining Experience.</p>
+            <p style="margin: 4px 0 0;">This is an automated message, please do not reply.</p>
           </div>
         </div>
       `,

@@ -1,0 +1,92 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{23F82894-144E-4CFE-A8F7-10FEADC20BCB}|SeatNow.GateWay\\SeatNow.GateWay.csproj|c:\\users\\admin\\onedrive\\desktop\\final project\\seatnow.gateway\\seatnow.gateway\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{23F82894-144E-4CFE-A8F7-10FEADC20BCB}|SeatNow.GateWay\\SeatNow.GateWay.csproj|solutionrelative:seatnow.gateway\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{23F82894-144E-4CFE-A8F7-10FEADC20BCB}|SeatNow.GateWay\\SeatNow.GateWay.csproj|c:\\users\\admin\\onedrive\\desktop\\final project\\seatnow.gateway\\seatnow.gateway\\ocelot.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{23F82894-144E-4CFE-A8F7-10FEADC20BCB}|SeatNow.GateWay\\SeatNow.GateWay.csproj|solutionrelative:seatnow.gateway\\ocelot.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{23F82894-144E-4CFE-A8F7-10FEADC20BCB}|SeatNow.GateWay\\SeatNow.GateWay.csproj|c:\\users\\admin\\onedrive\\desktop\\final project\\seatnow.gateway\\seatnow.gateway\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{23F82894-144E-4CFE-A8F7-10FEADC20BCB}|SeatNow.GateWay\\SeatNow.GateWay.csproj|solutionrelative:seatnow.gateway\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{23F82894-144E-4CFE-A8F7-10FEADC20BCB}|SeatNow.GateWay\\SeatNow.GateWay.csproj|c:\\users\\admin\\onedrive\\desktop\\final project\\seatnow.gateway\\seatnow.gateway\\properties\\launchsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{23F82894-144E-4CFE-A8F7-10FEADC20BCB}|SeatNow.GateWay\\SeatNow.GateWay.csproj|solutionrelative:seatnow.gateway\\properties\\launchsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 4,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{cce594b6-0c39-4442-ba28-10c64ac7e89f}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "launchSettings.json",
+              "DocumentMoniker": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\Properties\\launchSettings.json",
+              "RelativeDocumentMoniker": "SeatNow.GateWay\\Properties\\launchSettings.json",
+              "ToolTip": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\Properties\\launchSettings.json",
+              "RelativeToolTip": "SeatNow.GateWay\\Properties\\launchSettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-03-16T11:26:17.997Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "appsettings.json",
+              "DocumentMoniker": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\appsettings.json",
+              "RelativeDocumentMoniker": "SeatNow.GateWay\\appsettings.json",
+              "ToolTip": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\appsettings.json",
+              "RelativeToolTip": "SeatNow.GateWay\\appsettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-03-16T11:18:16.457Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "ocelot.json",
+              "DocumentMoniker": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\ocelot.json",
+              "RelativeDocumentMoniker": "SeatNow.GateWay\\ocelot.json",
+              "ToolTip": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\ocelot.json",
+              "RelativeToolTip": "SeatNow.GateWay\\ocelot.json",
+              "ViewState": "AgIAAGMAAAAAAAAAAAAAABwAAAAHAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-03-16T11:00:03.904Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\Program.cs",
+              "RelativeDocumentMoniker": "SeatNow.GateWay\\Program.cs",
+              "ToolTip": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\Program.cs*",
+              "RelativeToolTip": "SeatNow.GateWay\\Program.cs*",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAEUAAAAKAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-16T10:54:23.604Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

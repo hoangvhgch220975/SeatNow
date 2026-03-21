@@ -1,555 +1,136 @@
 {
   "info": {
-    "_postman_id": "payment-service-2026",
     "name": "SeatNow - Payment Service",
-    "description": "Postman collection for SeatNow Payment Service (deposit, wallet, webhook, return)",
+    "_postman_id": "payment-service-v2",
+    "description": "Collection for Payment Service: Wallet, Deposits, Withdrawals.\nBase URL: http://localhost:3005\nSetup: Login via Auth to get {{token}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3005/api/v1/payment",
-      "type": "string"
-    },
-    {
-      "key": "bookingId",
-      "value": "",
-      "type": "string",
-      "description": "Booking ID from booking-service"
-    },
-    {
-      "key": "transactionId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "referenceCode",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "restaurantId",
-      "value": "",
-      "type": "string",
-      "description": "Restaurant ID that owns a wallet"
-    },
-    {
-      "key": "adminUserId",
-      "value": "",
-      "type": "string",
-      "description": "Admin user ID that owns admin wallet"
-    },
-    {
-      "key": "topupAmount",
-      "value": "100000",
-      "type": "string"
-    },
-    {
-      "key": "commissionAmount",
-      "value": "20000",
-      "type": "string"
-    }
+    { "key": "baseUrl", "value": "http://localhost:3005/api/v1/payment", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "walletId", "value": "", "type": "string" },
+    { "key": "withdrawalId", "value": "", "type": "string" },
+    { "key": "internalToken", "value": "vhTony_24_internal_token", "type": "string" }
   ],
   "item": [
     {
-      "name": "1. Deposit Payment",
+      "name": "1. Wallet Operations",
       "item": [
         {
-          "name": "Generate Deposit QR (MOMO)",
+          "name": "Get My Wallet",
           "event": [
             {
               "listen": "test",
               "script": {
-                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status code is 200', function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "",
                   "const res = pm.response.json();",
-                  "if (res && res.success && res.data) {",
-                  "    pm.collectionVariables.set('transactionId', res.data.transactionId || '');",
-                  "    pm.collectionVariables.set('referenceCode', res.data.referenceCode || '');",
-                  "    console.log('transactionId:', res.data.transactionId);",
-                  "    console.log('referenceCode:', res.data.referenceCode);",
-                  "    console.log('paymentUrl:', res.data.paymentUrl);",
-                  "}",
-                  "",
-                  "pm.test('Has transactionId and referenceCode', function () {",
-                  "    pm.expect(res.success).to.eql(true);",
-                  "    pm.expect(res.data).to.have.property('transactionId');",
-                  "    pm.expect(res.data).to.have.property('referenceCode');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"provider\": \"MOMO\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/deposit/generate-qr",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "deposit",
-                "generate-qr"
-              ]
-            },
-            "description": "Tao giao dich dat coc va lay QR/link thanh toan MOMO"
-          },
-          "response": []
-        },
-        {
-          "name": "Generate Deposit QR (VNPAY)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
+                  "pm.test('Wallet has balance', function () {",
+                  "    pm.expect(res).to.have.property('balance');",
                   "});",
-                  "",
-                  "const res = pm.response.json();",
-                  "if (res && res.success && res.data) {",
-                  "    pm.collectionVariables.set('transactionId', res.data.transactionId || '');",
-                  "    pm.collectionVariables.set('referenceCode', res.data.referenceCode || '');",
-                  "    console.log('transactionId:', res.data.transactionId);",
-                  "    console.log('referenceCode:', res.data.referenceCode);",
-                  "    console.log('paymentUrl:', res.data.paymentUrl);",
-                  "}"
-                ]
+                  "if (res.id) pm.collectionVariables.set('walletId', res.id);"
+                ],
+                "type": "text/javascript"
               }
             }
           ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"provider\": \"VNPAY\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/deposit/generate-qr",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "deposit",
-                "generate-qr"
-              ]
-            },
-            "description": "Tao giao dich dat coc va lay link thanh toan VNPAY"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Transaction By ID",
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/transaction/{{transactionId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "transaction",
-                "{{transactionId}}"
-              ]
-            },
-            "description": "Lay chi tiet transaction theo ID da luu tu request tao thanh toan"
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "2. Wallet",
-      "item": [
-        {
-          "name": "Get Wallet Balance",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/wallet/balance?restaurantId={{restaurantId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "wallet",
-                "balance"
-              ],
-              "query": [
-                {
-                  "key": "restaurantId",
-                  "value": "{{restaurantId}}"
-                }
-              ]
-            },
-            "description": "Lay so du vi restaurant"
-          },
-          "response": []
-        },
-        {
-          "name": "Create Wallet Topup (MOMO)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "const res = pm.response.json();",
-                  "if (res && res.success && res.data) {",
-                  "    pm.collectionVariables.set('transactionId', res.data.transactionId || '');",
-                  "    pm.collectionVariables.set('referenceCode', res.data.referenceCode || '');",
-                  "    console.log('wallet topup transactionId:', res.data.transactionId);",
-                  "    console.log('wallet topup referenceCode:', res.data.referenceCode);",
-                  "    console.log('paymentUrl:', res.data.paymentUrl);",
-                  "}",
-                  "",
-                  "pm.test('Has wallet topup transactionId and referenceCode', function () {",
-                  "    pm.expect(res.success).to.eql(true);",
-                  "    pm.expect(res.data).to.have.property('transactionId');",
-                  "    pm.expect(res.data).to.have.property('referenceCode');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"provider\": \"MOMO\",\n  \"amount\": {{topupAmount}}\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/wallet/topup/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "wallet",
-                "topup",
-                "create"
-              ]
-            },
-            "description": "Tao giao dich top-up vi restaurant qua MOMO"
-          },
-          "response": []
-        },
-        {
-          "name": "Create Wallet Topup (VNPAY)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "const res = pm.response.json();",
-                  "if (res && res.success && res.data) {",
-                  "    pm.collectionVariables.set('transactionId', res.data.transactionId || '');",
-                  "    pm.collectionVariables.set('referenceCode', res.data.referenceCode || '');",
-                  "    console.log('wallet topup transactionId:', res.data.transactionId);",
-                  "    console.log('wallet topup referenceCode:', res.data.referenceCode);",
-                  "    console.log('paymentUrl:', res.data.paymentUrl);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"provider\": \"VNPAY\",\n  \"amount\": {{topupAmount}}\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/wallet/topup/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "wallet",
-                "topup",
-                "create"
-              ]
-            },
-            "description": "Tao giao dich top-up vi restaurant qua VNPAY"
-          },
-          "response": []
-        },
-        {
-          "name": "Charge Commission",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"adminUserId\": \"{{adminUserId}}\",\n  \"amount\": {{commissionAmount}},\n  \"description\": \"Charge commission for test\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/wallet/commission/charge",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "wallet",
-                "commission",
-                "charge"
-              ]
-            },
-            "description": "Admin thu commission tu vi restaurant sang vi admin"
-          },
-          "response": []
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/wallet/me"
+          }
         },
         {
           "name": "Get Wallet Transactions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Response is array', function () {",
+                  "    pm.expect(res.data || res).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/wallet/transactions?restaurantId={{restaurantId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "wallet",
-                "transactions"
-              ],
-              "query": [
-                {
-                  "key": "restaurantId",
-                  "value": "{{restaurantId}}"
-                }
-              ]
-            },
-            "description": "Lay lich su giao dich vi restaurant"
-          },
-          "response": []
-        },
-        {
-          "name": "Create Withdrawal Request",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "x-internal-token",
-                "value": "{{internalToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"amount\": 50000,\n  \"description\": \"Yêu cầu rút tiền doanh thu\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/wallet/withdraw",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "wallet",
-                "withdraw"
-              ]
-            },
-            "description": "Nhà hàng tạo yêu cầu rút tiền"
-          },
-          "response": []
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/wallet/transactions"
+          }
         }
       ]
     },
     {
-      "name": "3. Webhook / Return",
+      "name": "2. Withdrawals",
       "item": [
         {
-          "name": "Webhook MOMO (Simulate)",
+          "name": "Request Withdrawal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('withdrawalId', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"partnerCode\": \"MOMO\",\n  \"orderId\": \"{{referenceCode}}\",\n  \"requestId\": \"{{referenceCode}}\",\n  \"amount\": \"10000\",\n  \"orderInfo\": \"Deposit test\",\n  \"orderType\": \"momo_wallet\",\n  \"transId\": \"1234567890\",\n  \"resultCode\": 0,\n  \"message\": \"Successful.\",\n  \"payType\": \"qr\",\n  \"responseTime\": \"1710000000000\",\n  \"extraData\": \"\",\n  \"signature\": \"REPLACE_WITH_VALID_SIGNATURE\"\n}"
+              "raw": "{\n  \"amount\": 500000,\n  \"bankInfo\": \"Test Bank - 123456789\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseUrl}}/webhook/momo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "webhook",
-                "momo"
-              ]
-            },
-            "description": "Gia lap webhook MOMO. Can signature hop le tu MOMO_SECRET_KEY neu bat verifySignature=true"
-          },
-          "response": []
+            "url": "{{baseUrl}}/wallet/withdraw"
+          }
         },
         {
-          "name": "Webhook VNPAY (Simulate)",
+          "name": "Internal Approve Withdrawal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/webhook/vnpay?vnp_TxnRef={{referenceCode}}&vnp_TransactionNo=12345678&vnp_ResponseCode=00&vnp_TransactionStatus=00&vnp_SecureHash=REPLACE_WITH_VALID_HASH",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "webhook",
-                "vnpay"
-              ],
-              "query": [
-                {
-                  "key": "vnp_TxnRef",
-                  "value": "{{referenceCode}}"
-                },
-                {
-                  "key": "vnp_TransactionNo",
-                  "value": "12345678"
-                },
-                {
-                  "key": "vnp_ResponseCode",
-                  "value": "00"
-                },
-                {
-                  "key": "vnp_TransactionStatus",
-                  "value": "00"
-                },
-                {
-                  "key": "vnp_SecureHash",
-                  "value": "REPLACE_WITH_VALID_HASH"
-                }
-              ]
+            "header": [
+              { "key": "x-internal-token", "value": "{{internalToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adminId\": \"system-admin\",\n  \"note\": \"Approved for test\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "description": "Gia lap webhook VNPAY. Can hash hop le tu VNPAY_HASH_SECRET"
-          },
-          "response": []
-        },
-        {
-          "name": "Return MOMO",
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/return/momo?orderId={{referenceCode}}&resultCode=0",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "return",
-                "momo"
-              ],
-              "query": [
-                {
-                  "key": "orderId",
-                  "value": "{{referenceCode}}"
-                },
-                {
-                  "key": "resultCode",
-                  "value": "0"
-                }
-              ]
-            },
-            "description": "Test luong return MOMO (endpoint se redirect)"
-          },
-          "response": []
-        },
-        {
-          "name": "Return VNPAY",
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/return/vnpay?vnp_TxnRef={{referenceCode}}&vnp_ResponseCode=00&vnp_TransactionStatus=00",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "return",
-                "vnpay"
-              ],
-              "query": [
-                {
-                  "key": "vnp_TxnRef",
-                  "value": "{{referenceCode}}"
-                },
-                {
-                  "key": "vnp_ResponseCode",
-                  "value": "00"
-                },
-                {
-                  "key": "vnp_TransactionStatus",
-                  "value": "00"
-                }
-              ]
-            },
-            "description": "Test luong return VNPAY (endpoint se redirect)"
-          },
-          "response": []
+            "url": "{{baseUrl}}/internal/wallet/withdraw/{{withdrawalId}}/approve"
+          }
         }
       ]
     }

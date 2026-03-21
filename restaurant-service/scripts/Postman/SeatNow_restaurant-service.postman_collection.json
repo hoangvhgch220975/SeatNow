@@ -2,46 +2,19 @@
   "info": {
     "name": "SeatNow Restaurant Service",
     "_postman_id": "restaurant-service-collection",
-    "description": "Collection to test restaurant-service endpoints",
+    "description": "Collection to test restaurant-service endpoints (CRUD, Menu, Reviews, Tables, Availability).\nBase URL: http://localhost:3003\nSetup: Login via Auth collection -> token saved to {{token}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3003"
-    },
-    {
-      "key": "token",
-      "value": ""
-    },
-    {
-      "key": "restaurantId",
-      "value": "1"
-    },
-    {
-      "key": "restaurantOwnerId",
-      "value": "<owner-uuid>"
-    },
-    {
-      "key": "itemId",
-      "value": "1"
-    },
-    {
-      "key": "tableId",
-      "value": "1"
-    },
-    {
-      "key": "availabilityDate",
-      "value": "2026-03-20"
-    },
-    {
-      "key": "availabilityTime",
-      "value": "19:00"
-    },
-    {
-      "key": "availabilityGuests",
-      "value": "4"
-    }
+    { "key": "baseUrl", "value": "http://localhost:3003" },
+    { "key": "token", "value": "", "description": "Lay tu Auth - Login" },
+    { "key": "restaurantId", "value": "", "description": "Auto-saved after Create Restaurant" },
+    { "key": "restaurantOwnerId", "value": "<owner-uuid>" },
+    { "key": "itemId", "value": "", "description": "Auto-saved after Create Menu Item" },
+    { "key": "tableId", "value": "", "description": "Auto-saved after Create Table" },
+    { "key": "availabilityDate", "value": "2026-12-20" },
+    { "key": "availabilityTime", "value": "19:00" },
+    { "key": "availabilityGuests", "value": "4" }
   ],
   "item": [
     {
@@ -49,10 +22,30 @@
       "item": [
         {
           "name": "GET Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Service is healthy', function () {",
+                  "    pm.expect(res).to.have.property('status');",
+                  "    pm.expect(res.status).to.eql('ok');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/health"
+            "url": "{{baseUrl}}/health",
+            "description": "Kiem tra trang thai hoat dong cua restaurant service."
           }
         }
       ]
@@ -62,6 +55,31 @@
       "item": [
         {
           "name": "GET List Restaurants",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has data array', function () {",
+                  "    const list = res.data || res.restaurants || res;",
+                  "    pm.expect(list).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Response has pagination', function () {",
+                  "    pm.expect(res).to.satisfy(function(r) {",
+                  "        return r.total !== undefined || r.count !== undefined || Array.isArray(r);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -70,6 +88,26 @@
         },
         {
           "name": "GET Restaurant Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has restaurant fields', function () {",
+                  "    pm.expect(res).to.have.property('id');",
+                  "    pm.expect(res).to.have.property('name');",
+                  "    pm.expect(res).to.have.property('address');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -78,112 +116,203 @@
         },
         {
           "name": "POST Create Restaurant [ADMIN]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Restaurant created with id', function () {",
+                  "    pm.expect(res).to.have.property('id');",
+                  "    pm.expect(res).to.have.property('name');",
+                  "});",
+                  "",
+                  "if (res.id) {",
+                  "    pm.collectionVariables.set('restaurantId', res.id);",
+                  "    console.log('Saved restaurantId:', res.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"ownerId\": \"{{restaurantOwnerId}}\",\n  \"name\": \"Nhà hàng Hoa Sen\",\n  \"address\": \"123 Đường Lê Lợi, Quận 1\",\n  \"latitude\": 10.77653,\n  \"longitude\": 106.70098,\n  \"phone\": \"+84900111222\",\n  \"email\": \"contact@hoasen.com\",\n  \"cuisineTypes\": [\"Vietnamese\"],\n  \"priceRange\": 2,\n  \"description\": \"Nhà hàng phục vụ phở và món Việt truyền thống.\",\n  \"images\": [\"https://example.com/hoasen.jpg\"],\n  \"openingHours\": {\"mon-fri\": \"10:00-22:00\", \"sat-sun\": \"08:00-23:00\"},\n  \"status\": \"active\",\n  \"commissionRate\": 0.1,\n  \"isPremium\": false,\n  \"depositEnabled\": false,\n  \"depositPolicy\": null\n}"
+              "raw": "{\n  \"ownerId\": \"{{restaurantOwnerId}}\",\n  \"name\": \"Nha hang Hoa Sen Test\",\n  \"address\": \"123 Duong Le Loi, Quan 1\",\n  \"latitude\": 10.77653,\n  \"longitude\": 106.70098,\n  \"phone\": \"+84900111222\",\n  \"email\": \"contact@hoasen.com\",\n  \"cuisineTypes\": [\"Vietnamese\"],\n  \"priceRange\": 2,\n  \"description\": \"Nha hang phuc vu pho va mon Viet truyen thong.\",\n  \"openingHours\": {\"mon-fri\": \"10:00-22:00\", \"sat-sun\": \"08:00-23:00\"},\n  \"status\": \"active\",\n  \"commissionRate\": 0.1,\n  \"isPremium\": false,\n  \"depositEnabled\": false\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "url": "{{baseUrl}}/api/v1/restaurants"
+            "url": "{{baseUrl}}/api/v1/restaurants",
+            "description": "Tao nha hang moi (chi ADMIN). Auto-save restaurantId."
           }
         },
         {
           "name": "PUT Update Restaurant [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Restaurant updated', function () {",
+                  "    pm.expect(res).to.have.property('id');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Nhà hàng Hoa Sen - CN1\",\n  \"address\": \"125 Đường Lê Lợi\",\n  \"priceRange\": 3,\n  \"description\": \"Cập nhật thông tin cơ bản của nhà hàng\"\n}"
+              "raw": "{\n  \"name\": \"Nha hang Hoa Sen - CN1\",\n  \"address\": \"125 Duong Le Loi\",\n  \"priceRange\": 3,\n  \"description\": \"Cap nhat thong tin co ban cua nha hang\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}"
           }
         },
         {
           "name": "PUT Update Sensitive Fields [ADMIN]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Sensitive fields updated', function () {",
+                  "    pm.expect(res).to.have.property('id');",
+                  "    pm.expect(res.commissionRate).to.eql(0.12);",
+                  "    pm.expect(res.isPremium).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"active\",\n  \"commissionRate\": 0.12,\n  \"isPremium\": true\n}"
+              "raw": "{\n  \"status\": \"active\",\n  \"commissionRate\": 0.12,\n  \"isPremium\": true\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}"
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}",
+            "description": "Chi ADMIN moi cap nhat duoc commissionRate, isPremium, status."
           }
         },
         {
           "name": "PUT Update Deposit Policy [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Deposit policy updated', function () {",
+                  "    pm.expect(res).to.have.property('depositEnabled');",
+                  "    pm.expect(res.depositEnabled).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"depositEnabled\": true,\n  \"depositPolicy\": {\n    \"amount\": 150000,\n    \"note\": \"Deposit on weekends\"\n  }\n}"
+              "raw": "{\n  \"depositEnabled\": true,\n  \"depositPolicy\": {\n    \"amount\": 150000,\n    \"note\": \"Dat coc cuoi tuan\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/deposit-policy"
           }
         },
         {
-          "name": "DELETE Restaurant [ADMIN|OWNER]",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}"
-          }
-        },
-        {
           "name": "GET Revenue Statistics [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Revenue stats has required fields', function () {",
+                  "    pm.expect(res).to.satisfy(function(r) {",
+                  "        return r.totalRevenue !== undefined || r.data !== undefined || r.stats !== undefined;",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/revenue-stats?period=month"
+          }
+        },
+        {
+          "name": "DELETE Restaurant [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 204', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}",
+            "description": "Xoa nha hang. Canh bao: Chi chay sau khi da tao test restaurant."
           }
         }
       ]
@@ -193,6 +322,25 @@
       "item": [
         {
           "name": "GET Menu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response is array or has items', function () {",
+                  "    const items = Array.isArray(res) ? res : (res.data || res.items || []);",
+                  "    pm.expect(items).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -201,55 +349,101 @@
         },
         {
           "name": "POST Create Menu Item [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Menu item created', function () {",
+                  "    pm.expect(res).to.have.property('_id').or.have.property('id');",
+                  "    pm.expect(res).to.have.property('name');",
+                  "    pm.expect(res).to.have.property('price');",
+                  "});",
+                  "",
+                  "const itemId = res._id || res.id;",
+                  "if (itemId) {",
+                  "    pm.collectionVariables.set('itemId', itemId);",
+                  "    console.log('Saved itemId:', itemId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Phở Bò Đặc Biệt\",\n  \"description\": \"Phở bò tái, chín, gân\",\n  \"price\": 70000,\n  \"discountPrice\": 60000,\n  \"category\": \"Soup\",\n  \"images\": [\"https://example.com/images/pho.jpg\"],\n  \"isAvailable\": true,\n  \"tags\": [\"beef\", \"noodle\"],\n  \"allergens\": [\"gluten\"]\n}"
+              "raw": "{\n  \"name\": \"Pho Bo Dac Biet\",\n  \"description\": \"Pho bo tai, chin, gan\",\n  \"price\": 70000,\n  \"discountPrice\": 60000,\n  \"category\": \"Soup\",\n  \"isAvailable\": true,\n  \"tags\": [\"beef\", \"noodle\"]\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/menu"
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/menu",
+            "description": "Tao mon an moi. Auto-save itemId."
           }
         },
         {
           "name": "PUT Update Menu Item [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Menu item updated', function () {",
+                  "    pm.expect(res).to.have.property('name');",
+                  "    pm.expect(res.price).to.eql(80000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Phở Bò (lớn)\",\n  \"price\": 80000,\n  \"isAvailable\": true\n}"
+              "raw": "{\n  \"name\": \"Pho Bo (lon)\",\n  \"price\": 80000,\n  \"isAvailable\": true\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/menu/{{itemId}}"
           }
         },
         {
           "name": "DELETE Menu Item [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 204', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "DELETE",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/menu/{{itemId}}"
           }
@@ -261,6 +455,25 @@
       "item": [
         {
           "name": "GET Reviews",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response is array or has reviews', function () {",
+                  "    const reviews = Array.isArray(res) ? res : (res.data || res.reviews || []);",
+                  "    pm.expect(reviews).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
@@ -269,23 +482,38 @@
         },
         {
           "name": "POST Create Review [CUSTOMER|ADMIN]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Review created', function () {",
+                  "    pm.expect(res).to.have.property('rating');",
+                  "    pm.expect(res.rating).to.be.within(1, 5);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"bookingId\": \"booking_1001\",\n  \"rating\": 5,\n  \"comment\": \"Đồ ăn ngon, phục vụ tốt\",\n  \"foodRating\": 5,\n  \"serviceRating\": 5,\n  \"atmosphereRating\": 4,\n  \"images\": []\n}"
+              "raw": "{\n  \"bookingId\": \"<booking-uuid>\",\n  \"rating\": 5,\n  \"comment\": \"Do an ngon, phuc vu tot\",\n  \"foodRating\": 5,\n  \"serviceRating\": 5,\n  \"atmosphereRating\": 4,\n  \"images\": []\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/reviews"
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/reviews",
+            "description": "Tao danh gia. Thay <booking-uuid> bang bookingId hop le (COMPLETED booking)."
           }
         }
       ]
@@ -295,68 +523,128 @@
       "item": [
         {
           "name": "GET Tables [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response is array', function () {",
+                  "    const tables = Array.isArray(res) ? res : (res.data || res.tables || []);",
+                  "    pm.expect(tables).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables"
           }
         },
         {
           "name": "POST Create Table [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Table created', function () {",
+                  "    pm.expect(res).to.have.property('id');",
+                  "    pm.expect(res).to.have.property('capacity');",
+                  "});",
+                  "",
+                  "if (res.id) {",
+                  "    pm.collectionVariables.set('tableId', res.id);",
+                  "    console.log('Saved tableId:', res.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tableNumber\": 1,\n  \"capacity\": 6,\n  \"type\": \"vip\",\n  \"location\": \"Trong phòng riêng\",\n  \"status\": \"active\"\n}"
+              "raw": "{\n  \"tableNumber\": \"T99\",\n  \"capacity\": 6,\n  \"type\": \"vip\",\n  \"location\": \"Trong phong rieng\",\n  \"status\": \"active\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables"
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables",
+            "description": "Tao ban moi. Auto-save tableId."
           }
         },
         {
           "name": "PUT Update Table [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Table updated', function () {",
+                  "    pm.expect(res).to.have.property('id');",
+                  "    pm.expect(res.capacity).to.eql(8);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tableNumber\": 1,\n  \"capacity\": 8,\n  \"status\": \"inactive\"\n}"
+              "raw": "{\n  \"capacity\": 8,\n  \"status\": \"active\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables/{{tableId}}"
           }
         },
         {
           "name": "DELETE Table [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 204', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "DELETE",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables/{{tableId}}"
           }
@@ -368,10 +656,31 @@
       "item": [
         {
           "name": "GET Availability",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has available tables', function () {",
+                  "    pm.expect(res).to.satisfy(function(r) {",
+                  "        return r.tables !== undefined || r.available !== undefined || Array.isArray(r);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/availability?date={{availabilityDate}}&time={{availabilityTime}}&guests={{availabilityGuests}}"
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/availability?date={{availabilityDate}}&time={{availabilityTime}}&guests={{availabilityGuests}}",
+            "description": "Kiem tra ban trong theo ngay, gio, so luong khach."
           }
         }
       ]

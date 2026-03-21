@@ -2,102 +2,264 @@
   "info": {
     "name": "SeatNow - User Service",
     "_postman_id": "seatnow-user-collection",
-    "description": "Collection for testing User Service endpoints (me, update, bookings, wallet, loyalty).",
+    "description": "Collection for testing User Service endpoints (me, update, bookings, wallet, loyalty).\nBase URL: http://localhost:3002\nSetup: Run Login from Auth collection first to get {{token}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3002", "type": "string" },
+    { "key": "token", "value": "", "type": "string", "description": "Lay tu Auth - Login" }
+  ],
   "item": [
     {
-      "name": "Get Current User (me)",
-      "request": {
-        "method": "GET",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}" },
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/users/me",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","users","me"]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "Update Current User (me)",
-      "request": {
-        "method": "PUT",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}" },
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"New Name\",\n  \"email\": \"new@example.com\",\n  \"avatar\": null\n}",
-          "options": { "raw": { "language": "json" } }
+      "name": "1. Profile",
+      "item": [
+        {
+          "name": "Get Current User (me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has user data', function () {",
+                  "    pm.expect(res).to.have.property('id');",
+                  "    pm.expect(res).to.have.property('phone');",
+                  "    pm.expect(res).to.have.property('role');",
+                  "});",
+                  "",
+                  "pm.test('Password is not exposed', function () {",
+                  "    pm.expect(res).to.not.have.property('password');",
+                  "    pm.expect(res).to.not.have.property('passwordHash');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me"]
+            },
+            "description": "Lay thong tin profile cua user dang dang nhap."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/users/me",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","users","me"]
+        {
+          "name": "Get Current User - No Auth (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 when no token', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me"]
+            },
+            "description": "Error case: Goi /me ma khong co Authorization header -> expect 401"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Current User (me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Updated user data returned', function () {",
+                  "    pm.expect(res).to.have.property('id');",
+                  "});",
+                  "",
+                  "pm.test('Name was updated', function () {",
+                  "    pm.expect(res.name).to.eql('New Name Updated');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Name Updated\",\n  \"email\": \"updated@example.com\",\n  \"avatar\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me"]
+            },
+            "description": "Cap nhat thong tin ca nhan (name, email, avatar)."
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "Get My Bookings",
-      "request": {
-        "method": "GET",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}" },
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/users/me/bookings?offset=0&limit=10",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","users","me","bookings"],
-          "query": [
-            { "key": "offset", "value": "0" },
-            { "key": "limit", "value": "10" }
-          ]
+      "name": "2. Bookings",
+      "item": [
+        {
+          "name": "Get My Bookings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response is array or has data array', function () {",
+                  "    const list = Array.isArray(res) ? res : (res.data || res.bookings || []);",
+                  "    pm.expect(list).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Response has pagination info', function () {",
+                  "    pm.expect(res).to.satisfy(function(r) {",
+                  "        return r.total !== undefined || r.count !== undefined || Array.isArray(r);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/bookings?offset=0&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me", "bookings"],
+              "query": [
+                { "key": "offset", "value": "0" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Lay danh sach booking cua user dang dang nhap (chi danh cho CUSTOMER)."
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "Get My Wallet",
-      "request": {
-        "method": "GET",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}" },
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/users/me/wallet",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","users","me","wallet"]
+      "name": "3. Wallet",
+      "item": [
+        {
+          "name": "Get My Wallet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Wallet has balance field', function () {",
+                  "    pm.expect(res).to.have.property('balance');",
+                  "    pm.expect(Number(res.balance)).to.be.at.least(0);",
+                  "});",
+                  "",
+                  "pm.test('Wallet has lockedAmount field', function () {",
+                  "    pm.expect(res).to.have.property('lockedAmount');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/wallet",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me", "wallet"]
+            },
+            "description": "Lay thong tin vi dien tu cua user (balance, lockedAmount)."
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "Get My Loyalty Points",
-      "request": {
-        "method": "GET",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}" },
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/users/me/loyalty-points",
-          "host": ["{{baseUrl}}"],
-          "path": ["api","v1","users","me","loyalty-points"]
+      "name": "4. Loyalty Points",
+      "item": [
+        {
+          "name": "Get My Loyalty Points",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Has loyalty points data', function () {",
+                  "    pm.expect(res).to.have.property('points');",
+                  "    pm.expect(Number(res.points)).to.be.at.least(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/loyalty-points",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me", "loyalty-points"]
+            },
+            "description": "Lay diem tich luy (loyalty points) cua customer."
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     }
-  ],
-  "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3002" },
-    { "key": "token", "value": "" }
   ]
 }

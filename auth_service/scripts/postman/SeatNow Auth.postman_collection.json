@@ -2,110 +2,661 @@
   "info": {
     "name": "SeatNow Auth",
     "_postman_id": "f1a2b3c4-d5e6-4789-9012-abcdef123456",
-    "description": "Collection to test auth_service endpoints (local).\nBase URL: http://localhost:3001/api/v1/auth/",
+    "description": "Collection to test auth_service endpoints.\nBase URL: http://localhost:3001/api/v1/auth\n\nSetup: Set {{baseUrl}} = http://localhost:3001/api/v1/auth\nLogin will auto-save {{token}} and {{refreshToken}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/api/v1/auth", "type": "string" },
+    { "key": "phone", "value": "+84818990222", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" }
+  ],
   "item": [
     {
-      "name": "Send OTP",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"phone\": \"+84818990222\"\n}"
+      "name": "1. OTP Flow",
+      "item": [
+        {
+          "name": "Send OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has success field', function () {",
+                  "    pm.expect(res).to.have.property('success');",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Response has message', function () {",
+                  "    pm.expect(res).to.have.property('message');",
+                  "    pm.expect(res.message).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/send-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["send-otp"]
+            },
+            "description": "Gui OTP den so dien thoai. OTP duoc luu tren Redis."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "http://localhost:3001/api/v1/auth/send-otp",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "3001",
-          "path": ["api","v1","auth","send-otp"]
+        {
+          "name": "Send OTP - Missing phone (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 when phone is missing', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has error info', function () {",
+                  "    pm.expect(res.success).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/send-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["send-otp"]
+            },
+            "description": "Error case: Gui OTP ma khong co phone -> expect 400"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has success field', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"123456\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["verify-otp"]
+            },
+            "description": "Xac thuc OTP vua duoc gui. Thay '123456' bang ma OTP thuc."
+          },
+          "response": []
         }
-      }
+      ]
     },
     {
-      "name": "Verify OTP",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"code\": \"123456\"\n}" },
-        "url": { "raw": "http://localhost:3001/api/v1/auth/verify-otp", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","verify-otp"] }
-      }
+      "name": "2. Register",
+      "item": [
+        {
+          "name": "Register (with OTP)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has user data', function () {",
+                  "    pm.expect(res).to.have.property('user');",
+                  "    pm.expect(res.user).to.have.property('id');",
+                  "    pm.expect(res.user).to.have.property('phone');",
+                  "});",
+                  "",
+                  "pm.test('Response has tokens', function () {",
+                  "    pm.expect(res).to.have.property('accessToken');",
+                  "    pm.expect(res).to.have.property('refreshToken');",
+                  "});",
+                  "",
+                  "if (res.accessToken) {",
+                  "    pm.collectionVariables.set('token', res.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "    console.log('Saved tokens from register');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"otp\": \"123456\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["register"]
+            },
+            "description": "Dang ky tai khoan moi bang OTP da xac thuc. Thay '123456' bang OTP thuc te."
+          },
+          "response": []
+        },
+        {
+          "name": "Register (with Firebase token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 or 200', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"firebaseToken\": \"<FIREBASE_ID_TOKEN>\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["register"]
+            },
+            "description": "Dang ky bang Firebase ID token (thay the OTP). Thay <FIREBASE_ID_TOKEN> bang token thuc."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Register (with OTP)",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"otp\": \"123456\"\n}" },
-        "url": { "raw": "http://localhost:3001/api/v1/auth/register", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","register"] }
-      }
+      "name": "3. Login / Logout",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has accessToken', function () {",
+                  "    pm.expect(res).to.have.property('accessToken');",
+                  "    pm.expect(res.accessToken).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('Response has refreshToken', function () {",
+                  "    pm.expect(res).to.have.property('refreshToken');",
+                  "    pm.expect(res.refreshToken).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('Response has user info', function () {",
+                  "    pm.expect(res).to.have.property('user');",
+                  "    pm.expect(res.user).to.have.property('id');",
+                  "    pm.expect(res.user).to.have.property('role');",
+                  "});",
+                  "",
+                  "if (res.accessToken) {",
+                  "    pm.collectionVariables.set('token', res.accessToken);",
+                  "    console.log('Saved accessToken:', res.accessToken.substring(0, 20) + '...');",
+                  "}",
+                  "if (res.refreshToken) {",
+                  "    pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "    console.log('Saved refreshToken');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{phone}}\",\n  \"password\": \"P@ssw0rd!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            },
+            "description": "Dang nhap bang so dien thoai hoac email va mat khau. Auto-save accessToken va refreshToken."
+          },
+          "response": []
+        },
+        {
+          "name": "Login - Wrong password (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 when wrong password', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response indicates failure', function () {",
+                  "    pm.expect(res.success).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{phone}}\",\n  \"password\": \"WrongPassword123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            },
+            "description": "Error case: Dang nhap sai mat khau -> expect 401"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has new tokens', function () {",
+                  "    pm.expect(res).to.have.property('accessToken');",
+                  "    pm.expect(res).to.have.property('refreshToken');",
+                  "});",
+                  "",
+                  "if (res.accessToken) {",
+                  "    pm.collectionVariables.set('token', res.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "    console.log('Tokens refreshed successfully');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/refresh-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["refresh-token"]
+            },
+            "description": "Lam moi access token bang refresh token. Su dung {{refreshToken}} tu Login."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Logout success', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["logout"]
+            },
+            "description": "Dang xuat, huy bo refresh token."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Register (with Firebase token)",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"firebaseToken\": \"<FIREBASE_ID_TOKEN>\"\n}" },
-        "url": { "raw": "http://localhost:3001/api/v1/auth/register", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","register"] }
-      }
+      "name": "4. Password Reset",
+      "item": [
+        {
+          "name": "Forgot Password (send OTP via phone)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('OTP sent successfully', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["forgot-password"]
+            },
+            "description": "Gui OTP de dat lai mat khau qua so dien thoai."
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password (send via email - Customer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Email OTP sent', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/forgot-password/customer",
+              "host": ["{{baseUrl}}"],
+              "path": ["forgot-password", "customer"]
+            },
+            "description": "Gui OTP qua email cho customer de dat lai mat khau."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password (confirm with OTP)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Password reset success', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewP@ssw0rd!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["reset-password"]
+            },
+            "description": "Xac nhan OTP va thay mat khau moi. Thay '123456' bang OTP thuc."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Login",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"+84818990222\",\n  \"password\": \"P@ssw0rd!\"\n}" },
-        "url": { "raw": "http://localhost:3001/api/v1/auth/login", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","login"] }
-      }
+      "name": "5. Social Login",
+      "item": [
+        {
+          "name": "Google Sign-In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 201', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has tokens', function () {",
+                  "    pm.expect(res).to.have.property('accessToken');",
+                  "    pm.expect(res).to.have.property('refreshToken');",
+                  "});",
+                  "",
+                  "if (res.accessToken) {",
+                  "    pm.collectionVariables.set('token', res.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"<GOOGLE_ID_TOKEN>\",\n  \"accountType\": \"customer\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/google-signin",
+              "host": ["{{baseUrl}}"],
+              "path": ["google-signin"]
+            },
+            "description": "Dang nhap bang Google. Thay <GOOGLE_ID_TOKEN> bang token thuc tu Google."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Refresh Token",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"<REFRESH_TOKEN>\"\n}" },
-        "url": { "raw": "http://localhost:3001/api/v1/auth/refresh-token", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","refresh-token"] }
-      }
-    },
-    {
-      "name": "Logout",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"<REFRESH_TOKEN>\"\n}" },
-        "url": { "raw": "http://localhost:3001/api/v1/auth/logout", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","logout"] }
-      }
-    },
-    {
-      "name": "Reset Password (request via send-otp)",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\"\n}" },
-        "url": { "raw": "http://localhost:3001/api/v1/auth/forgot-password", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","forgot-password"] }
-      }
-    },
-    {
-      "name": "Reset Password (confirm)",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+84818990222\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewP@ssw0rd!\"\n}" },
-        "url": { "raw": "http://localhost:3001/api/v1/auth/reset-password", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","reset-password"] }
-      }
-    },
-    {
-      "name": "Google Sign-In",
-      "request": {
-        "method": "POST",
-        "header": [ { "key": "Content-Type", "value": "application/json" } ],
-        "body": { "mode": "raw", "raw": "{\n  \"idToken\": \"<GOOGLE_ID_TOKEN>\",\n  \"accountType\": \"customer\"\n}" },
-        "url": { "raw": "http://localhost:3001/api/v1/auth/google-signin", "protocol": "http", "host": ["localhost"], "port": "3001", "path": ["api","v1","auth","google-signin"] }
-      }
+      "name": "6. Internal APIs (Admin only)",
+      "item": [
+        {
+          "name": "Create Restaurant Owner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Owner created with id', function () {",
+                  "    pm.expect(res).to.have.property('user');",
+                  "    pm.expect(res.user).to.have.property('id');",
+                  "    pm.expect(res.user.role).to.eql('RESTAURANT_OWNER');",
+                  "});",
+                  "",
+                  "if (res.user && res.user.id) {",
+                  "    pm.collectionVariables.set('ownerId', res.user.id);",
+                  "    console.log('Owner ID saved:', res.user.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-internal-token", "value": "{{internalToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+84900000001\",\n  \"email\": \"owner_test@example.com\",\n  \"name\": \"Restaurant Owner Test\",\n  \"password\": \"OwnerPass123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/internal/users/restaurant-owner",
+              "host": ["{{baseUrl}}"],
+              "path": ["internal", "users", "restaurant-owner"]
+            },
+            "description": "Internal API: Tao tai khoan RESTAURANT_OWNER. Goi tu admin-service. Can x-internal-token."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Owner Password by Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Password reset success', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-internal-token", "value": "{{internalToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"NewOwnerPass123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/internal/users/{{ownerId}}/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["internal", "users", "{{ownerId}}", "reset-password"]
+            },
+            "description": "Internal API: Admin dat lai mat khau cho restaurant owner. Can {{ownerId}} tu Create Owner."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "event": [

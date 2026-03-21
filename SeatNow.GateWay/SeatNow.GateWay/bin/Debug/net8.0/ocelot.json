@@ -1,0 +1,139 @@
+{
+  "Routes": [
+    {
+      "DownstreamPathTemplate": "/api/v1/auth/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 3001
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/auth/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ]
+    },
+
+    {
+      "DownstreamPathTemplate": "/api/v1/users/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 3002
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/users/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+      }
+    },
+
+    {
+      "DownstreamPathTemplate": "/api/v1/restaurants/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 3003
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/restaurants/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ]
+    },
+
+    {
+      "DownstreamPathTemplate": "/bookings/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 3004
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/bookings/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ]
+    },
+    {
+      "DownstreamPathTemplate": "/restaurants/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 3004
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/booking-restaurants/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ]
+    },
+
+    {
+      "DownstreamPathTemplate": "/api/v1/payment/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 3005
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/payment/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ]
+    },
+
+    {
+      "DownstreamPathTemplate": "/stats",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 3006
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/admin/stats",
+      "UpstreamHttpMethod": [ "GET" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+      },
+      "RouteClaimsRequirement": {
+        "role": "ADMIN"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/commissions/settle-quarter",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 3006
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/admin/commissions/settle-quarter",
+      "UpstreamHttpMethod": [ "POST" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+      },
+      "RouteClaimsRequirement": {
+        "role": "ADMIN"
+      }
+    },
+
+    {
+      "DownstreamPathTemplate": "/api/v1/ai/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 3007
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/ai/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+      }
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "http://localhost:7000"
+  }
+}

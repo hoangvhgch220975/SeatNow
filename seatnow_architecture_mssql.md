@@ -269,30 +269,52 @@ SeatNow/                     # Thư mục gốc của dự án
 │   │       │   └── booking.sql.js          # Raw SQL: insert/update/select bookings + indexes usage
 │   │       ├── routes/
 │   │       │   └── booking.route.js        # /api/v1/bookings/*
-│   │       ├── jobs/
+│   │       ├── middlewares/
+│   │       │   ├── jwt.middleware.js           # Verify JWT
+│   │       │   ├── optionalAuth.middleware.js  # Xác thực tùy chọn
+│   │       │   └── requireRole.middleware.js   # RBAC: owner/admin/customer
+│   │       |
+|   │       ├── jobs/
 │   │       │   └── bookingExpire.job.js    # Auto-expire/no-show cleanup + enqueue notifications
 │   │       ├── sockets/
 │   │       │   └── booking.socket.js       # Broadcast changes: availability/check-in updates
 │   │       └── utils/
 │   │           └── lock.redis.js           # Redis lock helper (NX + EX) chống double-booking
+|   |           └── time.js                 # Format và đồng bộ thời gian cho slot đặt bàn
 │   │
-│   ├── payment-service/                    # Payment: deposit/commission + wallet transactions + webhook
-│   │   ├── Dockerfile                      # Build image payment-service
-│   │   ├── package.json                    # Dependency cổng thanh toán
-│   │   ├── .env.example                    # Keys: vnpay/momo/zalopay + SQL
+│   ├── payment-service/                    # Thanh toán: deposit/hoa hồng + giao dịch ví + xử lý webhook nhà cung cấp
 │   │   └── src/
 │   │       ├── config/
-│   │       │   └── db.js                   # Kết nối SQL (Wallets/Transactions)
-│   │       ├── index.js                    # Bootstrap app
+│   │       │   ├── db.js                   # Kết nối SQL Server (Wallets, Transactions). Xuất `getPool()` và `sql`.
+│   │       │   └── redis.js                # Redis client (locks, queue webhook, idempotency keys)
 │   │       ├── controllers/
-│   │       │   └── payment.controller.js   # Generate QR + webhook handlers + transaction status
+│   │       │   ├── payment.controller.js   # Các endpoint công khai liên quan thanh toán (tạo QR, tạo yêu cầu thanh toán)
+│   │       │   └── webhook.controller.js   # Webhook endpoints của provider (VNPay, Momo...)
 │   │       ├── services/
-│   │       │   ├── payment.service.js      # Verify signature/webhook -> update transaction atomically
-│   │       │   └── qr.service.js           # Generate VietQR/QRCode buffer (helper layer)
+│   │       │   ├── payment.service.js      # Logic thanh toán chính: tạo yêu cầu thanh toán, build payload
+│   │       │   ├── deposit.service.js      # Điều phối deposit cho booking (tạo giao dịch pending, liên kết booking)
+│   │       │   ├── wallet.service.js       # Vận hành ví: nạp (top-up), rút (withdraw), quản lý transactions
+│   │       │   └── webhook.service.js      # Xử lý webhook idempotent -> cập nhật transactions/ví
+│   │       ├── providers/
+│   │       │   ├── momo.provider.js        # Adapter Momo: tạo request, verify callback
+│   │       │   └── vnpay.provider.js       # Adapter VNPay: sinh URL/QR, verify signature
+│   │       ├── models/
+│   │       │   └── payment.sql.js          # Hàm SQL thô cho Transactions/Wallets/ liên kết Booking
 │   │       ├── routes/
-│   │       │   └── payment.route.js        # /api/v1/payment/*
-│   │       └── utils/
-│   │           └── webhook.validator.js    # Validate payload + signature rules per provider
+│   │       │   ├── payment.route.js        # Gắn các controller payment (deposit, truy vấn giao dịch)
+│   │       │   └── webhook.route.js        # Webhook public cho các provider
+│   │       ├── validators/
+│   │       │   └── payment.validator.js    # Joi/Zod schemas cho yêu cầu thanh toán và webhook
+│   │       ├── middlewares/
+│   │       │   ├── jwt.middleware.js       # Hàm hỗ trợ JWT (cho endpoint nội bộ)
+│   │       │   ├── validate.middleware.js  # Middleware kiểm tra request (validation)
+│   │       │   └── error.middleware.js     # Xử lý lỗi tập trung (centralized error handler)
+│   │       ├── utils/
+│   │       │   ├── idempotency.js         # Hàm idempotency (Redis) cho webhook
+│   │       │   ├── signature.js            # Hàm verify chữ ký của provider
+│   │       │   ├── money.js                # Hàm xử lý tiền tệ (đổi sang đơn vị nhỏ, làm tròn)
+│   │       │   └── reference-code.js       # Sinh mã tham chiếu thân thiện người dùng
+│   │       └── index.js                    # Entry process: khởi động server và workers
 │   │
 ├── promotion-service/              # Promotion microservice
 |   │   ├── Dockerfile              # Image build for promotion-service
@@ -461,26 +483,6 @@ CREATE TABLE dbo.Tables (
   CONSTRAINT CK_Tables_status CHECK (status IN ('available','unavailable','maintenance'))
 );
 
--- WALLETS (mỗi user/restaurant có tối đa 1 wallet)
-CREATE TABLE dbo.Wallets (
-  id            UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-  userId        UNIQUEIDENTIFIER NULL,
-  restaurantId  UNIQUEIDENTIFIER NULL,
-  balance       FLOAT NOT NULL DEFAULT 0,
-  lockedAmount  FLOAT NOT NULL DEFAULT 0,
-  createdAt     DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
-  updatedAt     DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
-  CONSTRAINT PK_Wallets PRIMARY KEY (id),
-  CONSTRAINT UQ_Wallets_userId UNIQUE (userId),
-  CONSTRAINT UQ_Wallets_restaurantId UNIQUE (restaurantId),
-  CONSTRAINT FK_Wallets_user FOREIGN KEY (userId) REFERENCES dbo.Users(id),
-  CONSTRAINT FK_Wallets_restaurant FOREIGN KEY (restaurantId) REFERENCES dbo.Restaurants(id),
-  CONSTRAINT CK_Wallets_owner CHECK (
-    (userId IS NOT NULL AND restaurantId IS NULL)
-    OR (userId IS NULL AND restaurantId IS NOT NULL)
-  )
-);
-
 -- BOOKINGS
 CREATE TABLE dbo.Bookings (
   id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
@@ -488,13 +490,14 @@ CREATE TABLE dbo.Bookings (
   
   -- Authenticated user (nullable)
   customerId UNIQUEIDENTIFIER NULL,
-  
+
   -- Guest info (required if customerId is NULL)
   guestName NVARCHAR(100) NULL,
   guestPhone NVARCHAR(20) NULL,
   guestEmail NVARCHAR(100) NULL,
   
   restaurantId UNIQUEIDENTIFIER NOT NULL,
+  tableId UNIQUEIDENTIFIER NULL,
   bookingDate DATE NOT NULL,
   bookingTime NVARCHAR(10) NOT NULL, -- "18:30"
   numGuests INT NOT NULL CHECK (numGuests > 0),
@@ -542,31 +545,154 @@ CREATE INDEX IX_Bookings_GuestPhone ON dbo.Bookings(guestPhone)
 CREATE INDEX IX_Bookings_GuestEmail ON dbo.Bookings(guestEmail) 
   WHERE guestEmail IS NOT NULL;
 
+-- WALLETS (mỗi user/restaurant có tối đa 1 wallet)
+CREATE TABLE dbo.Wallets (
+    id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    userId UNIQUEIDENTIFIER NULL,
+    restaurantId UNIQUEIDENTIFIER NULL,
+
+    balance DECIMAL(18,2) NOT NULL DEFAULT 0,
+    lockedAmount DECIMAL(18,2) NOT NULL DEFAULT 0,
+
+    currency NVARCHAR(10) NOT NULL DEFAULT 'VND',
+    status NVARCHAR(20) NOT NULL DEFAULT 'active',
+
+    createdAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    updatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+
+    CONSTRAINT PK_Wallets PRIMARY KEY (id),
+
+    CONSTRAINT CK_Wallets_Owner
+    CHECK (
+        (userId IS NOT NULL AND restaurantId IS NULL)
+        OR
+        (userId IS NULL AND restaurantId IS NOT NULL)
+    ),
+
+    CONSTRAINT CK_Wallets_Status
+    CHECK (status IN ('active', 'locked', 'closed')),
+
+    CONSTRAINT CK_Wallets_Currency
+    CHECK (currency IN ('VND', 'USD', 'GBP')),
+
+    CONSTRAINT FK_Wallets_User
+    FOREIGN KEY (userId) REFERENCES dbo.Users(id),
+
+    CONSTRAINT FK_Wallets_Restaurant
+    FOREIGN KEY (restaurantId) REFERENCES dbo.Restaurants(id)
+);
+GO
+
+-- Index cho Wallets
+CREATE UNIQUE INDEX UQ_Wallets_UserId
+ON dbo.Wallets(userId)
+WHERE userId IS NOT NULL;
+GO
+
+CREATE UNIQUE INDEX UQ_Wallets_RestaurantId
+ON dbo.Wallets(restaurantId)
+WHERE restaurantId IS NOT NULL;
+GO
+
 -- TRANSACTIONS
 CREATE TABLE dbo.Transactions (
-  id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-  walletId UNIQUEIDENTIFIER NOT NULL,
-  type NVARCHAR(30) NOT NULL CHECK (type IN (
-    'TOP_UP',
-    'COMMISSION',
-    'REFUND',
-    'WITHDRAWAL'
-  )),
-  amount FLOAT NOT NULL,
-  balanceBefore FLOAT NOT NULL,
-  balanceAfter FLOAT NOT NULL,
-  description NVARCHAR(500),
-  paymentMethod NVARCHAR(50),
-  transactionRef NVARCHAR(100),
-  status NVARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
-  createdAt DATETIME2 DEFAULT SYSUTCDATETIME(),
-  FOREIGN KEY (walletId) REFERENCES dbo.Wallets(id)
-);
+    id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
 
-CREATE INDEX IX_Transactions_WalletId ON dbo.Transactions(walletId);
-CREATE INDEX IX_Transactions_Type ON dbo.Transactions(type);
-CREATE INDEX IX_Transactions_CreatedAt ON dbo.Transactions(createdAt DESC);
+    walletId UNIQUEIDENTIFIER NULL,
+    bookingId UNIQUEIDENTIFIER NULL,
+
+    type NVARCHAR(30) NOT NULL,
+    amount DECIMAL(18,2) NOT NULL,
+    currency NVARCHAR(10) NOT NULL DEFAULT 'VND',
+
+    balanceBefore DECIMAL(18,2) NULL,
+    balanceAfter DECIMAL(18,2) NULL,
+
+    description NVARCHAR(MAX) NULL,
+    paymentMethod NVARCHAR(50) NULL,
+
+    referenceCode NVARCHAR(100) NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'pending',
+
+    createdAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+
+    payerType NVARCHAR(30) NULL,
+    provider NVARCHAR(30) NULL,
+    providerTxnId NVARCHAR(100) NULL,
+    idempotencyKey NVARCHAR(100) NULL,
+    metadataJson NVARCHAR(MAX) NULL,
+
+    completedAt DATETIME2 NULL,
+    failedAt DATETIME2 NULL,
+
+    CONSTRAINT PK_Transactions PRIMARY KEY (id),
+
+    CONSTRAINT CK_Transactions_Type
+    CHECK (type IN (
+        'DEPOSIT_PAYMENT',
+        'TOP_UP',
+        'COMMISSION',
+        'REFUND',
+        'WITHDRAWAL',
+        'SETTLEMENT'
+    )),
+
+    CONSTRAINT CK_Transactions_Status
+    CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
+
+    CONSTRAINT CK_Transactions_Amount
+    CHECK (amount > 0),
+
+    CONSTRAINT CK_Transactions_Currency
+    CHECK (currency IN ('VND', 'USD', 'GBP')),
+
+    CONSTRAINT CK_Transactions_PayerType
+    CHECK (
+        payerType IS NULL OR payerType IN (
+            'CUSTOMER_USER',
+            'CUSTOMER_GUEST',
+            'RESTAURANT',
+            'ADMIN'
+        )
+    ),
+
+    CONSTRAINT CK_Transactions_Provider
+    CHECK (
+        provider IS NULL OR provider IN ('MOMO', 'VNPAY', 'INTERNAL')
+    ),
+
+    CONSTRAINT FK_Transactions_Wallet
+    FOREIGN KEY (walletId) REFERENCES dbo.Wallets(id),
+
+    CONSTRAINT FK_Transactions_Booking
+    FOREIGN KEY (bookingId) REFERENCES dbo.Bookings(id)
 );
+GO
+-- Index cho Transactions
+CREATE INDEX IX_Transactions_BookingId
+ON dbo.Transactions(bookingId);
+GO
+
+CREATE INDEX IX_Transactions_ProviderTxnId
+ON dbo.Transactions(providerTxnId);
+GO
+
+CREATE INDEX IX_Transactions_walletId
+ON dbo.Transactions(walletId);
+GO
+
+CREATE INDEX IX_Transactions_Status
+ON dbo.Transactions(status);
+GO
+
+CREATE UNIQUE INDEX UQ_Transactions_ReferenceCode
+ON dbo.Transactions(referenceCode)
+WHERE referenceCode IS NOT NULL;
+GO
+
+CREATE INDEX IX_Transactions_BookingId_Type_Status
+ON dbo.Transactions(bookingId, type, status);
+GO
 
 -- Indexes (khuyến nghị)
 CREATE INDEX IX_Restaurants_ownerId ON dbo.Restaurants(ownerId);
