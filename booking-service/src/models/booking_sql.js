@@ -139,7 +139,7 @@ async function getCommissionSummaryByRestaurant(restaurantId, { from, to } = {})
   const req = pool.request()
     .input('restaurantId', sql.UniqueIdentifier, restaurantId);
 
-  // Tính commission khi booking đã xác nhận trở lên và đã thanh toán cọc
+  // Tính commission khi booking đã xác nhận trở lên  
   const eligibleStatuses = ['CONFIRMED', 'ARRIVED', 'COMPLETED'];
   const timeExpr = 'COALESCE(depositPaidAt, completedAt, confirmedAt, createdAt)';
 
@@ -419,6 +419,54 @@ async function cancelBooking(id, fromStatuses, cancelledBy, cancellationReason) 
   return rs2.recordset[0] || null;
 }
 
+// Thống kê doanh thu theo nhà hàng
+async function getRevenueStatistics(restaurantId, { period = 'month', from, to } = {}) {
+  const pool = await getPool();
+  const req = pool.request()
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId);
+
+  let periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')"; // day
+  if (period === 'week') {
+    periodExpr = "CONCAT(YEAR(bookingDate), '-W', RIGHT('0' + CAST(DATEPART(iso_week, bookingDate) AS VARCHAR(2)), 2))";
+  } else if (period === 'month') {
+    periodExpr = "FORMAT(bookingDate, 'yyyy-MM')";
+  } else if (period === 'quarter') {
+    periodExpr = "CONCAT(YEAR(bookingDate), '-Q', DATEPART(quarter, bookingDate))";
+  } else if (period === 'year') {
+    periodExpr = "FORMAT(bookingDate, 'yyyy')";
+  }
+
+  const where = [
+    'restaurantId=@restaurantId',
+    "status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED')",
+    "depositPaid = 1"
+  ];
+
+  if (from) {
+    where.push('bookingDate >= @from');
+    req.input('from', sql.Date, from);
+  }
+
+  if (to) {
+    where.push('bookingDate <= @to');
+    req.input('to', sql.Date, to);
+  }
+
+  const query = `
+    SELECT
+      ${periodExpr} AS timePeriod,
+      COUNT(id) AS totalBookings,
+      ISNULL(SUM(depositAmount), 0) AS totalRevenue,
+      ISNULL(SUM(commissionFee), 0) AS totalCommission
+    FROM dbo.Bookings
+    WHERE ${where.join(' AND ')}
+    GROUP BY ${periodExpr}
+    ORDER BY ${periodExpr} ASC
+  `;
+
+  const rs = await req.query(query);
+  return rs.recordset;
+}
 
 module.exports = {
   ACTIVE_STATUSES,
@@ -435,5 +483,6 @@ module.exports = {
   listCommissionCandidates,
   markCommissionPaidByBookingIds,
   updateStatus,
-  cancelBooking
+  cancelBooking,
+  getRevenueStatistics
 };

@@ -9,58 +9,61 @@ const rateLimit = require('../middlewares/rateLimit_middleware');
 const r = express.Router();
 
 // =====================================================
-// Booking Routes - Single file, sections divided by role
+// Routing cho Booking - Một file duy nhất, chia theo phân quyền (role)
 // =====================================================
 
-// --- Public / Guest ---------------------------------
-// Create booking (guest or optional auth for customers)
+// --- Public / Khách vãng lai (Guest) ---------------------------------
+// Tạo booking (dành cho khách vãng lai hoặc khách hàng đã đăng nhập)
 r.post('/bookings', optionalAuth, rateLimit({ limit: 10, windowSec: 60, key: 'create_booking' }), c.create);
 
-// Guest lookup: find booking by email/phone + reference
+// Khách vãng lai tra cứu: tìm booking bằng email/sđt + mã booking
 r.get('/bookings/guest/lookup', c.guestLookup);
 
-// Availability (public)
+// Kiểm tra bàn trống (public)
 r.get('/restaurants/:id/availability', rateLimit({ limit: 60, windowSec: 60, key: 'availability' }), c.availability);
 
-// Guest cancellation (no customer auth required)
+// Khách vãng lai hủy booking (không yêu cầu xác thực khách hàng)
 r.put('/bookings/:id/cancel/guest', optionalAuth, rateLimit({ limit: 10, windowSec: 60, key: 'guest_cancel' }), c.cancel);
 
-// Kiểm tra tình trạng đặt cọc (guest/customer/owner)
+// Kiểm tra tình trạng đặt cọc (khách vãng lai/khách hàng/chủ nhà hàng)
 r.get('/bookings/:id/payment-status', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.paymentStatus);
 
-// --- Customer --------------------------------------
-// List bookings for current logged-in customer
+// --- Khách hàng (Customer) --------------------------------------
+// Danh sách booking của khách hàng đang đăng nhập
 r.get('/bookings/my-bookings', jwt.requireAuth, requireRole('CUSTOMER'), c.myBookings);
 
-// Booking detail: customers, owners, and admins use same endpoint
-// Controller enforces ownership/role checks
+// Chi tiết booking: khách hàng, chủ nhà hàng và admin dùng chung endpoint
+// Controller sẽ tự kiểm tra quyền sở hữu/role
 r.get('/bookings/:id', jwt.requireAuth, c.getBooking);
 
-// Customer cancel (authenticated only)
+// Khách hàng hủy booking (chỉ dành cho khách hàng đã xác thực)
 r.put('/bookings/:id/cancel', jwt.requireAuth, requireRole('CUSTOMER'), c.cancel);
 
-// --- Owner / Admin ---------------------------------
-// List bookings for a restaurant (owner/admin)
+// --- Chủ nhà hàng / Admin (Owner / Admin) ---------------------------------
+// Danh sách booking của một nhà hàng (dành cho chủ nhà hàng/admin)
 r.get('/restaurants/:id/bookings', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.restaurantBookings);
 
-// Commission summary/settlement (owner/admin)
+// Tổng hợp/chốt tiền hoa hồng (dành cho chủ nhà hàng/admin)
 r.get('/restaurants/:id/commissions/summary', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.commissionSummary);
 r.post('/restaurants/:id/commissions/settle', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.settleCommission);
 
-// Owner/Admin actions on bookings
+// Thống kê doanh thu (dành cho chủ nhà hàng/admin)
+r.get('/restaurants/:id/revenue-stats', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.revenueStatistics);
+
+// Các thao tác của Chủ nhà hàng/Admin trên booking
 r.put('/bookings/:id/confirm', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.confirm);
 r.put('/bookings/:id/arrived', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.arrived);
 r.put('/bookings/:id/complete', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.complete);
 r.put('/bookings/:id/no-show', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.noShow);
 
-// QR for check-in (owner/admin)
+// Lấy mã QR để check-in (dành cho chủ nhà hàng/admin)
 r.get('/bookings/:id/qr', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.getQr);
 
-// --- Internal service endpoints (admin-service orchestration) ---
+// --- Các endpoint nội bộ (admin-service gọi sang) ---
 r.post('/internal/commissions/candidates', c.internalCommissionCandidates);
 r.post('/internal/commissions/mark-paid', c.internalMarkCommissionPaid);
 
-// Internal endpoint triggered by payment-service after successful deposit
+// Endpoint nội bộ được payment-service gọi sau khi khách đặt cọc thành công
 r.post('/internal/bookings/:id/payment-success', c.internalPaymentSuccess);
 
 module.exports = r;

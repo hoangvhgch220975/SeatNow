@@ -178,6 +178,12 @@ async function commissionSummary(restaurantId, actor, { from, to } = {}) {
   return bookingSql.getCommissionSummaryByRestaurant(restaurantId, { from, to });
 }
 
+// Thống kê doanh thu theo nhà hàng
+async function getRevenueStatistics(restaurantId, actor, { period, from, to } = {}) {
+  await ensureRestaurantAccess(restaurantId, actor);
+  return bookingSql.getRevenueStatistics(restaurantId, { period, from, to });
+}
+
 // Chốt thu commission theo kỳ (đánh dấu commissionPaid=1)
 async function settleCommission(restaurantId, actor, { from, to, minAgeMinutes } = {}) {
   if (String(process.env.COMMISSION_SETTLE_VIA_BOOKING || '').toLowerCase() !== 'true') {
@@ -361,6 +367,7 @@ module.exports = {
   cancel,
   noShow,
   getPaymentStatus,
-  paymentSuccess
+  paymentSuccess,
+  getRevenueStatistics
 };
 

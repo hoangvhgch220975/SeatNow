@@ -219,6 +219,21 @@ async function commissionSummary(req, res) {
   }
 }
 
+// Thống kê doanh thu theo nhà hàng
+async function revenueStatistics(req, res) {
+  try {
+    const restaurantId = req.params.id;
+    const data = await bookingSvc.getRevenueStatistics(restaurantId, req.user, {
+      period: req.query.period,
+      from: req.query.from,
+      to: req.query.to
+    });
+    return res.json({ restaurantId, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
 // Chốt thu commission theo kỳ
 async function settleCommission(req, res) {
   try {
@@ -292,6 +307,7 @@ module.exports = {
   internalCommissionCandidates,
   internalMarkCommissionPaid,
   internalPaymentSuccess,
-  getQr
+  getQr,
+  revenueStatistics
 };
 
