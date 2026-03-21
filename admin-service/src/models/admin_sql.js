@@ -358,6 +358,52 @@ async function getTransactions({ type, status, provider, restaurantId, walletId,
   };
 }
 
+// Thống kê doanh thu toàn hệ thống cho Admin (Hoa hồng)
+async function getAdminRevenueStats({ period = 'month', from, to } = {}) {
+  const pool = await getPool();
+  const req = pool.request();
+
+  let periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')"; // day
+  if (period === 'week') {
+    periodExpr = "CONCAT(YEAR(bookingDate), '-W', RIGHT('0' + CAST(DATEPART(iso_week, bookingDate) AS VARCHAR(2)), 2))";
+  } else if (period === 'month') {
+    periodExpr = "FORMAT(bookingDate, 'yyyy-MM')";
+  } else if (period === 'quarter') {
+    periodExpr = "CONCAT(YEAR(bookingDate), '-Q', DATEPART(quarter, bookingDate))";
+  } else if (period === 'year') {
+    periodExpr = "FORMAT(bookingDate, 'yyyy')";
+  }
+
+  const where = [
+    "status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED')",
+    "ISNULL(commissionFee, 0) > 0"
+  ];
+
+  if (from) {
+    where.push('bookingDate >= @from');
+    req.input('from', sql.Date, from);
+  }
+  if (to) {
+    where.push('bookingDate <= @to');
+    req.input('to', sql.Date, to);
+  }
+
+  const query = `
+    SELECT
+      ${periodExpr} AS timePeriod,
+      COUNT(id) AS totalBookings,
+      ISNULL(SUM(depositAmount), 0) AS totalPlatformDeposit,
+      ISNULL(SUM(commissionFee), 0) AS totalAdminCommission
+    FROM dbo.Bookings
+    WHERE ${where.join(' AND ')}
+    GROUP BY ${periodExpr}
+    ORDER BY ${periodExpr} ASC
+  `;
+
+  const rs = await req.query(query);
+  return rs.recordset || [];
+}
+
 module.exports = {
   getDashboardStats,
   getPendingRestaurants,
@@ -368,5 +414,6 @@ module.exports = {
   ensureRestaurantWallet,
   getUsers,
   getBookings,
-  getTransactions
+  getTransactions,
+  getAdminRevenueStats
 };

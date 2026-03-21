@@ -9,6 +9,7 @@ router.use(jwt.requireAuth, requireRole('ADMIN'));
 
 // Dashboard / thong ke
 router.get('/dashboard/stats', controller.getStats);
+router.get('/dashboard/revenue-stats', controller.getAdminRevenueStats);
 
 // Quan ly nha hang
 router.post('/restaurants', controller.createRestaurant);

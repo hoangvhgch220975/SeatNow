@@ -50,6 +50,16 @@ async function getStats(req, res, next) {
   }
 }
 
+// Lay thong ke doanh thu cho admin theo thoi gian.
+async function getAdminRevenueStats(req, res, next) {
+  try {
+    const data = await adminService.getAdminRevenueStats(req.query);
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Lay danh sach nha hang dang cho duyet.
 async function getPendingRestaurants(req, res, next) {
   try {
@@ -158,5 +168,6 @@ module.exports = {
   getTransactions,
   settleQuarterCommission,
   approveWithdrawal,
-  rejectWithdrawal
+  rejectWithdrawal,
+  getAdminRevenueStats
 };

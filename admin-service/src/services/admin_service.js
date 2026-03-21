@@ -127,6 +127,15 @@ async function getStats() {
   return adminModel.getDashboardStats();
 }
 
+// Lay thong ke doanh thu theo thoi gian cho admin
+async function getAdminRevenueStats(query = {}) {
+  return adminModel.getAdminRevenueStats({
+    period: query.period,
+    from: query.from,
+    to: query.to
+  });
+}
+
 // Lay danh sach nha hang dang pending.
 async function getPendingRestaurants() {
   return adminModel.getPendingRestaurants();
@@ -407,6 +416,7 @@ module.exports = {
   settleQuarterCommission,
   approveWithdrawal,
   rejectWithdrawal,
-  createRestaurantOwner
+  createRestaurantOwner,
+  getAdminRevenueStats
 };
 
