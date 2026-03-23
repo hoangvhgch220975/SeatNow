@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeatNow Notification Test Client</title>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; }
+        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; flex: 1; }
+        button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #status { margin-bottom: 20px; font-weight: bold; }
+        .connected { color: green; }
+        .disconnected { color: red; }
+        #notifications { list-style: none; padding: 0; }
+        .notification-item { background: #e9ecef; padding: 10px; margin-bottom: 10px; border-radius: 4px; border-left: 4px solid #007bff; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateX(-10px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        pre { background: #f8f9fa; padding: 5px; font-size: 0.8em; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SeatNow Test Client</h1>
+        
+        <div class="controls">
+            <input type="text" id="userId" placeholder="User ID (e.g. C4E503D9-9B33-4C61-AA19-7EF824D55226)" value="C4E503D9-9B33-4C61-AA19-7EF824D55226">
+            <button onclick="connect()">Connect</button>
+        </div>
+
+        <div id="status" class="disconnected">Status: Disconnected</div>
+
+        <div id="logs" style="font-size: 0.9em; color: #666; margin-bottom: 10px;"></div>
+        
+        <h3>Notifications:</h3>
+        <ul id="notifications">
+            <li style="color: #999;">No notifications yet...</li>
+        </ul>
+    </div>
+
+    <script>
+        let socket;
+        const statusEl = document.getElementById('status');
+        const notificationsEl = document.getElementById('notifications');
+        const logsEl = document.getElementById('logs');
+
+        function connect() {
+            if (socket) socket.disconnect();
+            
+            const userId = document.getElementById('userId').value;
+            if (!userId) return alert('Please enter a User ID');
+
+            log(`Connecting as ${userId}...`);
+
+            // Connect to notification service at port 3008
+            socket = io('http://localhost:3008', {
+                query: { userId, role: 'RESTAURANT_OWNER' }
+            });
+
+            socket.on('connect', () => {
+                statusEl.innerText = 'Status: Connected';
+                statusEl.className = 'connected';
+                log('Connected to server!');
+            });
+
+            socket.on('disconnect', () => {
+                statusEl.innerText = 'Status: Disconnected';
+                statusEl.className = 'disconnected';
+                log('Disconnected from server');
+            });
+
+            // Listen for generic notification event
+            socket.on('notification', (data) => {
+                addNotification('Notification', data);
+            });
+
+            // Listen for specific booking event
+            socket.on('booking_created', (data) => {
+                addNotification('Booking Created', data);
+            });
+
+            socket.on('booking_cancelled', (data) => {
+                addNotification('Booking Cancelled', data);
+            });
+        }
+
+        function addNotification(type, data) {
+            if (notificationsEl.children.length === 1 && notificationsEl.children[0].style.color) {
+                notificationsEl.innerHTML = '';
+            }
+
+            const li = document.createElement('li');
+            li.className = 'notification-item';
+            
+            const time = new Date().toLocaleTimeString();
+            li.innerHTML = `
+                <strong>[${time}] ${type}</strong>: ${data.message || 'Incoming update'}
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            
+            notificationsEl.prepend(li);
+        }
+
+        function log(msg) {
+            logsEl.innerText = msg;
+        }
+    </script>
+</body>
+</html>

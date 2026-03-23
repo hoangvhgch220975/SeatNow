@@ -1,0 +1,228 @@
+{
+	"info": {
+		"_postman_id": "c7a8b9c0-d1e2-4f3g-h4i5-j6k7l8m9n0o1",
+		"name": "SeatNow-Notification-Service",
+		"description": "Collection for testing the SeatNow Notification Service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{BASE_URL}}/health",
+					"host": [
+						"http://localhost:3008"
+					],
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Test Email Notification",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"type\": \"email\",\r\n    \"payload\": {\r\n        \"to\": \"hoangvhgch220975@fpt.edu.vn\",\r\n        \"subject\": \"Test Notification\",\r\n        \"html\": \"<h1>Hello!</h1><p>This is a test notification from SeatNow.</p>\"\r\n    }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/v1/notifications/test",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"notifications",
+						"test"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Test Web Notification (Socket)",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"type\": \"web\",\r\n    \"payload\": {\r\n        \"userId\": \"C4E503D9-9B33-4C61-AA19-7EF824D55226\",\r\n        \"event\": \"booking_created\",\r\n        \"message\": \"Có đơn đặt bàn mới BK12345\",\r\n        \"data\": {\r\n            \"bookingId\": \"BK12345\"\r\n        }\r\n    }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/v1/notifications/test",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"notifications",
+						"test"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Test Firebase Push",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"type\": \"push\",\r\n    \"payload\": {\r\n        \"token\": \"fcm-token-placeholder\",\r\n        \"title\": \"Bạn có tin nhắn mới\",\r\n        \"body\": \"Đơn hàng của bạn đã được xác nhận.\"\r\n    }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/v1/notifications/test",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"notifications",
+						"test"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Test Professional Email - Booking Confirmed",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"type\": \"email\",\r\n    \"payload\": {\r\n        \"to\": \"hoangvhgch220975@fpt.edu.vn\",\r\n        \"templateType\": \"booking_confirmed\",\r\n        \"data\": {\r\n            \"guestName\": \"Hoàng\",\r\n            \"restaurantName\": \"Nhà hàng Sen Tây Hồ\",\r\n            \"bookingCode\": \"BK20240323001\",\r\n            \"bookingDate\": \"25/03/2024\",\r\n            \"bookingTime\": \"19:00\",\r\n            \"numGuests\": 4,\r\n            \"address\": \"614 Lạc Long Quân, Nhật Tân, Tây Hồ, Hà Nội\"\r\n        }\r\n    }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/v1/notifications/test",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"notifications",
+						"test"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Test Professional Email - Booking Cancelled",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"type\": \"email\",\r\n    \"payload\": {\r\n        \"to\": \"hoangvhgch220975@fpt.edu.vn\",\r\n        \"templateType\": \"booking_cancelled\",\r\n        \"data\": {\r\n            \"guestName\": \"Hoàng\",\r\n            \"restaurantName\": \"Nhà hàng Sen Tây Hồ\",\r\n            \"bookingCode\": \"BK20240323001\",\r\n            \"reason\": \"Nhà hàng có sự cố đột xuất về điện lưới.\"\r\n        }\r\n    }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/v1/notifications/test",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"notifications",
+						"test"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Test Professional Email - Promotion",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"type\": \"email\",\r\n    \"payload\": {\r\n        \"to\": \"hoangvhgch220975@fpt.edu.vn\",\r\n        \"templateType\": \"promotion\",\r\n        \"data\": {\r\n            \"guestName\": \"Hoàng\",\r\n            \"restaurantName\": \"Lẩu Dê Nhất Ly\",\r\n            \"promotionName\": \"Đại tiệc sinh nhật 10 năm\",\r\n            \"discountValue\": \"GIẢM 20%\",\r\n            \"description\": \"Áp dụng cho toàn bộ menu đồ ăn khi đặt bàn từ 4 người trở lên.\",\r\n            \"expiryDate\": \"31/03/2024\"\r\n        }\r\n    }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/v1/notifications/test",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"notifications",
+						"test"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "BASE_URL",
+			"value": "http://localhost:3008",
+			"type": "string"
+		}
+	]
+}

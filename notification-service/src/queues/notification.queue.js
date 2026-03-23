@@ -1,10 +1,18 @@
 /**
- * notification.queue.js - queue definitions for notifications (placeholder)
+ * notification.queue.js - queue definitions for notifications
  */
 const Queue = require('bull');
+require('dotenv').config();
+
 const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
-const emailQueue = new Queue('email', redisUrl);
-const smsQueue = new Queue('sms', redisUrl);
+// We use a single unified queue for all notification types
+const notificationQueue = new Queue('notification', redisUrl);
 
-module.exports = { emailQueue, smsQueue };
+// Optional: specific queues if needed in the future
+// const emailQueue = new Queue('email', redisUrl);
+// const smsQueue = new Queue('sms', redisUrl);
+
+module.exports = { 
+  notificationQueue 
+};
