@@ -36,8 +36,8 @@ r.get('/bookings/my-bookings', jwt.requireAuth, requireRole('CUSTOMER'), c.myBoo
 // Controller sẽ tự kiểm tra quyền sở hữu/role
 r.get('/bookings/:id', jwt.requireAuth, c.getBooking);
 
-// Khách hàng hủy booking (chỉ dành cho khách hàng đã xác thực)
-r.put('/bookings/:id/cancel', jwt.requireAuth, requireRole('CUSTOMER'), c.cancel);
+// Hủy booking (Khách hàng tự hủy, hoặc Chủ nhà hàng/Admin hủy)
+r.put('/bookings/:id/cancel', jwt.requireAuth, requireRole('CUSTOMER', 'RESTAURANT_OWNER', 'ADMIN'), c.cancel);
 
 // --- Chủ nhà hàng / Admin (Owner / Admin) ---------------------------------
 // Danh sách booking của một nhà hàng (dành cho chủ nhà hàng/admin)

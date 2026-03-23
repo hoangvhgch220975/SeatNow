@@ -298,6 +298,55 @@
             ],
             "url": "{{baseUrl}}/bookings/{{bookingId}}/confirm"
           }
+        },
+        {
+          "name": "Update Booking Status (Arrived)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/bookings/{{bookingId}}/arrived"
+          }
+        },
+        {
+          "name": "Update Booking Status (Complete)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/bookings/{{bookingId}}/complete"
+          }
+        },
+        {
+          "name": "Update Booking Status (No-Show)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/bookings/{{bookingId}}/no-show"
+          }
+        },
+        {
+          "name": "Cancel Booking (Owner)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancellationReason\": \"Owner adjustment\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/bookings/{{bookingId}}/cancel"
+          }
         }
       ]
     }

@@ -10,9 +10,13 @@ async function getRestaurant(restaurantId) {
   const rs = await pool.request()
     .input('id', sql.UniqueIdentifier, restaurantId)
     .query(`
-      SELECT TOP 1 id, ownerId, status, depositEnabled, depositPolicyJson, commissionRate
-      FROM dbo.Restaurants
-      WHERE id=@id
+      SELECT TOP 1 
+        r.id, r.ownerId, r.status, r.depositEnabled, r.depositPolicyJson, r.commissionRate,
+        r.name as restaurantName, r.address as restaurantAddress,
+        u.email as ownerEmail, u.name as ownerName
+      FROM dbo.Restaurants r
+      LEFT JOIN dbo.Users u ON r.ownerId = u.id
+      WHERE r.id=@id
     `);
   return rs.recordset[0] || null;
 }

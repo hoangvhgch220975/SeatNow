@@ -7,6 +7,27 @@ const { acquireLock, releaseLock } = require('../utils/lock_redis');
 const bookingSql = require('../models/booking_sql');
 const availability = require('./availability_service');
 const socket = require('../sockets/booking_socket');
+const { notificationQueue } = require('../queues/notification.queue');
+
+// Helper to format date/time from SQL return
+function formatDate(d) {
+  if (!d) return '';
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return String(d);
+    return date.toISOString().split('T')[0];
+  } catch (e) { return String(d); }
+}
+
+function formatTime(t) {
+  if (!t) return '';
+  try {
+    const date = new Date(t);
+    if (isNaN(date.getTime())) return String(t);
+    // HH:mm
+    return date.toISOString().split('T')[1].substring(0, 5);
+  } catch (e) { return String(t); }
+}
 
 // Hàm sinh mã booking
 function genCode() {
@@ -128,7 +149,20 @@ async function createBooking({ actor, body }) {
     try {
       socket.emitBookingChanged({ restaurantId: body.restaurantId, customerId: actor?.id, payload: { type: 'created', booking: row } });
       socket.emitAvailabilityChanged(body.restaurantId, { bookingDate: body.bookingDate, bookingTime: body.bookingTime });
-    } catch (e) {}
+      
+      // Notify Restaurant Owner via Web Socket (Dashboard)
+      notificationQueue.add({
+        type: 'web',
+        payload: {
+          userId: r.ownerId,
+          event: 'booking_created',
+          message: `New order: ${row.bookingCode}`,
+          data: { booking: row, restaurant: r }
+        }
+      });
+    } catch (e) {
+      console.error('Error triggering notifications for createBooking', e);
+    }
 
     // Auto-release hold lock if existed
     const holdKey = `table:hold:${body.restaurantId}:${tableId}:${body.bookingDate}:${body.bookingTime}`;
@@ -258,7 +292,39 @@ async function confirm(id) {
   const updated = await bookingSql.updateStatus(id, ['PENDING'], 'CONFIRMED', 'confirmedAt');
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
-  try { socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'confirmed', booking: updated } }); } catch (e) {}
+  try { 
+    socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'confirmed', booking: updated } }); 
+    
+    // Notify Customer via Email
+    const r = await bookingSql.getRestaurant(updated.restaurantId);
+    let recipientEmail = updated.guestEmail;
+    
+    // If registered customer, fetch their email if not in guestEmail
+    if (!recipientEmail && updated.customerId) {
+       const pool = await require('../config/db').getPool();
+       const userRs = await pool.request().input('id', require('../config/db').sql.UniqueIdentifier, updated.customerId).query('SELECT email FROM dbo.Users WHERE id=@id');
+       recipientEmail = userRs.recordset[0]?.email;
+    }
+
+    if (r && recipientEmail) {
+      notificationQueue.add({
+        type: 'email',
+        payload: {
+          to: recipientEmail,
+          templateType: 'booking_confirmed',
+          data: {
+            guestName: updated.guestName || 'Guest',
+            restaurantName: r.restaurantName,
+            bookingCode: updated.bookingCode,
+            bookingDate: formatDate(updated.bookingDate),
+            bookingTime: formatTime(updated.bookingTime),
+            numGuests: updated.numGuests,
+            address: r.restaurantAddress
+          }
+        }
+      });
+    }
+  } catch (e) {}
   return updated;
 }
 
@@ -282,12 +348,71 @@ async function complete(id) {
 
 // PENDING/CONFIRMED -> CANCELLED
 async function cancel(id, actor = null, cancellationReason = null) {
+  const booking = await bookingSql.findById(id);
+  if (!booking) { const e = new Error('Booking not found'); e.status = 404; throw e; }
+
+  // Check permission
+  if (actor) {
+    if (actor.role === 'CUSTOMER') {
+      if (booking.customerId && String(booking.customerId) !== String(actor.id)) {
+        const e = new Error('Forbidden: You can only cancel your own booking'); e.status = 403; throw e;
+      }
+    } else if (actor.role === 'RESTAURANT_OWNER') {
+      const r = await bookingSql.getRestaurant(booking.restaurantId);
+      if (!r || String(r.ownerId) !== String(actor.id)) {
+        const e = new Error('Forbidden: You are not the owner of this restaurant'); e.status = 403; throw e;
+      }
+    }
+  }
+
   // Store role (e.g., 'CUSTOMER') in cancelledBy column (now NVARCHAR)
   const cancelledBy = actor?.role || null;
   const updated = await bookingSql.cancelBooking(id, ['PENDING','CONFIRMED'], cancelledBy, cancellationReason);
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
-  try { socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'cancelled', booking: updated } }); } catch (e) {}
+  try { 
+    socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'cancelled', booking: updated } }); 
+    
+    const r = await bookingSql.getRestaurant(updated.restaurantId);
+    if (r) {
+      if (actor?.role === 'CUSTOMER') {
+        // Notify Owner
+        notificationQueue.add({
+          type: 'web',
+          payload: {
+            userId: r.ownerId,
+            event: 'booking_cancelled',
+            message: `Customer cancelled: ${updated.bookingCode}`,
+            data: { booking: updated }
+          }
+        });
+      } else {
+        // Notify Customer (Cancelled by Restaurant/Admin)
+        let recipientEmail = updated.guestEmail;
+        if (!recipientEmail && updated.customerId) {
+          const pool = await require('../config/db').getPool();
+          const userRs = await pool.request().input('id', require('../config/db').sql.UniqueIdentifier, updated.customerId).query('SELECT email FROM dbo.Users WHERE id=@id');
+          recipientEmail = userRs.recordset[0]?.email;
+        }
+
+        if (recipientEmail) {
+          notificationQueue.add({
+            type: 'email',
+            payload: {
+              to: recipientEmail,
+              templateType: 'booking_cancelled',
+              data: {
+                guestName: updated.guestName || 'Guest',
+                restaurantName: r.restaurantName,
+                bookingCode: updated.bookingCode,
+                reason: cancellationReason || 'Restaurant adjustment'
+              }
+            }
+          });
+        }
+      }
+    }
+  } catch (e) {}
   return updated;
 }
 
