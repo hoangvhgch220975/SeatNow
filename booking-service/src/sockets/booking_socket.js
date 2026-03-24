@@ -60,30 +60,67 @@ function initSocket(httpServer) {
     socket.on('holdTable', async (data, callback) => {
       try {
         const { restaurantId, tableId, bookingDate, bookingTime } = data;
-        if (!restaurantId || !tableId || !bookingDate || !bookingTime) {
-          return callback?.({ error: 'Missing required fields' });
-        }
-
-        const userId = socket.user?.id || socket.id;
+        const userId = String(socket.user?.id || socket.id);
         const redis = await getRedis();
         const holdKey = `table:hold:${restaurantId}:${tableId}:${bookingDate}:${bookingTime}`;
         const holdTTL = parseInt(process.env.TABLE_HOLD_TTL_SEC || '120', 10);
 
-        // Check if already held by someone else
+        console.log('[holdTable] Start', { restaurantId, tableId, userId, holdKey });
+
+        // 0. Check Table status in DB
+        const bookingSql = require('../models/booking_sql');
+        const table = await bookingSql.getTable(tableId);
+        if (!table || table.status !== 'available') {
+          return callback?.({ error: 'Table is currently unavailable' });
+        }
+
+        // 1. Auto-release ANY other tables
+        try {
+          const userPattern = `table:hold:${restaurantId}:*:${bookingDate}:${bookingTime}`;
+          const existingKeys = await redis.keys(userPattern);
+          for (const k of existingKeys) {
+            const holder = await redis.get(String(k));
+            if (String(holder) === userId && String(k) !== holdKey) {
+              await redis.del(String(k));
+              io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { restaurantId, bookingDate, bookingTime });
+            }
+          }
+        } catch (scanErr) {
+          console.warn('[holdTable] Scan/Release error:', scanErr.message);
+        }
+
+        // 2. Check targets
         const existing = await redis.get(holdKey);
-        if (existing && existing !== userId) {
+        if (existing && String(existing) !== userId) {
           return callback?.({ error: 'Table is being selected by another user' });
         }
 
-        // Set hold lock
-        await redis.set(holdKey, userId, { EX: holdTTL });
+        // 3. Set new hold
+        try {
+          // Explicitly cast both key and value
+          await redis.set(String(holdKey), String(userId));
+          await redis.expire(String(holdKey), holdTTL);
+        } catch (setErr) {
+          console.error('[holdTable] Redis SET error:', setErr.message);
+          return callback?.({ error: `Redis SET error: ${setErr.message}` });
+        }
 
-        // Emit to all in restaurant room
-        io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { bookingDate, bookingTime });
+        // 4. Cache Invalidation
+        try {
+          const availPrefix = `restaurant:${restaurantId}:tables:available:${bookingDate}:${bookingTime}:`;
+          const availKeys = await redis.keys(`${availPrefix}*`);
+          for (const ak of availKeys) {
+            await redis.del(String(ak));
+          }
+        } catch (cacheErr) {
+          console.warn('[holdTable] Cache error:', cacheErr.message);
+        }
 
+        io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { restaurantId, bookingDate, bookingTime });
         callback?.({ success: true, expiresIn: holdTTL });
       } catch (err) {
-        callback?.({ error: err.message });
+        console.error('[holdTable] Global error:', err.message);
+        callback?.({ error: `GLOBAL: ${err.message}` });
       }
     });
 
@@ -95,15 +132,27 @@ function initSocket(httpServer) {
           return callback?.({ error: 'Missing required fields' });
         }
 
-        const userId = socket.user?.id || socket.id;
+        const userId = String(socket.user?.id || socket.id);
         const redis = await getRedis();
         const holdKey = `table:hold:${restaurantId}:${tableId}:${bookingDate}:${bookingTime}`;
 
         // Only release if held by this user
         const existing = await redis.get(holdKey);
-        if (existing === userId) {
+        if (existing && String(existing) === userId) {
           await redis.del(holdKey);
-          io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { bookingDate, bookingTime });
+          
+          // Invalidate availability cache for this slot
+          try {
+            const availPrefix = `restaurant:${restaurantId}:tables:available:${bookingDate}:${bookingTime}:`;
+            const availKeys = await redis.keys(`${availPrefix}*`);
+            for (const ak of availKeys) {
+              await redis.del(ak);
+            }
+          } catch (cacheErr) {
+            console.error('Release Cache Invalidation error:', cacheErr.message);
+          }
+
+          io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { restaurantId, bookingDate, bookingTime });
         }
 
         callback?.({ success: true });
@@ -115,7 +164,7 @@ function initSocket(httpServer) {
     // Auto-release holds on disconnect
     socket.on('disconnect', async () => {
       try {
-        const userId = socket.user?.id || socket.id;
+        const userId = String(socket.user?.id || socket.id);
         const redis = await getRedis();
         
         // Scan và release tất cả holds của user này
@@ -123,11 +172,19 @@ function initSocket(httpServer) {
           const holder = await redis.get(key);
           if (holder === userId) {
             await redis.del(key);
-            // Extract restaurantId từ key để emit event
+            // Extract info từ key để invalidate cache
             const parts = key.split(':');
-            if (parts.length >= 3) {
+            if (parts.length >= 6) {
               const restaurantId = parts[2];
-              io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', {});
+              const bookingDate = parts[4];
+              const bookingTime = parts[5];
+              
+              const availPrefix = `restaurant:${restaurantId}:tables:available:${bookingDate}:${bookingTime}:`;
+              for await (const k of redis.scanIterator({ MATCH: `${availPrefix}*`, COUNT: 200 })) {
+                await redis.del(k);
+              }
+
+              io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { restaurantId, bookingDate, bookingTime });
             }
           }
         }
@@ -146,7 +203,7 @@ function getIO() {
 
 function emitAvailabilityChanged(restaurantId, payload) {
   if (!io || !restaurantId) return;
-  io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', payload);
+  io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { ...payload, restaurantId });
 }
 
 function emitBookingChanged({ restaurantId, customerId, payload }) {

@@ -12,7 +12,8 @@ function cacheKey(restaurantId, date, time, guests) {
 // Hàm lấy danh sách bàn trống theo tiêu chí
 async function getAvailableTables({ restaurantId, bookingDate, bookingTime, numGuests }) {
   const redis = await getRedis();
-  const key = cacheKey(restaurantId, bookingDate, bookingTime, numGuests);
+  const formattedDate = typeof bookingDate === 'string' ? bookingDate : new Date(bookingDate).toISOString().split('T')[0];
+  const key = cacheKey(restaurantId, formattedDate, bookingTime, numGuests);
   const cached = await redis.get(key);
   if (cached) return JSON.parse(cached);
 
@@ -35,7 +36,7 @@ async function getAvailableTables({ restaurantId, bookingDate, bookingTime, numG
         SELECT 1 FROM dbo.Bookings b
         WHERE b.tableId=t.id
           AND b.bookingDate=@bookingDate
-          AND b.bookingTime=@bookingTime
+          AND b.bookingTime LIKE @bookingTime + '%'
           AND b.status IN (${ACTIVE.map((_, i) => `@s${i}`).join(',')})
       )
     ORDER BY t.capacity ASC, t.tableNumber ASC
@@ -59,7 +60,8 @@ async function getAvailableTables({ restaurantId, bookingDate, bookingTime, numG
 // Hàm vô hiệu hóa cache bàn trống khi có booking mới hoặc thay đổi
 async function invalidateAvailability({ restaurantId, bookingDate, bookingTime }) {
   const redis = await getRedis();
-  const prefix = `restaurant:${restaurantId}:tables:available:${bookingDate}:${bookingTime}:`;
+  const formattedDate = typeof bookingDate === 'string' ? bookingDate : new Date(bookingDate).toISOString().split('T')[0];
+  const prefix = `restaurant:${restaurantId}:tables:available:${formattedDate}:${bookingTime}:`;
   const keys = [];
   for await (const k of redis.scanIterator({ MATCH: `${prefix}*`, COUNT: 200 })) {
     if (k && typeof k === 'string') {
@@ -78,3 +80,5 @@ async function invalidateAvailability({ restaurantId, bookingDate, bookingTime }
 }
 
 module.exports = { getAvailableTables, invalidateAvailability };
+
+
