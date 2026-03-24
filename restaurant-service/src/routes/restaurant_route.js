@@ -45,7 +45,7 @@ router.post('/:id/reviews', requireAuth, requireRole('CUSTOMER', 'ADMIN'), valid
 // ==================================================
 // TABLES (SQL)
 // ==================================================
-router.get('/:id/tables', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), tableCtl.list);
+router.get('/:id/tables', authOptional, tableCtl.list);
 router.post('/:id/tables', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), validateBody(createTableSchema), tableCtl.create);
 router.put('/:id/tables/:tableId', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), validateBody(updateTableSchema), tableCtl.update);
 router.delete('/:id/tables/:tableId', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), tableCtl.remove);
