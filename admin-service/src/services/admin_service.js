@@ -80,7 +80,19 @@ async function createRestaurant({ payload, authorization }) {
     authorization ? { Authorization: authorization } : {}
   );
 
-  return result?.data ?? result;
+  const newRest = result?.data ?? result;
+  
+  // Sau khi tạo thành công, nếu có ID và OwnerId thì tạo luôn Wallet (vì Admin tạo thì status=active)
+  if (newRest && newRest.id && newRest.ownerId) {
+    try {
+      await adminModel.ensureRestaurantWallet(newRest.id, newRest.ownerId);
+    } catch (err) {
+      console.error(`Failed to ensure wallet for new restaurant ${newRest.id}:`, err.message);
+      // Không throw lỗi ở đây để tránh rollback việc tạo nhà hàng, Admin có thể fix sau hoặc hệ thống retry.
+    }
+  }
+
+  return newRest;
 }
 
 // Cap nhat nha hang bang cach forward request sang restaurant-service.
