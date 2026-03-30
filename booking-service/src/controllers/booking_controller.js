@@ -238,7 +238,8 @@ async function revenueStatistics(req, res) {
 async function restaurantStatsSummary(req, res) {
   try {
     const restaurantId = req.params.id;
-    const data = await bookingSvc.getRestaurantStatsSummary(restaurantId, req.user);
+    const { from, to } = req.query;
+    const data = await bookingSvc.getRestaurantStatsSummary(restaurantId, req.user, { from, to });
     return res.json({ data });
   } catch (e) {
     return res.status(e.status || 400).json({ message: e.message });
@@ -248,7 +249,8 @@ async function restaurantStatsSummary(req, res) {
 // Thống kê Portfolio cho Chủ chuỗi nhà hàng (Global)
 async function portfolioSummary(req, res) {
   try {
-    const data = await bookingSvc.getOwnerPortfolioSummary(req.user);
+    const { from, to } = req.query;
+    const data = await bookingSvc.getOwnerPortfolioSummary(req.user, { from, to });
     return res.json({ data });
   } catch (e) {
     return res.status(e.status || 400).json({ message: e.message });

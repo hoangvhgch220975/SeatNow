@@ -277,18 +277,70 @@
         },
         {
           "name": "Get Owner Portfolio Summary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Has summary with guestSizeCounts', function () {",
+                  "    pm.expect(res.data.summary).to.have.property('guestSizeCounts');",
+                  "    pm.expect(res.data.summary.guestSizeCounts).to.have.property('couple');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{baseUrl}}/owner/portfolio-summary"
+            "url": {
+              "raw": "{{baseUrl}}/owner/portfolio-summary?from=2026-01-01&to=2026-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["owner", "portfolio-summary"],
+              "query": [
+                { "key": "from", "value": "2026-01-01" },
+                { "key": "to", "value": "2026-12-31" }
+              ]
+            }
           }
         },
         {
           "name": "Get Individual Restaurant Stats Summary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Has guestSizeCounts', function () {",
+                  "    pm.expect(res.data).to.have.property('guestSizeCounts');",
+                  "    pm.expect(res.data.guestSizeCounts).to.have.property('smallGroup');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{baseUrl}}/restaurants/{{restaurantId}}/stats-summary"
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/stats-summary?from=2026-01-01&to=2026-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["restaurants", "{{restaurantId}}", "stats-summary"],
+              "query": [
+                { "key": "from", "value": "2026-01-01" },
+                { "key": "to", "value": "2026-12-31" }
+              ]
+            }
           }
         },
         {

@@ -475,19 +475,35 @@ async function paymentSuccess(id) {
   return booking;
 }
 
-// Thống kê Portfolio cho Chủ sở hữu chuỗi nhà hàng (Global)
-async function getOwnerPortfolioSummary(actor) {
-  if (actor.role !== 'RESTAURANT_OWNER' && actor.role !== 'ADMIN') {
-    const e = new Error('Forbidden'); e.status = 403; throw e;
-  }
-  // Nếu là ADMIN nhưng muốn xem portfolio của chính mình (thường admin không sở hữu n/h trực tiếp ở đây)
-  // hoặc có thể mở rộng cho admin xem của một owner bất kỳ nếu truyền ownerId.
-  // Ở đây tập trung vào Owner tự xem portfolio của mình.
-  return bookingSql.getOwnerPortfolioSummary(actor.id);
+// Thống kê Portfolio cho Chủ chuỗi nhà hàng (Global)
+async function getOwnerPortfolioSummary(actor, filters = {}) {
+  const data = await bookingSql.getOwnerPortfolioSummary(actor.id, filters);
+
+  const calculatePercentages = (counts, total) => {
+    if (!total || total === 0) return { percentCouple: 0, percentSmallGroup: 0, percentParty: 0 };
+    return {
+      percentCouple: parseFloat(((counts.couple / total) * 100).toFixed(2)),
+      percentSmallGroup: parseFloat(((counts.smallGroup / total) * 100).toFixed(2)),
+      percentParty: parseFloat(((counts.party / total) * 100).toFixed(2))
+    };
+  };
+
+  // Tính % cho Global Summary
+  const globalPercentages = calculatePercentages(data.summary.guestSizeCounts, data.summary.totalBookings);
+  Object.assign(data.summary.guestSizeCounts, globalPercentages);
+
+  // Tính % cho từng nhà hàng trong Breakdown
+  data.breakdown = data.breakdown.map(item => {
+    const itemPercentages = calculatePercentages(item.guestSizeCounts, item.totalBookings);
+    Object.assign(item.guestSizeCounts, itemPercentages);
+    return item;
+  });
+
+  return data;
 }
 
 // Thống kê Summary cho DUY NHẤT một nhà hàng (không theo period)
-async function getRestaurantStatsSummary(restaurantId, actor) {
+async function getRestaurantStatsSummary(restaurantId, actor, filters = {}) {
   const restaurant = await bookingSql.getRestaurant(restaurantId);
   if (!restaurant) {
     const e = new Error('Restaurant not found'); e.status = 404; throw e;
@@ -498,7 +514,19 @@ async function getRestaurantStatsSummary(restaurantId, actor) {
     const e = new Error('Forbidden'); e.status = 403; throw e;
   }
 
-  return bookingSql.getRestaurantStatsSummary(restaurantId);
+  const data = await bookingSql.getRestaurantStatsSummary(restaurantId, filters);
+  
+  if (data.totalBookings > 0) {
+    data.guestSizeCounts.percentCouple = parseFloat(((data.guestSizeCounts.couple / data.totalBookings) * 100).toFixed(2));
+    data.guestSizeCounts.percentSmallGroup = parseFloat(((data.guestSizeCounts.smallGroup / data.totalBookings) * 100).toFixed(2));
+    data.guestSizeCounts.percentParty = parseFloat(((data.guestSizeCounts.party / data.totalBookings) * 100).toFixed(2));
+  } else {
+    data.guestSizeCounts.percentCouple = 0;
+    data.guestSizeCounts.percentSmallGroup = 0;
+    data.guestSizeCounts.percentParty = 0;
+  }
+
+  return data;
 }
 
 module.exports = {

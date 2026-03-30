@@ -424,41 +424,60 @@ async function cancelBooking(id, fromStatuses, cancelledBy, cancellationReason) 
 }
 
 // Thống kê Portfolio cho Chủ sở hữu chuỗi nhà hàng (Global + Breakdown)
-async function getOwnerPortfolioSummary(ownerId) {
+async function getOwnerPortfolioSummary(ownerId, { from, to } = {}) {
   const pool = await getPool();
   
+  let dateFilter = '';
+  if (from && to) {
+    dateFilter = "AND b.bookingDate BETWEEN @from AND @to";
+  } else if (from) {
+    dateFilter = "AND b.bookingDate >= @from";
+  } else if (to) {
+    dateFilter = "AND b.bookingDate <= @to";
+  }
+
   // 1. Lấy dữ liệu tổng quan
-  const rsGlobal = await pool.request()
-    .input('ownerId', sql.UniqueIdentifier, ownerId)
-    .query(`
-      SELECT
-        COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND b.status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED') THEN b.depositAmount ELSE 0 END), 0) AS totalRevenue,
-        ISNULL(SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
-        ISNULL(SUM(CASE WHEN b.status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow,
-        COUNT(DISTINCT r.id) AS totalRestaurants
-      FROM dbo.Restaurants r
-      LEFT JOIN dbo.Bookings b ON r.id = b.restaurantId
-      WHERE r.ownerId = @ownerId
-    `);
+  const reqGlobal = pool.request().input('ownerId', sql.UniqueIdentifier, ownerId);
+  if (from) reqGlobal.input('from', sql.Date, from);
+  if (to) reqGlobal.input('to', sql.Date, to);
+
+  const rsGlobal = await reqGlobal.query(`
+    SELECT
+      COUNT(b.id) AS totalBookings,
+      ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND b.status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED') THEN b.depositAmount ELSE 0 END), 0) AS totalRevenue,
+      ISNULL(SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
+      ISNULL(SUM(CASE WHEN b.status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow,
+      SUM(CASE WHEN b.numGuests = 2 THEN 1 ELSE 0 END) AS countCouple,
+      SUM(CASE WHEN b.numGuests BETWEEN 4 AND 6 THEN 1 ELSE 0 END) AS countSmallGroup,
+      SUM(CASE WHEN b.numGuests >= 8 THEN 1 ELSE 0 END) AS countParty,
+      COUNT(DISTINCT r.id) AS totalRestaurants
+    FROM dbo.Restaurants r
+    LEFT JOIN dbo.Bookings b ON r.id = b.restaurantId ${dateFilter}
+    WHERE r.ownerId = @ownerId
+  `);
 
   // 2. Lấy dữ liệu chi tiết từng nhà hàng (Breakdown)
-  const rsBreakdown = await pool.request()
-    .input('ownerId', sql.UniqueIdentifier, ownerId)
-    .query(`
-      SELECT
-        r.id,
-        r.name,
-        r.status as restaurantStatus,
-        COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND b.status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED') THEN b.depositAmount ELSE 0 END), 0) AS totalRevenue,
-        ISNULL(SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
-        ISNULL(SUM(CASE WHEN b.status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow
-      FROM dbo.Restaurants r
-      LEFT JOIN dbo.Bookings b ON r.id = b.restaurantId
-      WHERE r.ownerId = @ownerId
-      GROUP BY r.id, r.name, r.status
-    `);
+  const reqBreakdown = pool.request().input('ownerId', sql.UniqueIdentifier, ownerId);
+  if (from) reqBreakdown.input('from', sql.Date, from);
+  if (to) reqBreakdown.input('to', sql.Date, to);
+
+  const rsBreakdown = await reqBreakdown.query(`
+    SELECT
+      r.id,
+      r.name,
+      r.status as restaurantStatus,
+      COUNT(b.id) AS totalBookings,
+      ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND b.status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED') THEN b.depositAmount ELSE 0 END), 0) AS totalRevenue,
+      ISNULL(SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
+      ISNULL(SUM(CASE WHEN b.status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow,
+      SUM(CASE WHEN b.numGuests = 2 THEN 1 ELSE 0 END) AS countCouple,
+      SUM(CASE WHEN b.numGuests BETWEEN 4 AND 6 THEN 1 ELSE 0 END) AS countSmallGroup,
+      SUM(CASE WHEN b.numGuests >= 8 THEN 1 ELSE 0 END) AS countParty
+    FROM dbo.Restaurants r
+    LEFT JOIN dbo.Bookings b ON r.id = b.restaurantId ${dateFilter}
+    WHERE r.ownerId = @ownerId
+    GROUP BY r.id, r.name, r.status
+  `);
 
   const globalStats = rsGlobal.recordset[0] || {};
   const totalBookings = Number(globalStats.totalBookings || 0);
@@ -480,7 +499,12 @@ async function getOwnerPortfolioSummary(ownerId) {
       totalRevenue: Number(row.totalRevenue || 0),
       totalCancelled: bCancelled,
       totalNoShow: bNoShow,
-      cancellationRate: parseFloat(bRate.toFixed(4))
+      cancellationRate: parseFloat(bRate.toFixed(4)),
+      guestSizeCounts: {
+        couple: Number(row.countCouple || 0),
+        smallGroup: Number(row.countSmallGroup || 0),
+        party: Number(row.countParty || 0)
+      }
     };
   });
 
@@ -491,26 +515,46 @@ async function getOwnerPortfolioSummary(ownerId) {
       totalRevenue: Number(globalStats.totalRevenue || 0),
       totalCancelled,
       totalNoShow,
-      cancellationRate: parseFloat(globalCancellationRate.toFixed(4))
+      cancellationRate: parseFloat(globalCancellationRate.toFixed(4)),
+      guestSizeCounts: {
+        couple: Number(globalStats.countCouple || 0),
+        smallGroup: Number(globalStats.countSmallGroup || 0),
+        party: Number(globalStats.countParty || 0)
+      }
     },
     breakdown
   };
 }
 
 // Thống kê Summary cho DUY NHẤT một nhà hàng (không theo period)
-async function getRestaurantStatsSummary(restaurantId) {
+async function getRestaurantStatsSummary(restaurantId, { from, to } = {}) {
   const pool = await getPool();
-  const rs = await pool.request()
-    .input('restaurantId', sql.UniqueIdentifier, restaurantId)
-    .query(`
-      SELECT
-        COUNT(id) AS totalBookings,
-        ISNULL(SUM(CASE WHEN depositPaid = 1 AND status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED') THEN depositAmount ELSE 0 END), 0) AS totalRevenue,
-        ISNULL(SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
-        ISNULL(SUM(CASE WHEN status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow
-      FROM dbo.Bookings
-      WHERE restaurantId = @restaurantId
-    `);
+  
+  let dateFilter = '';
+  if (from && to) {
+    dateFilter = "AND bookingDate BETWEEN @from AND @to";
+  } else if (from) {
+    dateFilter = "AND bookingDate >= @from";
+  } else if (to) {
+    dateFilter = "AND bookingDate <= @to";
+  }
+
+  const req = pool.request().input('restaurantId', sql.UniqueIdentifier, restaurantId);
+  if (from) req.input('from', sql.Date, from);
+  if (to) req.input('to', sql.Date, to);
+
+  const rs = await req.query(`
+    SELECT
+      COUNT(id) AS totalBookings,
+      ISNULL(SUM(CASE WHEN depositPaid = 1 AND status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED') THEN depositAmount ELSE 0 END), 0) AS totalRevenue,
+      ISNULL(SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
+      ISNULL(SUM(CASE WHEN status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow,
+      SUM(CASE WHEN numGuests = 2 THEN 1 ELSE 0 END) AS countCouple,
+      SUM(CASE WHEN numGuests BETWEEN 4 AND 6 THEN 1 ELSE 0 END) AS countSmallGroup,
+      SUM(CASE WHEN numGuests >= 8 THEN 1 ELSE 0 END) AS countParty
+    FROM dbo.Bookings
+    WHERE restaurantId = @restaurantId ${dateFilter}
+  `);
 
   const stats = rs.recordset[0] || {};
   const totalBookings = Number(stats.totalBookings || 0);
@@ -524,7 +568,12 @@ async function getRestaurantStatsSummary(restaurantId) {
     totalRevenue: Number(stats.totalRevenue || 0),
     totalCancelled,
     totalNoShow,
-    cancellationRate: parseFloat(cancellationRate.toFixed(4))
+    cancellationRate: parseFloat(cancellationRate.toFixed(4)),
+    guestSizeCounts: {
+      couple: Number(stats.countCouple || 0),
+      smallGroup: Number(stats.countSmallGroup || 0),
+      party: Number(stats.countParty || 0)
+    }
   };
 }
 
