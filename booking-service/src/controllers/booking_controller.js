@@ -247,11 +247,83 @@ async function restaurantStatsSummary(req, res) {
 }
 
 // Thống kê Portfolio cho Chủ chuỗi nhà hàng (Global)
+// Thống kê Portfolio cho Chủ chuỗi nhà hàng (Global)
 async function portfolioSummary(req, res) {
   try {
     const { from, to } = req.query;
     const data = await bookingSvc.getOwnerPortfolioSummary(req.user, { from, to });
     return res.json({ data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
+// Thống kê phân bổ giờ đặt bàn cho một nhà hàng
+async function getHourlyStats(req, res) {
+  try {
+    const restaurantId = req.params.id;
+    const { from, to, period } = req.query;
+    let effectiveFrom = from;
+    let effectiveTo = to;
+
+    if (period && !from && !to) {
+      const now = new Date();
+      if (period === 'week') {
+        const d = new Date(now);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+        effectiveFrom = new Date(d.setDate(diff)).toISOString().split('T')[0];
+      } else if (period === 'month') {
+        effectiveFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      } else if (period === 'quarter') {
+        const q = Math.floor(now.getMonth() / 3);
+        effectiveFrom = new Date(now.getFullYear(), q * 3, 1).toISOString().split('T')[0];
+      } else if (period === 'year') {
+        effectiveFrom = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+      }
+      effectiveTo = now.toISOString().split('T')[0];
+    }
+
+    const data = await bookingSvc.getHourlyBookingStats(restaurantId, req.user, {
+      from: effectiveFrom,
+      to: effectiveTo
+    });
+    return res.json({ restaurantId, from: effectiveFrom, to: effectiveTo, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
+// Thống kê phân bổ giờ đặt bàn Portfolio cho chủ (aggregated)
+async function getOwnerHourlyStats(req, res) {
+  try {
+    const { from, to, period } = req.query;
+    let effectiveFrom = from;
+    let effectiveTo = to;
+
+    if (period && !from && !to) {
+      const now = new Date();
+      if (period === 'week') {
+        const d = new Date(now);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        effectiveFrom = new Date(d.setDate(diff)).toISOString().split('T')[0];
+      } else if (period === 'month') {
+        effectiveFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      } else if (period === 'quarter') {
+        const q = Math.floor(now.getMonth() / 3);
+        effectiveFrom = new Date(now.getFullYear(), q * 3, 1).toISOString().split('T')[0];
+      } else if (period === 'year') {
+        effectiveFrom = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+      }
+      effectiveTo = now.toISOString().split('T')[0];
+    }
+
+    const data = await bookingSvc.getOwnerHourlyBookingStats(req.user, {
+      from: effectiveFrom,
+      to: effectiveTo
+    });
+    return res.json({ from: effectiveFrom, to: effectiveTo, data });
   } catch (e) {
     return res.status(e.status || 400).json({ message: e.message });
   }
@@ -333,6 +405,8 @@ module.exports = {
   getQr,
   revenueStatistics,
   portfolioSummary,
-  restaurantStatsSummary
+  restaurantStatsSummary,
+  getHourlyStats,
+  getOwnerHourlyStats
 };
 

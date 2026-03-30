@@ -343,9 +343,8 @@ async function updateStatus(id, fromStatuses, toStatus, timeField) {
  // Validate cancelledBy GUID (nullable)
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function cancelBooking(id, fromStatuses, cancelledBy, cancellationReason) {
+async function cancelBooking(bookingId, fromStatuses = null, cancelledBy = null, cancellationReason = null, refund = false) {
   // Validate id GUID
-  const bookingId = String(id || '').trim();
   if (!GUID_RE.test(bookingId)) {
     throw new Error('Invalid booking id (GUID required)');
   }
@@ -371,39 +370,27 @@ async function cancelBooking(id, fromStatuses, cancelledBy, cancellationReason) 
   const req = pool.request()
     .input('id', sql.UniqueIdentifier, bookingId)
     .input('cancelledBy', sql.NVarChar(50), validCancelledBy)
-    .input('cancellationReason', sql.NVarChar(500), reason);
+    .input('reason', sql.NVarChar(500), reason)
+    .input('refund', sql.Bit, refund ? 1 : 0);
 
   // Use a slightly larger NVARCHAR parameter to avoid overflow from unexpected values
   statuses.forEach((s, i) => req.input(`s${i}`, sql.NVarChar(100), s));
 
-  // Log parameters and their lengths/values to help diagnose potential overflow
-  try {
-    // eslint-disable-next-line no-console
-    console.log('[cancelBooking] params:', {
-      bookingId,
-      cancelledBy: validCancelledBy,
-      cancellationReasonLength: reason ? reason.length : 0,
-      cancellationReasonSample: reason ? (reason.length > 200 ? reason.slice(0, 200) + '...' : reason) : null,
-      statuses
-    });
-    // eslint-disable-next-line no-console
-    statuses.forEach((s, i) => console.log(`[cancelBooking] param s${i} (len=${String(s).length}):`, s));
-  } catch (e) {}
 
   let res;
   try {
     // Perform update without OUTPUT to avoid type conversion issues in some SQL drivers
     // Log the query placeholder list
-    // eslint-disable-next-line no-console
-    console.log('[cancelBooking] executing UPDATE with placeholders:', placeholders);
     res = await req.query(
       `UPDATE dbo.Bookings
-      SET status='CANCELLED',
-          cancelledAt=SYSUTCDATETIME(),
-          cancelledBy=@cancelledBy,
-          cancellationReason=@cancellationReason,
-          updatedAt=SYSUTCDATETIME()
-      WHERE id=@id AND status IN (${placeholders})`
+      SET status = 'CANCELLED',
+          cancelledAt = SYSDATETIME(),
+          cancelledBy = @cancelledBy,
+          cancellationReason = @reason,
+          depositRefunded = CASE WHEN @refund = 1 THEN 1 ELSE depositRefunded END,
+          updatedAt = SYSDATETIME()
+      OUTPUT inserted.*
+      WHERE id = @id AND status IN (${placeholders})`
     );
   } catch (e) {
     // Log error with context
@@ -444,7 +431,7 @@ async function getOwnerPortfolioSummary(ownerId, { from, to } = {}) {
   const rsGlobal = await reqGlobal.query(`
     SELECT
       COUNT(b.id) AS totalBookings,
-      ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND b.status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED') THEN b.depositAmount ELSE 0 END), 0) AS totalRevenue,
+      ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN b.depositAmount - ISNULL(b.commissionFee, 0) ELSE 0 END), 0) AS totalRevenue,
       ISNULL(SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
       ISNULL(SUM(CASE WHEN b.status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow,
       SUM(CASE WHEN b.numGuests = 2 THEN 1 ELSE 0 END) AS countCouple,
@@ -467,7 +454,7 @@ async function getOwnerPortfolioSummary(ownerId, { from, to } = {}) {
       r.name,
       r.status as restaurantStatus,
       COUNT(b.id) AS totalBookings,
-      ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND b.status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED') THEN b.depositAmount ELSE 0 END), 0) AS totalRevenue,
+      ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN b.depositAmount - ISNULL(b.commissionFee, 0) ELSE 0 END), 0) AS totalRevenue,
       ISNULL(SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
       ISNULL(SUM(CASE WHEN b.status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow,
       SUM(CASE WHEN b.numGuests = 2 THEN 1 ELSE 0 END) AS countCouple,
@@ -546,7 +533,7 @@ async function getRestaurantStatsSummary(restaurantId, { from, to } = {}) {
   const rs = await req.query(`
     SELECT
       COUNT(id) AS totalBookings,
-      ISNULL(SUM(CASE WHEN depositPaid = 1 AND status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED') THEN depositAmount ELSE 0 END), 0) AS totalRevenue,
+      ISNULL(SUM(CASE WHEN depositPaid = 1 AND ISNULL(depositRefunded, 0) = 0 THEN depositAmount - ISNULL(commissionFee, 0) ELSE 0 END), 0) AS totalRevenue,
       ISNULL(SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
       ISNULL(SUM(CASE WHEN status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow,
       SUM(CASE WHEN numGuests = 2 THEN 1 ELSE 0 END) AS countCouple,
@@ -577,6 +564,118 @@ async function getRestaurantStatsSummary(restaurantId, { from, to } = {}) {
   };
 }
 
+// Thống kê doanh thu cho MỘT nhà hàng theo thời gian (giống admin-service nhưng quy mô 1 restaurant)
+async function getRevenueStatistics(restaurantId, { period = 'month', from, to } = {}) {
+  const pool = await getPool();
+  const req = pool.request().input('restaurantId', sql.UniqueIdentifier, restaurantId);
+
+  let periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')"; // day
+  if (period === 'week') {
+    periodExpr = "CONCAT(YEAR(bookingDate), '-W', RIGHT('0' + CAST(DATEPART(iso_week, bookingDate) AS VARCHAR(2)), 2))";
+  } else if (period === 'month') {
+    periodExpr = "FORMAT(bookingDate, 'yyyy-MM')";
+  } else if (period === 'quarter') {
+    periodExpr = "CONCAT(YEAR(bookingDate), '-Q', DATEPART(quarter, bookingDate))";
+  } else if (period === 'year') {
+    periodExpr = "FORMAT(bookingDate, 'yyyy')";
+  }
+
+  const where = [
+    'restaurantId = @restaurantId',
+    'depositPaid = 1',
+    'ISNULL(depositRefunded, 0) = 0'
+  ];
+
+  if (from) {
+    where.push('bookingDate >= @from');
+    req.input('from', sql.Date, from);
+  }
+  if (to) {
+    where.push('bookingDate <= @to');
+    req.input('to', sql.Date, to);
+  }
+
+  const query = `
+    SELECT
+      ${periodExpr} AS timePeriod,
+      COUNT(id) AS totalBookings,
+      ISNULL(SUM(depositAmount - ISNULL(commissionFee, 0)), 0) AS totalRevenue,
+      ISNULL(SUM(numGuests), 0) AS totalGuests
+    FROM dbo.Bookings
+    WHERE ${where.join(' AND ')}
+    GROUP BY ${periodExpr}
+    ORDER BY ${periodExpr} ASC
+  `;
+
+  const rs = await req.query(query);
+  return rs.recordset || [];
+}
+
+// Thống kê phân bổ giờ đặt bàn cho MỘT nhà hàng
+async function getHourlyBookingStats(restaurantId, { from, to } = {}) {
+  const pool = await getPool();
+  const req = pool.request().input('restaurantId', sql.UniqueIdentifier, restaurantId);
+
+  const where = [
+    'restaurantId = @restaurantId'
+  ];
+
+  if (from) {
+    where.push('bookingDate >= @from');
+    req.input('from', sql.Date, from);
+  }
+  if (to) {
+    where.push('bookingDate <= @to');
+    req.input('to', sql.Date, to);
+  }
+
+  const query = `
+    SELECT
+      LEFT(bookingTime, 2) AS hour,
+      COUNT(id) AS count
+    FROM dbo.Bookings
+    WHERE ${where.join(' AND ')}
+    GROUP BY LEFT(bookingTime, 2)
+    ORDER BY hour ASC
+  `;
+
+  const rs = await req.query(query);
+  return rs.recordset || [];
+}
+
+// Thống kê phân bổ giờ đặt bàn Portfolio (toàn bộ nhà hàng của một owner)
+async function getOwnerHourlyBookingStats(ownerId, { from, to } = {}) {
+  const pool = await getPool();
+  const req = pool.request().input('ownerId', sql.UniqueIdentifier, ownerId);
+
+  const where = [
+    'r.ownerId = @ownerId'
+  ];
+
+  if (from) {
+    where.push('b.bookingDate >= @from');
+    req.input('from', sql.Date, from);
+  }
+  if (to) {
+    where.push('b.bookingDate <= @to');
+    req.input('to', sql.Date, to);
+  }
+
+  const query = `
+    SELECT
+      LEFT(b.bookingTime, 2) AS hour,
+      COUNT(b.id) AS count
+    FROM dbo.Bookings b
+    JOIN dbo.Restaurants r ON b.restaurantId = r.id
+    WHERE ${where.join(' AND ')}
+    GROUP BY LEFT(b.bookingTime, 2)
+    ORDER BY hour ASC
+  `;
+
+  const rs = await req.query(query);
+  return rs.recordset || [];
+}
+
 module.exports = {
   ACTIVE_STATUSES,
   j,
@@ -594,5 +693,8 @@ module.exports = {
   updateStatus,
   cancelBooking,
   getOwnerPortfolioSummary,
-  getRestaurantStatsSummary
+  getRestaurantStatsSummary,
+  getRevenueStatistics,
+  getHourlyBookingStats,
+  getOwnerHourlyBookingStats
 };

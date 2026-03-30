@@ -365,9 +365,54 @@ async function cancel(id, actor = null, cancellationReason = null) {
     }
   }
 
-  // Store role (e.g., 'CUSTOMER') in cancelledBy column (now NVARCHAR)
+  // Store role (e.g., 'CUSTOMER') in cancelledBy column
   const cancelledBy = actor?.role || null;
-  const updated = await bookingSql.cancelBooking(id, ['PENDING','CONFIRMED'], cancelledBy, cancellationReason);
+
+  // Logic Hoàn tiền (Refund)
+  let shouldRefund = false;
+  if (actor?.role === 'RESTAURANT_OWNER' || actor?.role === 'ADMIN') {
+    shouldRefund = true;
+  } else if (actor?.role === 'CUSTOMER') {
+    try {
+      const bDate = new Date(booking.bookingDate);
+      const year = bDate.getUTCFullYear();
+      const month = bDate.getUTCMonth();
+      const day = bDate.getUTCDate();
+
+      let hours = 0, minutes = 0;
+      if (booking.bookingTime instanceof Date) {
+        hours = booking.bookingTime.getUTCHours();
+        minutes = booking.bookingTime.getUTCMinutes();
+      } else if (typeof booking.bookingTime === 'string') {
+        const parts = booking.bookingTime.split(':');
+        hours = parseInt(parts[0], 10);
+        minutes = parseInt(parts[1], 10);
+      }
+      
+      const startTime = new Date(year, month, day, hours, minutes, 0, 0);
+      const now = new Date();
+      const diffMs = startTime.getTime() - now.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      // Log for debugging
+      console.log('[Cancel] Refund Debug:', {
+        bookingId: id,
+        year, month, day, hours, minutes,
+        startTime: startTime.toLocaleString(),
+        now: now.toLocaleString(),
+        diffHours,
+        actorRole: actor?.role
+      });
+      
+      if (diffHours >= 3) {
+        shouldRefund = true;
+      }
+    } catch (e) {
+      console.error('[Cancel] Error calculating refund window:', e);
+    }
+  }
+
+  const updated = await bookingSql.cancelBooking(id, ['PENDING','CONFIRMED'], cancelledBy, cancellationReason, shouldRefund);
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
   try { 
@@ -529,6 +574,17 @@ async function getRestaurantStatsSummary(restaurantId, actor, filters = {}) {
   return data;
 }
 
+// Thống kê phân bổ giờ đặt bàn cho một nhà hàng
+async function getHourlyBookingStats(restaurantId, actor, { from, to } = {}) {
+  await ensureRestaurantAccess(restaurantId, actor);
+  return bookingSql.getHourlyBookingStats(restaurantId, { from, to });
+}
+
+// Thống kê phân bổ giờ đặt bàn Portfolio cho chủ chuỗi
+async function getOwnerHourlyBookingStats(actor, { from, to } = {}) {
+  return bookingSql.getOwnerHourlyBookingStats(actor.id, { from, to });
+}
+
 module.exports = {
   createBooking,
   guestLookup,
@@ -549,6 +605,8 @@ module.exports = {
   paymentSuccess,
   getRevenueStatistics,
   getOwnerPortfolioSummary,
-  getRestaurantStatsSummary
+  getRestaurantStatsSummary,
+  getHourlyBookingStats,
+  getOwnerHourlyBookingStats
 };
 
