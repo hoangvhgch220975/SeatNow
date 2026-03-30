@@ -66,8 +66,7 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Response has data array', function () {",
-                  "    const list = res.data || res.restaurants || res;",
-                  "    pm.expect(list).to.be.an('array');",
+                  "    pm.expect(res.data).to.be.an('array');",
                   "});",
                   "",
                   "pm.test('Response has pagination', function () {",
@@ -99,9 +98,9 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Response has restaurant fields', function () {",
-                  "    pm.expect(res).to.have.property('id');",
-                  "    pm.expect(res).to.have.property('name');",
-                  "    pm.expect(res).to.have.property('address');",
+                  "    pm.expect(res.data).to.have.property('id');",
+                  "    pm.expect(res.data).to.have.property('name');",
+                  "    pm.expect(res.data).to.have.property('address');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -127,13 +126,13 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Restaurant created with id', function () {",
-                  "    pm.expect(res).to.have.property('id');",
-                  "    pm.expect(res).to.have.property('name');",
+                  "    pm.expect(res.data).to.have.property('id');",
+                  "    pm.expect(res.data).to.have.property('name');",
                   "});",
                   "",
-                  "if (res.id) {",
-                  "    pm.collectionVariables.set('restaurantId', res.id);",
-                  "    console.log('Saved restaurantId:', res.id);",
+                  "if (res.data && res.data.id) {",
+                  "    pm.collectionVariables.set('restaurantId', res.data.id);",
+                  "    console.log('Saved restaurantId:', res.data.id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -168,7 +167,7 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Restaurant updated', function () {",
-                  "    pm.expect(res).to.have.property('id');",
+                  "    pm.expect(res.data).to.have.property('id');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -190,6 +189,42 @@
           }
         },
         {
+          "name": "PUT Update Slug [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Slug updated manually', function () {",
+                  "    pm.expect(res.data).to.have.property('slug');",
+                  "    pm.expect(res.data.slug).to.eql('nha-hang-moi-slug-123');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slug\": \"nha-hang-moi-slug-123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}",
+            "description": "Cap nhat slug thu cong cho nha hang. He thong se tu dong format ve chu thường va gach ngang."
+          }
+        },
+        {
           "name": "PUT Update Sensitive Fields [ADMIN]",
           "event": [
             {
@@ -202,9 +237,9 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Sensitive fields updated', function () {",
-                  "    pm.expect(res).to.have.property('id');",
-                  "    pm.expect(res.commissionRate).to.eql(0.12);",
-                  "    pm.expect(res.isPremium).to.eql(true);",
+                  "    pm.expect(res.data).to.have.property('id');",
+                  "    pm.expect(res.data.commissionRate).to.eql(0.12);",
+                  "    pm.expect(res.data.isPremium).to.to.be.true;",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -239,8 +274,8 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Deposit policy updated', function () {",
-                  "    pm.expect(res).to.have.property('depositEnabled');",
-                  "    pm.expect(res.depositEnabled).to.eql(true);",
+                  "    pm.expect(res.data).to.have.property('depositEnabled');",
+                  "    pm.expect(res.data.depositEnabled).to.eql(true);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -274,8 +309,8 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Revenue stats has required fields', function () {",
-                  "    pm.expect(res).to.satisfy(function(r) {",
-                  "        return r.totalRevenue !== undefined || r.data !== undefined || r.stats !== undefined;",
+                  "    pm.expect(res.data).to.satisfy(function(r) {",
+                  "        return r.totalRevenue !== undefined || Array.isArray(r) || r.data !== undefined;",
                   "    });",
                   "});"
                 ],
@@ -289,6 +324,62 @@
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/revenue-stats?period=month"
+          }
+        },
+        {
+          "name": "GET Portfolio Summary [OWNER|ADMIN]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Has summary and breakdown', function () {",
+                  "    pm.expect(res.data).to.have.property('summary');",
+                  "    pm.expect(res.data).to.have.property('breakdown');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/portfolio/summary"
+          }
+        },
+        {
+          "name": "GET Restaurant Stats Summary [OWNER|ADMIN]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Has aggregated fields', function () {",
+                  "    pm.expect(res.data).to.have.property('totalRevenue');",
+                  "    pm.expect(res.data).to.have.property('totalBookings');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/stats-summary"
           }
         },
         {

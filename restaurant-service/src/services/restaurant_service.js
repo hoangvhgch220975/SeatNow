@@ -45,7 +45,13 @@ async function createRestaurant(payload) {
 
 // Hàm cập nhật thông tin của một nhà hàng dựa trên ID và payload
 async function updateRestaurant(id, patch) {
-  if (patch.name) patch.slug = makeSlug(patch.name);
+  if (patch.slug) {
+    // Ưu tiên slug thủ công nếu có gửi lên
+    patch.slug = makeSlug(patch.slug);
+  } else if (patch.name) {
+    // Nếu không có slug nhưng có name, tự động sinh slug từ name
+    patch.slug = makeSlug(patch.name);
+  }
   return restaurantSql.updateRestaurant(id, patch);
 }
 
@@ -122,6 +128,52 @@ async function getRevenueStats({ restaurantId, period, from, to, token }) {
   return json;
 }
 
+// Gọi booking-service để lấy portfolio summary cho chủ sở hữu
+async function getOwnerPortfolioSummary({ token }) {
+  const baseRaw = process.env.BOOKING_SERVICE_URL || 'http://localhost:3004';
+  const base = String(baseRaw).replace(/\/+$/, '');
+  const apiBase = base.endsWith('/api/v1') ? base : `${base}/api/v1`;
+  
+  const url = `${apiBase}/owner/portfolio-summary`;
+  const res = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const e = new Error(json?.message || `Portfolio summary request failed (${res.status})`);
+    e.status = res.status;
+    throw e;
+  }
+
+  return json;
+}
+
+// Gọi booking-service để lấy summary lẻ cho một nhà hàng
+async function getRestaurantStatsSummary(restaurantId, { token }) {
+  const baseRaw = process.env.BOOKING_SERVICE_URL || 'http://localhost:3004';
+  const base = String(baseRaw).replace(/\/+$/, '');
+  const apiBase = base.endsWith('/api/v1') ? base : `${base}/api/v1`;
+  
+  const url = `${apiBase}/restaurants/${restaurantId}/stats-summary`;
+  const res = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const e = new Error(json?.message || `Restaurant stats summary request failed (${res.status})`);
+    e.status = res.status;
+    throw e;
+  }
+
+  return json;
+}
+
 module.exports = {
   listRestaurants,
   getRestaurant,
@@ -130,7 +182,9 @@ module.exports = {
   updateDepositPolicy,
   softDeleteRestaurant,
   getAvailability,
-  getRevenueStats
+  getRevenueStats,
+  getOwnerPortfolioSummary,
+  getRestaurantStatsSummary
 };
 
 

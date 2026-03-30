@@ -38,7 +38,7 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-app.use('/api/v1/restaurants', restaurantRoutes);
+app.use('/api/v1', restaurantRoutes);
 
 const port = process.env.PORT || 3003;
 app.listen(port, () => console.log(`[restaurant-service] listening on ${port}`));

@@ -27,11 +27,32 @@ async function detail(req, res) {
   }
 }
 
-// Hàm tạo mới một nhà hàng (chỉ ADMIN)
-// ownerId lấy từ body - admin tạo nhà hàng thay cho owner
+// Hàm tạo mới một nhà hàng (ADMIN hoặc RESTAURANT_OWNER)
 async function create(req, res) {
   try {
-    const data = await restaurantSvc.createRestaurant(req.body);
+    const payload = { ...req.body };
+    const role = req.user?.role;
+    const userId = req.user?.sub || req.user?.id;
+
+    if (role === 'RESTAURANT_OWNER') {
+      // Nếu là Owner, bắt buộc ownerId là chính mình
+      payload.ownerId = userId;
+      // Mặc định là pending khi Owner tạo
+      payload.status = 'pending';
+      // Strip các trường nhạy cảm mà chỉ Admin mới được set khi tạo (commissionRate, isPremium...)
+      for (const f of ADMIN_ONLY_FIELDS) {
+        if (f !== 'status') delete payload[f]; 
+      }
+    } else if (role === 'ADMIN') {
+      // Nếu là Admin, yêu cầu phải có ownerId (Admin tạo hộ cho ai đó)
+      if (!payload.ownerId) {
+        return res.status(400).json({ message: 'ownerId is required for Admin to create restaurant' });
+      }
+      // Nếu Admin tạo, nhà hàng sẽ Active luôn theo yêu cầu
+      payload.status = 'active';
+    }
+
+    const data = await restaurantSvc.createRestaurant(payload);
     res.status(201).json({ data });
   } catch (e) {
     res.status(400).json({ message: e.message });
@@ -121,6 +142,29 @@ async function revenueStats(req, res) {
   }
 }
 
+// Hàm lấy thống kê Portfolio tổng quát cho chủ sở hữu
+async function portfolioSummary(req, res) {
+  try {
+    const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : '';
+    const data = await restaurantSvc.getOwnerPortfolioSummary({ token });
+    res.json(data);
+  } catch (e) {
+    res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
+// Hàm lấy thống kê Summary cho duy nhất một nhà hàng
+async function getRestaurantStatsSummary(req, res) {
+  try {
+    const restaurantId = req.params.id;
+    const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : '';
+    const data = await restaurantSvc.getRestaurantStatsSummary(restaurantId, { token });
+    res.json(data);
+  } catch (e) {
+    res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
 module.exports = {
   list,
   detail,
@@ -129,5 +173,7 @@ module.exports = {
   updateDepositPolicy,
   remove,
   availability,
-  revenueStats
+  revenueStats,
+  portfolioSummary,
+  getRestaurantStatsSummary
 };

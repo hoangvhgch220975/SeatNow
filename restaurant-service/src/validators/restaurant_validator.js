@@ -6,7 +6,7 @@ const Joi = require('joi');
 // Schema tạo nhà hàng - chỉ ADMIN dùng
 // Admin tạo thay owner, điền đầy đủ chính sách từ yêu cầu của nhà hàng
 const createRestaurantSchema = Joi.object({
-  ownerId: Joi.string().uuid().required(),  // admin gán owner
+  ownerId: Joi.string().uuid().optional(),  // Admin có thể truyền, Owner thì tự lấy từ token
   name: Joi.string().min(2).max(150).required(),
   address: Joi.string().min(3).max(255).required(),
   latitude: Joi.number().min(-90).max(90),
@@ -30,6 +30,7 @@ const createRestaurantSchema = Joi.object({
 // Các trường nhạy cảm (status, commissionRate, isPremium) chỉ admin thay đổi được (controller sẽ strip)
 const updateRestaurantSchema = Joi.object({
   name: Joi.string().min(2).max(150),
+  slug: Joi.string().min(2).max(200),
   address: Joi.string().min(3).max(255),
   latitude: Joi.number().min(-90).max(90),
   longitude: Joi.number().min(-180).max(180),
