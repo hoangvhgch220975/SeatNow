@@ -276,6 +276,22 @@
           }
         },
         {
+          "name": "Get Owner Portfolio Summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/owner/portfolio-summary"
+          }
+        },
+        {
+          "name": "Get Individual Restaurant Stats Summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/restaurants/{{restaurantId}}/stats-summary"
+          }
+        },
+        {
           "name": "Update Booking Status (Confirm)",
           "event": [
             {

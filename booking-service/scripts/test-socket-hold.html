@@ -546,18 +546,26 @@
           const data = await res.json();
           const r = data.data || data;
           const hours = r.openingHours || {};
-          // Simply take the first available day for demo, or today
-          const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-          const today = days[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
-          const todayHours = hours[today] || Object.values(hours)[0] || { open: '07:00', close: '22:00' };
           
-          if (todayHours.open) startHour = parseInt(todayHours.open.split(':')[0], 10);
-          if (todayHours.close) endHour = parseInt(todayHours.close.split(':')[0], 10);
+          const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+          const today = days[new Date().getDay()];
+          const todayRange = hours[today] || Object.values(hours)[0];
           
-          log(`🕒 Using hours for ${today}: ${todayHours.open} - ${todayHours.close}`, 'info');
+          if (typeof todayRange === 'string' && todayRange.includes('-')) {
+            const [openStr, closeStr] = todayRange.split('-');
+            startHour = parseInt(openStr.split(':')[0], 10);
+            endHour = parseInt(closeStr.split(':')[0], 10);
+            log(`🕒 Using hours for ${today}: ${openStr} - ${closeStr}`, 'info');
+          } else if (todayRange && todayRange.open) {
+            startHour = parseInt(todayRange.open.split(':')[0], 10);
+            endHour = parseInt(todayRange.close.split(':')[0], 10);
+            log(`🕒 Using hours for ${today}: ${todayRange.open} - ${todayRange.close}`, 'info');
+          } else {
+            log(`⚠️ Could not find hours for ${today}, using default ${startHour}:00 - ${endHour}:00`, 'warning');
+          }
         }
       } catch (e) {
-        log('⚠️ Could not fetch restaurant hours, using default 07:00 - 22:00', 'warning');
+        log('⚠️ Error fetching restaurant hours, using default 07:00 - 22:00', 'warning');
       }
 
       const slots = generateTimeSlots(startHour, endHour, 120);

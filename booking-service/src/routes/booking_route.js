@@ -47,8 +47,14 @@ r.get('/restaurants/:id/bookings', jwt.requireAuth, requireRole('RESTAURANT_OWNE
 r.get('/restaurants/:id/commissions/summary', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.commissionSummary);
 r.post('/restaurants/:id/commissions/settle', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.settleCommission);
 
+// Thống kê Summary đơn lẻ cho từng nhà hàng
+r.get('/restaurants/:id/stats-summary', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.restaurantStatsSummary);
+
 // Thống kê doanh thu (dành cho chủ nhà hàng/admin)
 r.get('/restaurants/:id/revenue-stats', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.revenueStatistics);
+
+// Thống kê Portfolio (Global cho chủ sở hữu chuỗi)
+r.get('/owner/portfolio-summary', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.portfolioSummary);
 
 // Các thao tác của Chủ nhà hàng/Admin trên booking
 r.put('/bookings/:id/confirm', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.confirm);

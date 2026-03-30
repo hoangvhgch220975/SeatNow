@@ -268,7 +268,7 @@ async function autoSettleCommissions() {
   const rs = await pool.request().query(`
     SELECT DISTINCT restaurantId
     FROM dbo.Bookings
-    WHERE status='COMPLETED'
+    WHERE status IN ('ARRIVED', 'COMPLETED')
       AND depositRequired=1
       AND depositPaid=1
       AND commissionPaid=0
@@ -475,6 +475,32 @@ async function paymentSuccess(id) {
   return booking;
 }
 
+// Thống kê Portfolio cho Chủ sở hữu chuỗi nhà hàng (Global)
+async function getOwnerPortfolioSummary(actor) {
+  if (actor.role !== 'RESTAURANT_OWNER' && actor.role !== 'ADMIN') {
+    const e = new Error('Forbidden'); e.status = 403; throw e;
+  }
+  // Nếu là ADMIN nhưng muốn xem portfolio của chính mình (thường admin không sở hữu n/h trực tiếp ở đây)
+  // hoặc có thể mở rộng cho admin xem của một owner bất kỳ nếu truyền ownerId.
+  // Ở đây tập trung vào Owner tự xem portfolio của mình.
+  return bookingSql.getOwnerPortfolioSummary(actor.id);
+}
+
+// Thống kê Summary cho DUY NHẤT một nhà hàng (không theo period)
+async function getRestaurantStatsSummary(restaurantId, actor) {
+  const restaurant = await bookingSql.getRestaurant(restaurantId);
+  if (!restaurant) {
+    const e = new Error('Restaurant not found'); e.status = 404; throw e;
+  }
+
+  // Quyền: ADMIN hoặc Chủ sở hữu nhà hàng đó
+  if (actor.role !== 'ADMIN' && restaurant.ownerId !== actor.id) {
+    const e = new Error('Forbidden'); e.status = 403; throw e;
+  }
+
+  return bookingSql.getRestaurantStatsSummary(restaurantId);
+}
+
 module.exports = {
   createBooking,
   guestLookup,
@@ -493,6 +519,8 @@ module.exports = {
   noShow,
   getPaymentStatus,
   paymentSuccess,
-  getRevenueStatistics
+  getRevenueStatistics,
+  getOwnerPortfolioSummary,
+  getRestaurantStatsSummary
 };
 
