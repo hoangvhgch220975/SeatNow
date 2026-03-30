@@ -403,10 +403,10 @@
       ]
     },
     {
-      "name": "4. Password Reset",
+      "name": "4. Password Reset (Combined Flow)",
       "item": [
         {
-          "name": "Forgot Password (send OTP via phone)",
+          "name": "1. Request Reset (Phone + Email)",
           "event": [
             {
               "listen": "test",
@@ -418,7 +418,8 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('OTP sent successfully', function () {",
-                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.ok).to.eql(true);",
+                  "    pm.expect(res.message).to.eql('OTP_SENT_TO_PHONE');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -430,57 +431,20 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"{{phone}}\"\n}",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"email\": \"test@example.com\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{baseUrl}}/forgot-password",
+              "raw": "{{baseUrl}}/forgot-password/request",
               "host": ["{{baseUrl}}"],
-              "path": ["forgot-password"]
+              "path": ["forgot-password", "request"]
             },
-            "description": "Gui OTP de dat lai mat khau qua so dien thoai."
+            "description": "Buoc 1: Gui ca Phone va Email de nhan OTP qua so dien thoai."
           },
           "response": []
         },
         {
-          "name": "Forgot Password (send via email - Customer)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "const res = pm.response.json();",
-                  "pm.test('Email OTP sent', function () {",
-                  "    pm.expect(res.success).to.eql(true);",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"test@example.com\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/forgot-password/customer",
-              "host": ["{{baseUrl}}"],
-              "path": ["forgot-password", "customer"]
-            },
-            "description": "Gui OTP qua email cho customer de dat lai mat khau."
-          },
-          "response": []
-        },
-        {
-          "name": "Reset Password (confirm with OTP)",
+          "name": "2. Verify OTP & Reset (Get Email)",
           "event": [
             {
               "listen": "test",
@@ -492,7 +456,8 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Password reset success', function () {",
-                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.ok).to.eql(true);",
+                  "    pm.expect(res.message).to.eql('NEW_PASSWORD_SENT_TO_EMAIL');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -504,15 +469,15 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewP@ssw0rd!\"\n}",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"otp\": \"123456\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{baseUrl}}/reset-password",
+              "raw": "{{baseUrl}}/forgot-password/verify-and-reset",
               "host": ["{{baseUrl}}"],
-              "path": ["reset-password"]
+              "path": ["forgot-password", "verify-and-reset"]
             },
-            "description": "Xac nhan OTP va thay mat khau moi. Thay '123456' bang OTP thuc."
+            "description": "Buoc 2: Xac nhan OTP va he thong se tu dong gui mat khau moi vao Email."
           },
           "response": []
         }

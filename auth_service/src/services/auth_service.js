@@ -252,16 +252,46 @@ async function verifyOtp({ phone, code }) {
   throw Object.assign(new Error('OTP_INVALID'), { status: 400 });
 }
 
-async function resetPassword({ phone, otp, newPassword }) {
+async function requestPasswordReset({ phone, email }) {
+  if (!phone || !email) {
+    throw Object.assign(new Error('MISSING_PHONE_OR_EMAIL'), { status: 400 });
+  }
+
+  const user = await UserModel.findAuthByPhoneAndEmail(phone, email);
+  if (!user) {
+    throw Object.assign(new Error('USER_NOT_FOUND_OR_MISMATCH'), { status: 404 });
+  }
+
+  // Anti-spam / rate limit checks
+  const can = await otpUtil.canSendOtp(redis, phone, { cooldownSeconds: 60, maxPerWindow: 5, windowSeconds: 3600 });
+  if (!can.ok) {
+    const reason = can.reason === 'TOO_SOON' ? 'OTP_SEND_TOO_SOON' : 'OTP_SEND_RATE_LIMIT_EXCEEDED';
+    throw Object.assign(new Error(reason), { status: 429 });
+  }
+
+  const code = otpUtil.genOtp();
+  await otpUtil.saveOtp(redis, phone, code, 120);
+  await otpUtil.recordOtpSent(redis, phone, { cooldownSeconds: 60, windowSeconds: 3600 });
+
+  return { ok: true, message: 'OTP_SENT_TO_PHONE' };
+}
+
+async function verifyAndResetPassword({ phone, otp }) {
   await verifyOtp({ phone, code: otp });
 
   const user = await UserModel.findByPhoneOrEmail({ phone });
   if (!user) throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
 
-  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const newRawPassword = generateRandomPassword(8);
+  const passwordHash = await bcrypt.hash(newRawPassword, 10);
+
   await UserModel.updatePasswordById(user.id, passwordHash);
 
-  return { ok: true };
+  if (user.email) {
+    await sendNewPasswordEmail(user.email, newRawPassword);
+  }
+
+  return { ok: true, message: 'NEW_PASSWORD_SENT_TO_EMAIL' };
 }
 
 async function googleSignIn({ idToken, accountType, phone }) {
@@ -325,29 +355,6 @@ function generateRandomPassword(length = 8) {
 
 const { sendNewPasswordEmail } = require('../utils/email_util');
 
-async function forgotPasswordCustomer({ phone, email }) {
-  if (!phone || !email) {
-    throw Object.assign(new Error('MISSING_PHONE_OR_EMAIL'), { status: 400 });
-  }
-
-  const user = await UserModel.findAuthByPhoneAndEmail(phone, email);
-  if (!user) {
-    throw Object.assign(new Error('USER_NOT_FOUND_OR_MISMATCH'), { status: 404 });
-  }
-  
-  if (user.role !== 'CUSTOMER') {
-    throw Object.assign(new Error('INVALID_ROLE_FOR_THIS_ACTION'), { status: 403 });
-  }
-
-  const newRawPassword = generateRandomPassword(8);
-  const passwordHash = await bcrypt.hash(newRawPassword, 10);
-
-  await UserModel.updatePasswordById(user.id, passwordHash);
-
-  await sendNewPasswordEmail(user.email, newRawPassword);
-
-  return { success: true, message: 'NEW_PASSWORD_SENT_TO_EMAIL' };
-}
 
 async function resetPasswordOwnerByAdmin(userId) {
   const user = await UserModel.findById(userId);
@@ -378,9 +385,7 @@ module.exports = {
   logout,
   sendOtp,
   verifyOtp,
-  resetPassword,
-  googleSignIn,
-  createRestaurantOwnerByAdmin,
-  forgotPasswordCustomer,
+  requestPasswordReset,
+  verifyAndResetPassword,
   resetPasswordOwnerByAdmin
 };

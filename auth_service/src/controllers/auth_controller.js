@@ -54,9 +54,18 @@ exports.verifyOtp = async (req, res, next) => {
   }
 };
 
-exports.resetPassword = async (req, res, next) => {
+exports.requestPasswordReset = async (req, res, next) => {
   try {
-    const data = await AuthService.resetPassword(req.body);
+    const data = await AuthService.requestPasswordReset(req.body);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.verifyAndResetPassword = async (req, res, next) => {
+  try {
+    const data = await AuthService.verifyAndResetPassword(req.body);
     res.json(data);
   } catch (err) {
     next(err);
@@ -81,14 +90,6 @@ exports.createRestaurantOwner = async (req, res, next) => {
   }
 };
 
-exports.forgotPasswordCustomer = async (req, res, next) => {
-  try {
-    const data = await AuthService.forgotPasswordCustomer(req.body);
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
-};
 
 exports.resetPasswordOwnerByAdmin = async (req, res, next) => {
   try {

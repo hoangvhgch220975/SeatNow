@@ -132,6 +132,23 @@ async function main() {
     await AuthService.logout({ refreshToken: tokens.refreshToken });
     console.log('Logout completed.');
 
+    // --- New: Test Combined Forgot Password Flow ---
+    console.log('--- Testing Combined Forgot Password Flow ---');
+    console.log('Requesting reset for:', { phone, email });
+    await AuthService.requestPasswordReset({ phone, email });
+    
+    // Get new OTP from redis
+    await new Promise((r) => setTimeout(r, 100));
+    const resetOtp = await redis.get(otpKey);
+    console.log('Got Reset OTP:', resetOtp ? '<hidden>' : 'NOT_FOUND');
+    
+    if (resetOtp) {
+      console.log('Verifying OTP and resetting password...');
+      const resetResult = await AuthService.verifyAndResetPassword({ phone, otp: String(resetOtp) });
+      console.log('Reset Result:', resetResult);
+    }
+    // -----------------------------------------------
+
     process.exitCode = 0;
   } catch (err) {
     console.error('Auth service test failed:', err && err.message ? err.message : err);

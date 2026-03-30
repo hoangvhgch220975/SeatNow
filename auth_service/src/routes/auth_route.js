@@ -8,11 +8,9 @@ router.post('/logout', c.logout);
 router.post('/refresh-token', c.refreshToken);
 router.post('/send-otp', c.sendOtp);
 router.post('/verify-otp', c.verifyOtp);
-// forgot-password có thể alias = send-otp 
-router.post('/forgot-password', c.sendOtp);
-router.post('/forgot-password/customer', c.forgotPasswordCustomer);
-
-router.post('/reset-password', c.resetPassword);
+// Forgot password flow (Combined: Phone + Email + OTP)
+router.post('/forgot-password/request', c.requestPasswordReset);
+router.post('/forgot-password/verify-and-reset', c.verifyAndResetPassword);
 router.post('/google-signin', c.googleSignin);
 
 // Internal API for Admin service

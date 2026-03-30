@@ -48,6 +48,20 @@
         </div>
 
         <div class="card">
+          <h3>Forgot Password (Current Flow)</h3>
+          <label>Phone<input id="forgot_phone" placeholder="+84901234567" /></label>
+          <label>Email<input id="forgot_email" placeholder="user@example.com" /></label>
+          <div class="row" style="margin-top:8px">
+            <button id="forgot_request">1. Request Reset (Send OTP)</button>
+          </div>
+          <label style="margin-top:8px">OTP from Phone<input id="forgot_otp" placeholder="123456" /></label>
+          <div class="row" style="margin-top:8px">
+            <button id="forgot_verify">2. Verify & Reset (Get Email)</button>
+          </div>
+          <small>After step 2, check the backend console or your email for the new password.</small>
+        </div>
+
+        <div class="card">
           <h3>Login (Phone + Password)</h3>
           <label>Phone<input id="login_phone" placeholder="+84901234567" /></label>
           <label>Password<input id="login_password" type="password" value="P@ssw0rd" /></label>
@@ -155,6 +169,21 @@
           if(!phone){ append('Provide phone for login'); return }
           // server expects `identifier` (phone or email)
           await doRequest('login', { identifier: phone, password })
+        })
+
+        // Forgot Password Handlers
+        id('forgot_request').addEventListener('click', async ()=>{
+          const phone = id('forgot_phone').value.trim()
+          const email = id('forgot_email').value.trim()
+          if(!phone || !email){ append('Provide both phone and email'); return }
+          await doRequest('forgot-password/request', { phone, email })
+        })
+
+        id('forgot_verify').addEventListener('click', async ()=>{
+          const phone = id('forgot_phone').value.trim()
+          const otp = id('forgot_otp').value.trim()
+          if(!phone || !otp){ append('Provide phone and OTP'); return }
+          await doRequest('forgot-password/verify-and-reset', { phone, otp })
         })
 
         // Google Identity button
