@@ -13,5 +13,6 @@ CREATE TABLE dbo.Tables (
   CONSTRAINT PK_Tables PRIMARY KEY (id),
   CONSTRAINT FK_Tables_restaurant FOREIGN KEY (restaurantId) REFERENCES dbo.Restaurants(id),
   CONSTRAINT CK_Tables_type CHECK (type IN ('standard','vip','outdoor')),
-  CONSTRAINT CK_Tables_status CHECK (status IN ('available','unavailable','maintenance'))
+  CONSTRAINT CK_Tables_status CHECK (status IN ('available','unavailable','maintenance')),
+  CONSTRAINT CK_Tables_location CHECK (location IN (N'1st Floor', N'2nd Floor', N'3rd Floor', N'4th Floor', N'5th Floor', N'Rooftop', N'Terrace', N'Outdoor'))
 );

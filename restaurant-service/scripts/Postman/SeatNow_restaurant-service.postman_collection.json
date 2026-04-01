@@ -337,9 +337,10 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "const res = pm.response.json();",
-                  "pm.test('Has summary and breakdown', function () {",
-                  "    pm.expect(res.data).to.have.property('summary');",
-                  "    pm.expect(res.data).to.have.property('breakdown');",
+                  "pm.test('Has summary with guestSizeCounts', function () {",
+                  "    pm.expect(res.data.summary).to.have.property('guestSizeCounts');",
+                  "    pm.expect(res.data.summary.guestSizeCounts).to.have.property('couple');",
+                  "    pm.expect(res.data.summary.guestSizeCounts).to.have.property('percentCouple');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -351,7 +352,15 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "url": "{{baseUrl}}/api/v1/portfolio/summary"
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/portfolio/summary?from=2026-01-01&to=2026-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "portfolio", "summary"],
+              "query": [
+                { "key": "from", "value": "2026-01-01" },
+                { "key": "to", "value": "2026-12-31" }
+              ]
+            }
           }
         },
         {
@@ -365,9 +374,10 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "const res = pm.response.json();",
-                  "pm.test('Has aggregated fields', function () {",
-                  "    pm.expect(res.data).to.have.property('totalRevenue');",
-                  "    pm.expect(res.data).to.have.property('totalBookings');",
+                  "pm.test('Has guestSizeCounts with percentages', function () {",
+                  "    pm.expect(res.data).to.have.property('guestSizeCounts');",
+                  "    pm.expect(res.data.guestSizeCounts).to.have.property('smallGroup');",
+                  "    pm.expect(res.data.guestSizeCounts).to.have.property('percentSmallGroup');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -379,7 +389,15 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/stats-summary"
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/stats-summary?from=2026-01-01&to=2026-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "restaurants", "{{restaurantId}}", "stats-summary"],
+              "query": [
+                { "key": "from", "value": "2026-01-01" },
+                { "key": "to", "value": "2026-12-31" }
+              ]
+            }
           }
         },
         {

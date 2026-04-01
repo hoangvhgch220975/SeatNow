@@ -7,17 +7,25 @@ const { sql, getPool } = require('../config/sql');
  * Tables thuộc restaurant, dùng cho UI chọn bàn (capacity, type, status)
  */
 
-// Lấy danh sách bàn theo restaurantId
-async function listByRestaurant(restaurantId) {
+// Lấy danh sách bàn theo restaurantId, có hỗ trợ lọc theo location
+async function listByRestaurant(restaurantId, location = null) {
   const pool = await getPool();
-  const rs = await pool.request()
-    .input('restaurantId', sql.UniqueIdentifier, restaurantId)
-    .query(`
-      SELECT id, restaurantId, tableNumber, capacity, [type], [location], [status], createdAt, updatedAt
-      FROM dbo.Tables
-      WHERE restaurantId=@restaurantId
-      ORDER BY tableNumber ASC;
-    `);
+  const request = pool.request().input('restaurantId', sql.UniqueIdentifier, restaurantId);
+  
+  let query = `
+    SELECT id, restaurantId, tableNumber, capacity, [type], [location], [status], createdAt, updatedAt
+    FROM dbo.Tables
+    WHERE restaurantId=@restaurantId
+  `;
+  
+  if (location) {
+    request.input('location', sql.NVarChar(255), location);
+    query += ' AND [location]=@location';
+  }
+  
+  query += ' ORDER BY tableNumber ASC;';
+  
+  const rs = await request.query(query);
   return rs.recordset;
 }
 
@@ -94,4 +102,25 @@ async function deleteTable(id) {
   return true;
 }
 
-module.exports = { listByRestaurant, findById, createTable, updateTable, deleteTable };
+// Thống kê bàn theo location (tầng)
+async function getStatsByLocation(restaurantId) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+    .query(`
+      SELECT 
+        [location],
+        COUNT(*) as totalTables,
+        SUM(CASE WHEN [status] = 'available' THEN 1 ELSE 0 END) as availableTables,
+        SUM(CASE WHEN [status] = 'unavailable' THEN 1 ELSE 0 END) as busyTables,
+        SUM(CASE WHEN [status] = 'maintenance' THEN 1 ELSE 0 END) as maintenanceTables,
+        SUM(capacity) as totalCapacity
+      FROM dbo.Tables
+      WHERE restaurantId=@restaurantId
+      GROUP BY [location]
+      ORDER BY [location] ASC;
+    `);
+  return rs.recordset;
+}
+
+module.exports = { listByRestaurant, findById, createTable, updateTable, deleteTable, getStatsByLocation };

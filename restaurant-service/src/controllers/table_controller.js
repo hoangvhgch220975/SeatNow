@@ -3,10 +3,11 @@
  */
 const tableSvc = require('../services/table_service');
 
-// Hàm liệt kê các bàn của một nhà hàng
+// Hàm liệt kê các bàn của một nhà hàng (hỗ trợ lọc theo location)
 async function list(req, res) {
   try {
-    const data = await tableSvc.listTables(req.params.id);
+    const { location } = req.query;
+    const data = await tableSvc.listTables(req.params.id, location);
     res.json({ data });
   } catch (e) {
     res.status(400).json({ message: e.message });
@@ -51,4 +52,14 @@ async function remove(req, res) {
   }
 }
 
-module.exports = { list, create, update, remove };
+// Hàm thống kê bàn theo tầng/vị trí
+async function getStats(req, res) {
+  try {
+    const data = await tableSvc.getStatsByLocation(req.params.id);
+    res.json({ data });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
+module.exports = { list, create, update, remove, getStats };

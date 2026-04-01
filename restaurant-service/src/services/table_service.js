@@ -4,9 +4,9 @@
  */
 const tableSql = require('../models/table_sql');
 
-// Hàm liệt kê các bàn trong nhà hàng
-async function listTables(restaurantId) {
-  return tableSql.listByRestaurant(restaurantId);
+// Hàm liệt kê các bàn trong nhà hàng (hỗ trợ lọc theo vị trí/tầng)
+async function listTables(restaurantId, location = null) {
+  return tableSql.listByRestaurant(restaurantId, location);
 }
 
 // Hàm tạo một bàn mới trong nhà hàng
@@ -25,4 +25,9 @@ async function deleteTable(id) {
   return tableSql.deleteTable(id);
 }
 
-module.exports = { listTables, createTable, updateTable, deleteTable };
+// Hàm thống kê bàn theo vị trí/tầng
+async function getStatsByLocation(restaurantId) {
+  return tableSql.getStatsByLocation(restaurantId);
+}
+
+module.exports = { listTables, createTable, updateTable, deleteTable, getStatsByLocation };
