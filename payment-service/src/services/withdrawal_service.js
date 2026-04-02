@@ -3,6 +3,7 @@ const paymentModel = require('../models/payment_sql');
 const { getRedis } = require('../config/redis');
 const { generateReferenceCode } = require('../utils/reference-code');
 const { normalizeAmount } = require('../utils/money');
+const axios = require('axios');
 
 async function createWithdrawal({ restaurantId, amount, description }) {
   const redis = await getRedis();
@@ -19,13 +20,46 @@ async function createWithdrawal({ restaurantId, amount, description }) {
     const referenceCode = generateReferenceCode('WDL');
     const normalizedAmount = normalizeAmount(amount);
 
-    return paymentModel.createWithdrawalRequest({
+    const withdrawal = await paymentModel.createWithdrawalRequest({
       restaurantId,
       amount: normalizedAmount,
       description,
       referenceCode,
       idempotencyKey: referenceCode
     });
+
+    // Notify Admin via notification service
+    try {
+      let restaurantName = restaurantId;
+      try {
+        const restaurantBaseUrl = process.env.RESTAURANT_SERVICE_URL || 'http://localhost:3003/api/v1';
+        const resResp = await axios.get(`${restaurantBaseUrl}/restaurants/${restaurantId}`);
+        restaurantName = resResp.data?.data?.name || resResp.data?.name || resResp.data?.restaurant?.name || restaurantId;
+      } catch(ignoreErr) {
+        // Fallback to ID if fetch fails
+      }
+
+      const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+      await axios.post(`${notificationUrl}/test`, {
+        type: 'web',
+        payload: {
+          role: 'ADMIN',
+          event: 'withdrawal_requested',
+          message: `Restaurant ${restaurantName} requested withdrawal of ${normalizedAmount} VND`,
+          data: {
+            restaurantId,
+            restaurantName,
+            referenceCode,
+            amount: normalizedAmount,
+            description
+          }
+        }
+      });
+    } catch (notifErr) {
+      console.error('Failed to notify admin of new withdrawal:', notifErr.message);
+    }
+
+    return withdrawal;
   } finally {
     await redis.del(lockKey);
   }
