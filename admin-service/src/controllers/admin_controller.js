@@ -103,6 +103,16 @@ async function suspendRestaurant(req, res, next) {
   }
 }
 
+// Mo khoa lai nha hang.
+async function activateRestaurant(req, res, next) {
+  try {
+    const data = await adminService.activateRestaurant(req.params.id);
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Lay danh sach user theo bo loc va phan trang.
 async function getUsers(req, res, next) {
   try {
@@ -176,6 +186,9 @@ module.exports = {
   updateRestaurant,
   getStats,
   getPendingRestaurants,
+  approveRestaurant,
+  activateRestaurant,
+  suspendRestaurant,
   getUsers,
   getBookings,
   getTransactions,

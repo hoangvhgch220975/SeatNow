@@ -1,12 +1,13 @@
 {
   "info": {
     "name": "SeatNow - Admin Service",
-    "_postman_id": "admin-service-v2",
-    "description": "Collection for Admin Service: Dashboard, User Management, Restaurant Management, Financials.\nBase URL: http://localhost:3006\nSetup: Login as Admin first to get {{token}}.",
+    "_postman_id": "admin-service-v4",
+    "description": "Collection for Admin Service: Dashboard, User Management, Restaurant Management, Financials.\nBase URL: http://localhost:3006\nSetup: Run 'Login Admin' first to automatically set {{token}} and {{userId}} variables.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3006/api/v1/admin", "type": "string" },
+    { "key": "authUrl", "value": "http://localhost:3001/api/v1/auth", "type": "string" },
     { "key": "token", "value": "", "type": "string" },
     { "key": "userId", "value": "", "type": "string" },
     { "key": "restaurantId", "value": "", "type": "string" },
@@ -14,33 +15,65 @@
   ],
   "item": [
     {
-      "name": "1. Dashboard",
+      "name": "0. Auth",
       "item": [
         {
-          "name": "Get Dashboard Stats",
+          "name": "Login Admin",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
                   "const res = pm.response.json();",
-                  "pm.test('Has stats fields', function () {",
-                  "    pm.expect(res).to.have.property('totalUsers');",
-                  "    pm.expect(res).to.have.property('totalRestaurants');",
-                  "    pm.expect(res).to.have.property('totalBookings');",
-                  "});"
+                  "if (pm.response.code === 200 && res.accessToken) {",
+                  "    pm.collectionVariables.set('token', res.accessToken.accessToken);",
+                  "    pm.collectionVariables.set('userId', res.user.id);",
+                  "    console.log('Token and UserId updated!');",
+                  "} else if (pm.response.code === 200 && res.data && res.data.accessToken) {",
+                  "    pm.collectionVariables.set('token', res.data.accessToken.accessToken);",
+                  "    pm.collectionVariables.set('userId', res.data.user.id);",
+                  "    console.log('Token and UserId updated from data wrapper!');",
+                  "}"
                 ],
                 "type": "text/javascript"
               }
             }
           ],
           "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"admin@seatnow.local\",\n  \"password\": \"admin\"\n}"
+            },
+            "url": "{{authUrl}}/login",
+            "description": "Login as Admin to get tokens. Variables {{token}} and {{userId}} will be updated automatically."
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Stats",
+          "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{baseUrl}}/dashboard/stats"
+          }
+        },
+        {
+          "name": "Get Admin Revenue Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/revenue-stats?period=month",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "revenue-stats"],
+              "query": [{ "key": "period", "value": "month" }]
+            }
           }
         }
       ]
@@ -50,23 +83,6 @@
       "item": [
         {
           "name": "Get User List",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "const res = pm.response.json();",
-                  "pm.test('Response has users array', function () {",
-                  "    pm.expect(res.data || res).to.be.an('array');",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
@@ -74,20 +90,7 @@
           }
         },
         {
-          "name": "Reset Owner Password",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
+          "name": "Create Restaurant Owner",
           "request": {
             "method": "POST",
             "header": [
@@ -96,11 +99,24 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"newPassword\": \"AdminReset123!\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "raw": "{\n  \"phone\": \"+84912345678\",\n  \"email\": \"owner_test@example.com\",\n  \"name\": \"Test Owner\",\n  \"password\": \"Owner123!\"\n}"
             },
-            "url": "{{baseUrl}}/users/owner/{{userId}}/reset-password",
-            "description": "Admin reset password cho account Restaurant Owner."
+            "url": "{{baseUrl}}/users/restaurant-owner"
+          }
+        },
+        {
+          "name": "Reset Owner Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{baseUrl}}/users/owner/{{userId}}/reset-password"
           }
         }
       ]
@@ -109,46 +125,65 @@
       "name": "3. Restaurant Management",
       "item": [
         {
-          "name": "Approve Restaurant",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
+          "name": "Get Pending Restaurants",
           "request": {
-            "method": "POST",
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/restaurants/pending"
+          }
+        },
+        {
+          "name": "Approve Restaurant",
+          "request": {
+            "method": "PUT",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{baseUrl}}/restaurants/{{restaurantId}}/approve"
+          }
+        },
+        {
+          "name": "Activate Restaurant",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/restaurants/{{restaurantId}}/activate"
+          }
+        },
+        {
+          "name": "Suspend Restaurant",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/restaurants/{{restaurantId}}/suspend"
           }
         }
       ]
     },
     {
-      "name": "4. Financials",
+      "name": "4. Auditing & Lists",
       "item": [
         {
-          "name": "Approve Withdrawal",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
+          "name": "Get All Bookings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/bookings"
+          }
+        },
+        {
+          "name": "Get All Transactions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/transactions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Financials & Settlements",
+      "item": [
+        {
+          "name": "Settle Quarter Commission (Dry Run)",
           "request": {
             "method": "POST",
             "header": [
@@ -157,8 +192,22 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"note\": \"Validated and approved by financial team\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "raw": "{\n  \"year\": 2026,\n  \"quarter\": 1,\n  \"adminUserId\": \"{{userId}}\",\n  \"dryRun\": true\n}"
+            },
+            "url": "{{baseUrl}}/commissions/settle-quarter"
+          }
+        },
+        {
+          "name": "Approve Withdrawal",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Validated and approved\"\n}"
             },
             "url": "{{baseUrl}}/withdrawals/{{withdrawalId}}/approve"
           }

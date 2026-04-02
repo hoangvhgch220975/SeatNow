@@ -191,6 +191,18 @@ async function approveRestaurant(restaurantId) {
   };
 }
 
+// Chuyen nha hang sang trang thai active (Mo khoa lai).
+async function activateRestaurant(restaurantId) {
+  const restaurant = await adminModel.getRestaurantById(restaurantId);
+  if (!restaurant) throw createHttpError('Restaurant not found', 404);
+
+  await adminModel.approveRestaurant(restaurantId);
+  return {
+    restaurantId,
+    status: 'active'
+  };
+}
+
 // Chuyen nha hang sang trang thai suspended.
 async function suspendRestaurant(restaurantId) {
   const restaurant = await adminModel.getRestaurantById(restaurantId);
@@ -444,6 +456,7 @@ module.exports = {
   getStats,
   getPendingRestaurants,
   approveRestaurant,
+  activateRestaurant,
   suspendRestaurant,
   getBookings,
   getTransactions,
