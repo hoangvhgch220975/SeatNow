@@ -44,6 +44,13 @@ module.exports = async function processNotification(job) {
         );
 
       case 'web':
+        if (payload.role) {
+          return webNotificationService.sendRoleNotification(
+            payload.role,
+            payload.event || 'notification',
+            payload
+          );
+        }
         return webNotificationService.sendWebNotification(
           payload.userId,
           payload.event || 'notification',

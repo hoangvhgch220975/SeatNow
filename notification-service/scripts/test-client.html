@@ -27,7 +27,12 @@
         <h1>SeatNow Test Client</h1>
         
         <div class="controls">
-            <input type="text" id="userId" placeholder="User ID (e.g. C4E503D9-9B33-4C61-AA19-7EF824D55226)" value="C4E503D9-9B33-4C61-AA19-7EF824D55226">
+            <input type="text" id="userId" placeholder="User ID (optional)" value="C4E503D9-9B33-4C61-AA19-7EF824D55226">
+            <select id="role" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="ADMIN">ADMIN</option>
+                <option value="RESTAURANT_OWNER">RESTAURANT_OWNER</option>
+                <option value="CUSTOMER">CUSTOMER</option>
+            </select>
             <button onclick="connect()">Connect</button>
         </div>
 
@@ -51,13 +56,13 @@
             if (socket) socket.disconnect();
             
             const userId = document.getElementById('userId').value;
-            if (!userId) return alert('Please enter a User ID');
+            const role = document.getElementById('role').value;
 
-            log(`Connecting as ${userId}...`);
+            log(`Connecting as ${userId || '(no id)'} (Role: ${role})...`);
 
             // Connect to notification service at port 3008
             socket = io('http://localhost:3008', {
-                query: { userId, role: 'RESTAURANT_OWNER' }
+                query: { userId, role }
             });
 
             socket.on('connect', () => {
@@ -84,6 +89,11 @@
 
             socket.on('booking_cancelled', (data) => {
                 addNotification('Booking Cancelled', data);
+            });
+
+            // Listen for Admin's withdrawal request notification
+            socket.on('withdrawal_requested', (data) => {
+                addNotification('💥 Withdrawal Requested', data);
             });
         }
 
