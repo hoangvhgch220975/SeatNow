@@ -103,16 +103,49 @@
     },
 
     {
-      "DownstreamPathTemplate": "/api/ai/{everything}",
+      "DownstreamPathTemplate": "/api/ai/public/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         { "Host": "localhost", "Port": 3007 }
       ],
-      "UpstreamPathTemplate": "/api/v1/ai/{everything}",
+      "UpstreamPathTemplate": "/api/v1/ai/public/{everything}",
+      "UpstreamHttpMethod": [ "POST", "OPTIONS" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/ai/customer/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 3007 }
+      ],
+      "UpstreamPathTemplate": "/api/v1/ai/customer/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         "AuthenticationProviderKeys": [ "GatewayJwt" ]
       }
+    },
+    {
+      "DownstreamPathTemplate": "/api/ai/admin/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 3007 }
+      ],
+      "UpstreamPathTemplate": "/api/v1/ai/admin/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+      },
+      "RouteClaimsRequirement": {
+        "role": "ADMIN"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/health",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 3007 }
+      ],
+      "UpstreamPathTemplate": "/api/v1/ai/health",
+      "UpstreamHttpMethod": [ "GET" ]
     },
 
     {
