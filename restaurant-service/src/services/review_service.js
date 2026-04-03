@@ -35,6 +35,47 @@ async function aggregateRestaurantRating(restaurantId) {
   }
 }
 
+// Lấy tóm tắt chi tiết các mức đánh giá (5, 4, 3, 2, 1 sao)
+async function getReviewSummary(restaurantId) {
+  const result = await Review.aggregate([
+    { $match: { restaurantId: String(restaurantId) } },
+    {
+      $group: {
+        _id: "$rating",
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { _id: -1 } }
+  ]);
+
+  // Format lại thành object cho frontend dễ dùng (star_5: N, star_4: M, ...)
+  const summary = {
+    totalReviews: 0,
+    averageRating: 0,
+    ratingBreakdown: {
+      "5_star": 0,
+      "4_star": 0,
+      "3_star": 0,
+      "2_star": 0,
+      "1_star": 0
+    }
+  };
+
+  let totalPoints = 0;
+  result.forEach(item => {
+    const starKey = `${item._id}_star`;
+    summary.ratingBreakdown[starKey] = item.count;
+    summary.totalReviews += item.count;
+    totalPoints += (item._id * item.count);
+  });
+
+  if (summary.totalReviews > 0) {
+    summary.averageRating = Math.round((totalPoints / summary.totalReviews) * 10) / 10;
+  }
+
+  return summary;
+}
+
 // Hàm tạo một đánh giá mới cho nhà hàng
 async function createReview(restaurantId, customerId, payload) {
   const doc = await Review.create({
@@ -50,4 +91,4 @@ async function createReview(restaurantId, customerId, payload) {
   return doc.toObject();
 }
 
-module.exports = { listReviews, createReview, aggregateRestaurantRating };
+module.exports = { listReviews, createReview, aggregateRestaurantRating, getReviewSummary };

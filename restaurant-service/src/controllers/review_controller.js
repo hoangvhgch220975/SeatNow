@@ -24,5 +24,15 @@ async function create(req, res) {
   }
 }
 
-module.exports = { list, create };
+// Lấy tóm tắt chi tiết (số lượng sao) cho nhà hàng
+async function getSummary(req, res) {
+  try {
+    const data = await reviewSvc.getReviewSummary(req.params.id);
+    res.json(data);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
+module.exports = { list, create, getSummary };
 

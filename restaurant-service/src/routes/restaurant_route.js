@@ -39,6 +39,7 @@ router.delete('/restaurants/:id/menu/:itemId', requireAuth, requireRole('RESTAUR
 // REVIEWS (Mongo)
 // ==================================================
 router.get('/restaurants/:id/reviews', rateLimit({ limit: 120, windowSec: 60, key: 'restaurants_reviews' }), reviewCtl.list);
+router.get('/restaurants/:id/reviews/summary', rateLimit({ limit: 120, windowSec: 60, key: 'restaurants_reviews_summary' }), reviewCtl.getSummary);
 router.post('/restaurants/:id/reviews', requireAuth, requireRole('CUSTOMER', 'ADMIN'), validateBody(createReviewSchema), reviewCtl.create);
 
 // ==================================================
