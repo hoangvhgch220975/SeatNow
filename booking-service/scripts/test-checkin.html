@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SeatNow — QR Checkin Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <style>
     body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px}
     label{display:block;margin-top:10px}
@@ -31,6 +32,13 @@
   <label>Authorization Token (Bearer)
     <input id="token" placeholder="paste bearer token here (without 'Bearer ')" />
   </label>
+
+  <div style="margin-top: 20px; padding: 15px; border: 2px dashed #4F46E5; border-radius: 12px; background: #EEF2FF;">
+    <h4 style="margin-top: 0; color: #4F46E5;">📷 Quét mã QR từ ảnh</h4>
+    <p style="font-size: 13px; color: #6366F1; margin-bottom: 10px;">Tải ảnh QR code của khách lên để tự động điền Booking ID.</p>
+    <input type="file" id="qrUpload" accept="image/*" style="border: none; background: white; padding: 10px; border-radius: 8px; width: auto; max-width: 100%;" />
+    <canvas id="qrCanvas" style="display:none;"></canvas>
+  </div>
 
   <button id="showQr">Fetch QR image</button>
   <img id="qrImg" alt="QR will appear here" width="300" height="300" />
@@ -112,6 +120,66 @@
         const text = await res.text();
         try{ out(JSON.parse(text)); }catch{ out(text); }
       }catch(e){ out('Request error: '+e.message); }
+    });
+
+    // --- QR Upload & Scan Logic ---
+    $('qrUpload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = $('qrCanvas');
+          const context = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          context.drawImage(img, 0, 0);
+
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+          if (code) {
+            // Extract bookingId if it's a URL or just the ID/Code
+            let extracted = code.data.trim();
+            let type = "Raw Text / Code";
+
+            // Case 1: Full URL with query param
+            try {
+              const url = new URL(code.data);
+              const p = url.searchParams.get('bookingId');
+              if (p) {
+                extracted = p;
+                type = "URL Parameter (bookingId)";
+              }
+            } catch (err) {}
+
+            // Case 2: URL suffix /bookingId=
+            if (type === "Raw Text / Code" && code.data.includes('bookingId=')) {
+                extracted = code.data.split('bookingId=')[1].split('&')[0];
+                type = "URL String (bookingId)";
+            }
+
+            // UI Feedback
+            const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(extracted);
+            const isBookingCode = /^BK\d{8,}/i.test(extracted);
+            
+            let status = `✅ Found QR: <b>${extracted}</b><br/>Type: ${type}`;
+            if (isGuid) status += " <span style='color:green'>(Valid UUID)</span>";
+            else if (isBookingCode) status += " <span style='color:blue'>(Booking Code)</span>";
+            else status += " <span style='color:orange'>(Unknown Format)</span>";
+
+            $('output').innerHTML = status;
+            $('bookingId').value = extracted;
+            $('qrImg').src = event.target.result; 
+          } else {
+            out('❌ No QR code found in this image.');
+          }
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
     });
   </script>
 </body>

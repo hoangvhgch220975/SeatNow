@@ -288,7 +288,13 @@ async function autoSettleCommissions() {
 
 /** transitions (flow strict) */
 // PENDING -> CONFIRMED
-async function confirm(id) {
+async function confirm(idOrCode) {
+  let id = idOrCode;
+  if (!bookingSql.isValidGuid(idOrCode)) {
+    const b = await bookingSql.findByCode(idOrCode);
+    if (!b) { const e = new Error('Booking not found by code ' + idOrCode); e.status = 404; throw e; }
+    id = b.id;
+  }
   const updated = await bookingSql.updateStatus(id, ['PENDING'], 'CONFIRMED', 'confirmedAt');
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
@@ -329,7 +335,13 @@ async function confirm(id) {
 }
 
 // CONFIRMED -> ARRIVED
-async function arrived(id) {
+async function arrived(idOrCode) {
+  let id = idOrCode;
+  if (!bookingSql.isValidGuid(idOrCode)) {
+    const b = await bookingSql.findByCode(idOrCode);
+    if (!b) { const e = new Error('Booking not found by code ' + idOrCode); e.status = 404; throw e; }
+    id = b.id;
+  }
   // nếu DB cột là checkedInAt, bạn có thể dùng checkedInAt thay arrivedAt
   const updated = await bookingSql.updateStatus(id, ['CONFIRMED'], 'ARRIVED', 'arrivedAt');
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
@@ -339,7 +351,13 @@ async function arrived(id) {
 }
 
 // ARRIVED -> COMPLETED
-async function complete(id) {
+async function complete(idOrCode) {
+  let id = idOrCode;
+  if (!bookingSql.isValidGuid(idOrCode)) {
+    const b = await bookingSql.findByCode(idOrCode);
+    if (!b) { const e = new Error('Booking not found by code ' + idOrCode); e.status = 404; throw e; }
+    id = b.id;
+  }
   const updated = await bookingSql.updateStatus(id, ['ARRIVED'], 'COMPLETED', 'completedAt');
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   try { socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'completed', booking: updated } }); } catch (e) {}
@@ -347,7 +365,13 @@ async function complete(id) {
 }
 
 // PENDING/CONFIRMED -> CANCELLED
-async function cancel(id, actor = null, cancellationReason = null) {
+async function cancel(idOrCode, actor = null, cancellationReason = null) {
+  let id = idOrCode;
+  if (!bookingSql.isValidGuid(idOrCode)) {
+    const b = await bookingSql.findByCode(idOrCode);
+    if (!b) { const e = new Error('Booking not found'); e.status = 404; throw e; }
+    id = b.id;
+  }
   const booking = await bookingSql.findById(id);
   if (!booking) { const e = new Error('Booking not found'); e.status = 404; throw e; }
 
@@ -462,7 +486,13 @@ async function cancel(id, actor = null, cancellationReason = null) {
 }
 
 // CONFIRMED -> NO_SHOW
-async function noShow(id) {
+async function noShow(idOrCode) {
+  let id = idOrCode;
+  if (!bookingSql.isValidGuid(idOrCode)) {
+    const b = await bookingSql.findByCode(idOrCode);
+    if (!b) { const e = new Error('Booking not found'); e.status = 404; throw e; }
+    id = b.id;
+  }
   const updated = await bookingSql.updateStatus(id, ['CONFIRMED'], 'NO_SHOW', 'cancelledAt');
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
@@ -471,7 +501,13 @@ async function noShow(id) {
 }
 
 // Lấy chi tiết booking kèm thông tin restaurant (dùng cho access control và trả về dữ liệu)
-async function getBookingDetails(id) {
+async function getBookingDetails(idOrCode) {
+  let id = idOrCode;
+  if (!bookingSql.isValidGuid(idOrCode)) {
+    const b = await bookingSql.findByCode(idOrCode);
+    if (!b) return null;
+    id = b.id;
+  }
   const booking = await bookingSql.findById(id);
   if (!booking) return null;
   const restaurant = booking.restaurantId ? await bookingSql.getRestaurant(booking.restaurantId) : null;

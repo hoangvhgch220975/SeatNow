@@ -1,6 +1,12 @@
 const { sql, getPool } = require('../config/db');
 
 const ACTIVE_STATUSES = ['PENDING','CONFIRMED','ARRIVED'];
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidGuid(id) {
+  return typeof id === 'string' && GUID_RE.test(id);
+}
+
 // Helper để parse JSON với giá trị mặc định
 function j(v, def) { try { return v ? JSON.parse(v) : def; } catch { return def; } }
 
@@ -23,6 +29,7 @@ async function getRestaurant(restaurantId) {
 
 // Hàm lấy thông tin bàn ăn
 async function getTable(tableId) {
+  if (!isValidGuid(tableId)) return null;
   const pool = await getPool();
   const rs = await pool.request()
     .input('id', sql.UniqueIdentifier, tableId)
@@ -32,10 +39,21 @@ async function getTable(tableId) {
 
 // Hàm tìm booking theo ID
 async function findById(id) {
+  if (!isValidGuid(id)) return null;
   const pool = await getPool();
   const rs = await pool.request()
     .input('id', sql.UniqueIdentifier, id)
     .query(`SELECT TOP 1 * FROM dbo.Bookings WHERE id=@id`);
+  return rs.recordset[0] || null;
+}
+
+// Hàm tìm booking theo mã (Booking Code duy nhất)
+async function findByCode(bookingCode) {
+  if (!bookingCode) return null;
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('bookingCode', sql.NVarChar(30), bookingCode)
+    .query(`SELECT TOP 1 * FROM dbo.Bookings WHERE bookingCode=@bookingCode`);
   return rs.recordset[0] || null;
 }
 
@@ -319,6 +337,7 @@ async function markCommissionPaidByBookingIds(bookingIds = []) {
 
 // Hàm cập nhật trạng thái booking với điều kiện trạng thái hiện tại
 async function updateStatus(id, fromStatuses, toStatus, timeField) {
+  if (!isValidGuid(id)) return null;
   const pool = await getPool();
   const req = pool.request()
     .input('id', sql.UniqueIdentifier, id)
@@ -341,7 +360,6 @@ async function updateStatus(id, fromStatuses, toStatus, timeField) {
 // Cancel booking with reason and cancelledBy (nullable)
 
  // Validate cancelledBy GUID (nullable)
-const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function cancelBooking(bookingId, fromStatuses = null, cancelledBy = null, cancellationReason = null, refund = false) {
   // Validate id GUID
@@ -696,5 +714,7 @@ module.exports = {
   getRestaurantStatsSummary,
   getRevenueStatistics,
   getHourlyBookingStats,
-  getOwnerHourlyBookingStats
+  getOwnerHourlyBookingStats,
+  isValidGuid,
+  findByCode
 };

@@ -8,8 +8,8 @@
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3004/api/v1", "type": "string" },
     { "key": "token", "value": "", "type": "string", "description": "Lay tu Auth - Login" },
-    { "key": "restaurantId", "value": "BA3FB828-C52C-4FBE-83E7-4F326A9892A2", "type": "string" },
-    { "key": "tableId", "value": "AA07C586-38BB-423A-8554-1FE87348D2C1", "type": "string" },
+    { "key": "restaurantId", "value": "1D106F0B-F292-405B-9E3A-76B219141863", "type": "string" },
+    { "key": "tableId", "value": "7C326061-FB2C-4A2D-BC97-206C9127974A", "type": "string" },
     { "key": "bookingId", "value": "", "type": "string" },
     { "key": "bookingCode", "value": "", "type": "string" },
     { "key": "guestPhone", "value": "+84901234567", "type": "string" }
@@ -208,6 +208,12 @@
                 "exec": [
                   "pm.test('Status code is 200', function () {",
                   "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "const booking = res.data || res;",
+                  "pm.test('Refund logic check', function () {",
+                  "    pm.expect(booking).to.have.property('depositRefunded');",
+                  "    console.log('Deposit Refunded:', booking.depositRefunded);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -273,6 +279,56 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{baseUrl}}/restaurants/{{restaurantId}}/revenue-stats?period=month"
+          }
+        },
+        {
+          "name": "Get Hourly Booking Stats (Restaurant)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Response is array', function () {",
+                  "    pm.expect(res.data || res).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/restaurants/{{restaurantId}}/stats/hourly?period=week"
+          }
+        },
+        {
+          "name": "Get Hourly Booking Stats (Portfolio)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Response is array', function () {",
+                  "    pm.expect(res.data || res).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/owner/stats/hourly?period=month"
           }
         },
         {
@@ -402,6 +458,26 @@
         },
         {
           "name": "Cancel Booking (Owner)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "const booking = res.data || res;",
+                  "pm.test('Owner cancellation with refund', function () {",
+                  "    pm.expect(booking).to.have.property('depositRefunded');",
+                  "    // Owner cancel should always trigger refund",
+                  "    pm.expect(booking.depositRefunded).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "PUT",
             "header": [

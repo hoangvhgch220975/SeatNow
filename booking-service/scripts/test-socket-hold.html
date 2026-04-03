@@ -218,6 +218,12 @@
     .legend-box.available { background: #f1f8e9; border-color: #4CAF50; }
     .legend-box.selected { background: #e3f2fd; border-color: #2196F3; }
     .legend-box.occupied { background: #f5f5f5; border-color: #e0e0e0; opacity: 0.5; }
+    .location-tag {
+      font-size: 10px;
+      color: #777;
+      margin-top: 2px;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -257,7 +263,23 @@
 
     <div class="section">
       <h3>Actions</h3>
-      <button onclick="checkAvailability()" class="secondary">📋 Refresh Tables</button>
+      <div style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 15px;">
+        <div style="flex: 1;">
+          <label>📁 Filter by Floor:</label>
+          <select id="floorFilter" onchange="checkAvailability()">
+            <option value="">-- All Floors --</option>
+            <option value="1st Floor">1st Floor</option>
+            <option value="2nd Floor">2nd Floor</option>
+            <option value="3rd Floor">3rd Floor</option>
+            <option value="4th Floor">4th Floor</option>
+            <option value="5th Floor">5th Floor</option>
+            <option value="Rooftop">Rooftop</option>
+            <option value="Terrace">Terrace</option>
+            <option value="Outdoor">Outdoor</option>
+          </select>
+        </div>
+        <button onclick="checkAvailability()" class="secondary">📋 Refresh Tables</button>
+      </div>
       
       <div id="countdown" class="countdown" style="display:none;">
         Còn <span id="countdownTime">00:00</span> để hoàn tất
@@ -518,9 +540,6 @@
       document.getElementById('countdown').style.display = 'none';
     }
 
-    // Auto-connect on page load (optional)
-    // window.onload = () => connectSocket();
-
     // Utility: generate 2-hour time slots from start to end (inclusive)
     function generateTimeSlots(startHour = 7, endHour = 21, slotMinutes = 120) {
       const slots = [];
@@ -629,6 +648,7 @@
           <span class="type-tag">${t.type}</span>
           <span class="num">${t.tableNumber}</span>
           <span class="cap">${t.capacity} seats</span>
+          <span class="location-tag">📍 ${t.location || 'Unknown'}</span>
         `;
         
         if (isAvailable || isMyHold) {
@@ -669,14 +689,22 @@
       try {
         // 1. Fetch ALL tables from restaurant-service (needs owner/admin token)
         let allTables = [];
+        let fetchSuccessful = false;
         try {
           const headers = {};
           if (token) headers['Authorization'] = `Bearer ${token}`;
           
-          const resAll = await fetch(`http://localhost:3003/api/v1/restaurants/${restaurantId}/tables`, { headers });
+          const floorValue = document.getElementById('floorFilter').value;
+          let tablesUrl = `http://localhost:3003/api/v1/restaurants/${restaurantId}/tables`;
+          if (floorValue) {
+            tablesUrl += `?location=${encodeURIComponent(floorValue)}`;
+          }
+          
+          const resAll = await fetch(tablesUrl, { headers });
           if (resAll.ok) {
             const dataAll = await resAll.json();
             allTables = dataAll.data || [];
+            fetchSuccessful = true;
           } else {
             const errData = await resAll.json().catch(() => ({}));
             if (resAll.status === 401) {
@@ -707,8 +735,8 @@
           log('⚠️ Warning: Could not fetch master table list. Showing only available tables.', 'warning');
         }
 
-        // If allTables is empty (fetch failed), use availableTables as the base
-        const finalAllTables = allTables.length ? allTables : availableTables;
+        // If allTables fetch worked (even if empty), use it. Only fallback if fetch failed/unauthorized.
+        const finalAllTables = fetchSuccessful ? allTables : availableTables;
 
         updateTableSelect(availableTables);
         renderTableGrid(finalAllTables, availableIds);
