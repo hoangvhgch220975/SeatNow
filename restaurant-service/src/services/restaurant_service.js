@@ -40,7 +40,30 @@ async function getRestaurant(id) {
 // Hàm tạo một nhà hàng mới - payload từ admin (bao gồm ownerId, commissionRate, status, ...)
 async function createRestaurant(payload) {
   const slug = makeSlug(payload.name);
-  return restaurantSql.createRestaurant({ ...payload, slug });
+  const result = await restaurantSql.createRestaurant({ ...payload, slug });
+  
+  // Notify Admin
+  try {
+    const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+    fetch(`${notificationUrl}/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'web',
+        payload: {
+          role: 'ADMIN',
+          event: 'restaurant_created',
+          message: `New restaurant created: ${payload.name} (Pending Approval)`,
+          data: {
+            restaurantId: result.id || result.insertedId || null,
+            name: payload.name
+          }
+        }
+      })
+    }).catch(err => console.error('Failed to notify admin of new restaurant:', err.message));
+  } catch(e) {}
+  
+  return result;
 }
 
 // Hàm cập nhật thông tin của một nhà hàng dựa trên ID và payload

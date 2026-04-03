@@ -2,6 +2,7 @@
  * restaurant.validator
  */
 const Joi = require('joi');
+const { CUISINE_TYPES } = require('../constants/cuisine_types');
 
 // Schema tạo nhà hàng - chỉ ADMIN dùng
 // Admin tạo thay owner, điền đầy đủ chính sách từ yêu cầu của nhà hàng
@@ -13,7 +14,7 @@ const createRestaurantSchema = Joi.object({
   longitude: Joi.number().min(-180).max(180),
   phone: Joi.string().max(20).required(),
   email: Joi.string().email().allow(null, ''),
-  cuisineTypes: Joi.array().items(Joi.string().max(100)).default([]),
+  cuisineTypes: Joi.array().items(Joi.string().valid(...CUISINE_TYPES)).default([]),
   priceRange: Joi.number().integer().min(1).max(4).required(),
   description: Joi.string().allow('', null),
   images: Joi.array().items(Joi.string().max(2048)).default([]),
@@ -36,7 +37,7 @@ const updateRestaurantSchema = Joi.object({
   longitude: Joi.number().min(-180).max(180),
   phone: Joi.string().max(20),
   email: Joi.string().email().allow(null, ''),
-  cuisineTypes: Joi.array().items(Joi.string().max(100)),
+  cuisineTypes: Joi.array().items(Joi.string().valid(...CUISINE_TYPES)),
   priceRange: Joi.number().integer().min(1).max(4),
   description: Joi.string().allow('', null),
   images: Joi.array().items(Joi.string().max(2048)),

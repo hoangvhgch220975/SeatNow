@@ -656,7 +656,78 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables"
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables",
+            "description": "Lay danh sach tat ca cac ban cua nha hang."
+          }
+        },
+        {
+          "name": "GET Tables by Floor [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response is filtered array', function () {",
+                  "    const tables = res.data || [];",
+                  "    pm.expect(tables).to.be.an('array');",
+                  "    if (tables.length > 0) {",
+                  "        pm.expect(tables[0].location).to.eql('1st Floor');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables?location=1st Floor",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "restaurants", "{{restaurantId}}", "tables"],
+              "query": [
+                { "key": "location", "value": "1st Floor" }
+              ]
+            },
+            "description": "Lay danh sach ban theo tang (1st Floor, 2nd Floor, Rooftop, vv...)."
+          }
+        },
+        {
+          "name": "GET Table Analytics [ADMIN|OWNER]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has floor stats', function () {",
+                  "    pm.expect(res.data).to.have.property('stats');",
+                  "    pm.expect(res.data).to.have.property('totalCapacity');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables/stats",
+            "description": "Lay thong ke suc chua va so luong ban theo tung tang."
           }
         },
         {
@@ -693,7 +764,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tableNumber\": \"T99\",\n  \"capacity\": 6,\n  \"type\": \"vip\",\n  \"location\": \"Trong phong rieng\",\n  \"status\": \"active\"\n}",
+              "raw": "{\n  \"tableNumber\": \"T99\",\n  \"capacity\": 6,\n  \"type\": \"vip\",\n  \"location\": \"1st Floor\",\n  \"status\": \"active\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/tables",
