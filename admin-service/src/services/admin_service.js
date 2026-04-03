@@ -115,7 +115,7 @@ async function updateRestaurant({ restaurantId, payload, authorization }) {
 async function createRestaurantOwner({ payload, authorization }) {
   if (!payload || typeof payload !== 'object') throw createHttpError('payload is required', 422);
 
-  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1').replace(/\/+$/, '');
+  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1/auth').replace(/\/+$/, '');
   const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
   const headers = internalToken ? { 'x-internal-token': internalToken } : {};
 
@@ -137,7 +137,7 @@ async function createRestaurantOwner({ payload, authorization }) {
 async function resetOwnerPassword({ ownerId, authorization }) {
   if (!ownerId) throw createHttpError('ownerId is required', 422);
 
-  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1').replace(/\/+$/, '');
+  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1/auth').replace(/\/+$/, '');
   const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
   const headers = internalToken ? { 'x-internal-token': internalToken } : {};
 
@@ -450,6 +450,67 @@ async function rejectWithdrawal(transactionId, payload, authorization) {
   return result?.data ?? result;
 }
 
+// ====== PARTNER REQUESTS ======
+async function getPartnerRequests(query = {}, authorization) {
+  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1/auth').replace(/\/+$/, '');
+  const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+  const headers = internalToken ? { 'x-internal-token': internalToken } : {};
+
+  if (authorization) {
+    headers['Authorization'] = authorization;
+  }
+
+  const result = await requestJson(
+    'GET',
+    `${authBaseUrl}/internal/partner-requests?page=${query.page || 1}&limit=${query.limit || 20}`,
+    undefined,
+    headers
+  );
+
+  return result?.data ?? result;
+}
+
+async function approvePartnerRequest(requestId, payload, authorization) {
+  if (!requestId) throw createHttpError('requestId is required', 422);
+  if (!payload || typeof payload !== 'object') throw createHttpError('payload is required', 422);
+
+  // 1. Create the owner account (this auto-generates password and sends email)
+  const ownerResult = await createRestaurantOwner({ payload, authorization });
+
+  // 2. Clear the request from cache
+  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1/auth').replace(/\/+$/, '');
+  const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+  const headers = internalToken ? { 'x-internal-token': internalToken } : {};
+  if (authorization) headers['Authorization'] = authorization;
+
+  await requestJson(
+    'DELETE',
+    `${authBaseUrl}/internal/partner-requests/${requestId}`,
+    undefined,
+    headers
+  );
+
+  return ownerResult;
+}
+
+async function rejectPartnerRequest(requestId, authorization) {
+  if (!requestId) throw createHttpError('requestId is required', 422);
+
+  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1/auth').replace(/\/+$/, '');
+  const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+  const headers = internalToken ? { 'x-internal-token': internalToken } : {};
+  if (authorization) headers['Authorization'] = authorization;
+
+  const result = await requestJson(
+    'DELETE',
+    `${authBaseUrl}/internal/partner-requests/${requestId}`,
+    undefined,
+    headers
+  );
+
+  return result?.data ?? result;
+}
+
 module.exports = {
   createRestaurant,
   updateRestaurant,
@@ -465,6 +526,9 @@ module.exports = {
   rejectWithdrawal,
   createRestaurantOwner,
   getAdminRevenueStats,
-  resetOwnerPassword
+  resetOwnerPassword,
+  getPartnerRequests,
+  approvePartnerRequest,
+  rejectPartnerRequest
 };
 

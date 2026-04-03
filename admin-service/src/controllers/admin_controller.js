@@ -180,6 +180,36 @@ async function rejectWithdrawal(req, res, next) {
   }
 }
 
+// Lấy danh sách partner requests
+async function getPartnerRequests(req, res, next) {
+  try {
+    const data = await adminService.getPartnerRequests(req.query, req.headers.authorization);
+    return res.json({ success: true, ...data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Duyệt partner request
+async function approvePartnerRequest(req, res, next) {
+  try {
+    const data = await adminService.approvePartnerRequest(req.params.id, req.body, req.headers.authorization);
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Từ chối partner request
+async function rejectPartnerRequest(req, res, next) {
+  try {
+    const data = await adminService.rejectPartnerRequest(req.params.id, req.headers.authorization);
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createRestaurantOwner,
   createRestaurant,
@@ -196,5 +226,8 @@ module.exports = {
   approveWithdrawal,
   rejectWithdrawal,
   getAdminRevenueStats,
-  resetOwnerPassword
+  resetOwnerPassword,
+  getPartnerRequests,
+  approvePartnerRequest,
+  rejectPartnerRequest
 };

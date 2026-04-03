@@ -33,4 +33,9 @@ router.post('/commissions/settle-quarter', controller.settleQuarterCommission);
 router.post('/withdrawals/:id/approve', controller.approveWithdrawal);
 router.post('/withdrawals/:id/reject', controller.rejectWithdrawal);
 
+// Quan ly partner requests
+router.get('/partner-requests', controller.getPartnerRequests);
+router.post('/partner-requests/:id/approve', controller.approvePartnerRequest);
+router.delete('/partner-requests/:id/reject', controller.rejectPartnerRequest);
+
 module.exports = router;
