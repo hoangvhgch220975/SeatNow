@@ -8,7 +8,7 @@ const axios = require('axios');
 const { RedisClient } = require('../config/redis');
 const { getFirebaseAdmin } = require('../config/firebase');
 const otpUtil = require('../utils/otp_util');
-const { sendNewPasswordEmail, sendWelcomeOwnerEmail } = require('../utils/email_util');
+const { sendNewPasswordEmail, sendWelcomeOwnerEmail, sendOtpEmail } = require('../utils/email_util');
 
 const redis = RedisClient.getInstance();
 
@@ -89,7 +89,9 @@ async function register({ phone, email, name, password, accountType }) {
     }
   } else {
     if (!arguments[0]?.otp) throw Object.assign(new Error('OTP_REQUIRED'), { status: 400 });
-    await verifyOtp({ phone, code: arguments[0].otp });
+    // Verify OTP against email if phone verification is skipped/not used for OTP
+    const verifyIdentifier = email || phone;
+    await verifyOtp({ phone: verifyIdentifier, code: arguments[0].otp });
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -228,29 +230,41 @@ async function logout({ refreshToken }) {
   return { ok: true };
 }
 
-async function sendOtp({ phone }) {
+async function sendOtp({ phone, email }) {
+  const identifier = email || phone;
+  if (!identifier) throw Object.assign(new Error('IDENTIFIER_REQUIRED'), { status: 400 });
+
   // Anti-spam / rate limit checks
-  const can = await otpUtil.canSendOtp(redis, phone, { cooldownSeconds: 60, maxPerWindow: 5, windowSeconds: 3600 });
+  const can = await otpUtil.canSendOtp(redis, identifier, { cooldownSeconds: 60, maxPerWindow: 5, windowSeconds: 3600 });
   if (!can.ok) {
     const reason = can.reason === 'TOO_SOON' ? 'OTP_SEND_TOO_SOON' : 'OTP_SEND_RATE_LIMIT_EXCEEDED';
     throw Object.assign(new Error(reason), { status: 429 });
   }
 
   const code = otpUtil.genOtp();
-  // Save OTP for 120 seconds (2 minutes)
-  // Save OTP in Redis (2 minutes) but DO NOT send SMS from backend.
-  // Frontend is responsible for delivering the OTP (e.g., using Twilio/Firebase).
-  await otpUtil.saveOtp(redis, phone, code, 120);
+  // Save OTP in Redis (2 minutes)
+  await otpUtil.saveOtp(redis, identifier, code, 120);
 
   // record this send to enforce limits
-  await otpUtil.recordOtpSent(redis, phone, { cooldownSeconds: 60, windowSeconds: 3600 });
+  await otpUtil.recordOtpSent(redis, identifier, { cooldownSeconds: 60, windowSeconds: 3600 });
 
-  // Do not log or return the code in production. For safety we only return ok.
+  // Send via Email if provided
+  if (email) {
+    await sendOtpEmail(email, code);
+  } else {
+    // If only phone provided, we no longer send SMS from backend as per user request.
+    // However, we still save it in Redis in case the frontend sends it via another channel.
+    console.warn(`[auth_service.sendOtp] OTP saved for phone ${phone} but no SMS sent from backend.`);
+  }
+
   return { ok: true };
 }
 
-async function verifyOtp({ phone, code }) {
-  const res = await otpUtil.verifyOtp(redis, phone, code, parseInt(process.env.OTP_MAX_VERIFY_ATTEMPTS || '5', 10));
+async function verifyOtp({ phone, email, code }) {
+  const identifier = email || phone;
+  if (!identifier) throw Object.assign(new Error('IDENTIFIER_REQUIRED'), { status: 400 });
+
+  const res = await otpUtil.verifyOtp(redis, identifier, code, parseInt(process.env.OTP_MAX_VERIFY_ATTEMPTS || '5', 10));
   if (res.ok) return { ok: true };
   if (res.reason === 'EXPIRED') throw Object.assign(new Error('OTP_EXPIRED'), { status: 400 });
   if (res.reason === 'INCORRECT') throw Object.assign(new Error('OTP_INCORRECT'), { status: 400 });
@@ -259,13 +273,24 @@ async function verifyOtp({ phone, code }) {
 }
 
 async function requestPasswordReset({ phone, email }) {
-  if (!phone || !email) {
-    throw Object.assign(new Error('MISSING_PHONE_OR_EMAIL'), { status: 400 });
+  if (!phone) {
+    throw Object.assign(new Error('PHONE_REQUIRED'), { status: 400 });
   }
 
-  const user = await UserModel.findAuthByPhoneAndEmail(phone, email);
+  // Find user by phone to get their email if not provided
+  const user = await UserModel.findByPhoneOrEmail({ phone });
   if (!user) {
-    throw Object.assign(new Error('USER_NOT_FOUND_OR_MISMATCH'), { status: 404 });
+    throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
+  }
+
+  const targetEmail = email || user.email;
+  if (!targetEmail) {
+    throw Object.assign(new Error('EMAIL_NOT_FOUND_FOR_USER'), { status: 400 });
+  }
+
+  // If both provided, ensure they match the same record
+  if (email && user.email !== email) {
+    throw Object.assign(new Error('PHONE_EMAIL_MISMATCH'), { status: 400 });
   }
 
   // Only CUSTOMER can use public forgot-password flow. 
@@ -282,13 +307,18 @@ async function requestPasswordReset({ phone, email }) {
   }
 
   const code = otpUtil.genOtp();
+  // Store OTP using PHONE as the key in Redis, even though we send to EMAIL
   await otpUtil.saveOtp(redis, phone, code, 120);
   await otpUtil.recordOtpSent(redis, phone, { cooldownSeconds: 60, windowSeconds: 3600 });
 
-  return { ok: true, message: 'OTP_SENT_TO_PHONE' };
+  // Send OTP to the user's Email
+  await sendOtpEmail(targetEmail, code);
+
+  return { ok: true, message: 'OTP_SENT_TO_EMAIL', email: targetEmail };
 }
 
 async function verifyAndResetPassword({ phone, otp }) {
+  if (!phone) throw Object.assign(new Error('PHONE_REQUIRED'), { status: 400 });
   await verifyOtp({ phone, code: otp });
 
   const user = await UserModel.findByPhoneOrEmail({ phone });

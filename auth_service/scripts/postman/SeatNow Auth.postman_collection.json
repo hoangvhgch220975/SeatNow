@@ -67,7 +67,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"{{phone}}\"\n}",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -83,7 +83,7 @@
                 "send-otp"
               ]
             },
-            "description": "Gui OTP den so dien thoai. OTP duoc luu tren Redis."
+            "description": "Gui OTP den giao dien Email. OTP duoc luu tren Redis."
           },
           "response": []
         },
@@ -167,7 +167,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"123456\"\n}",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"code\": \"123456\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -183,7 +183,7 @@
                 "verify-otp"
               ]
             },
-            "description": "Xac thuc OTP vua duoc gui. Thay '123456' bang ma OTP thuc."
+            "description": "Xac thuc OTP vua duoc gui den Email. Thay '123456' bang ma OTP thuc."
           },
           "response": []
         }
@@ -613,7 +613,7 @@
                   "const res = pm.response.json();",
                   "pm.test('OTP sent successfully', function () {",
                   "    pm.expect(res.ok).to.eql(true);",
-                  "    pm.expect(res.message).to.eql('OTP_SENT_TO_PHONE');",
+                  "    pm.expect(res.message).to.eql('OTP_SENT_TO_EMAIL');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -647,7 +647,7 @@
                 "request"
               ]
             },
-            "description": "Buoc 1: Gui ca Phone va Email de nhan OTP qua so dien thoai."
+            "description": "Buoc 1: Gui ca Phone va Email de nhan OTP qua Email."
           },
           "response": []
         },
@@ -682,7 +682,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"otp\": \"123456\"\n}",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"otp\": \"123456\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
