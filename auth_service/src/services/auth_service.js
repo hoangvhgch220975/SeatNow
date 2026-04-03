@@ -4,9 +4,11 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 
 const UserModel = require('../models/user_model');
+const axios = require('axios');
 const { RedisClient } = require('../config/redis');
 const { getFirebaseAdmin } = require('../config/firebase');
 const otpUtil = require('../utils/otp_util');
+const { sendNewPasswordEmail, sendWelcomeOwnerEmail } = require('../utils/email_util');
 
 const redis = RedisClient.getInstance();
 
@@ -107,7 +109,7 @@ async function register({ phone, email, name, password, accountType }) {
 }
 
 // ====== INTERNAL / ADMIN API ======
-async function createRestaurantOwnerByAdmin({ phone, email, name, password }) {
+async function createRestaurantOwnerByAdmin({ phone, email, name }) {
   // check tồn tại (phone/email unique)
   const byPhone = await UserModel.findByPhoneOrEmail({ phone });
   if (byPhone) throw Object.assign(new Error('PHONE_ALREADY_EXISTS'), { status: 409 });
@@ -118,14 +120,18 @@ async function createRestaurantOwnerByAdmin({ phone, email, name, password }) {
   }
 
   if (!phone) throw Object.assign(new Error('PHONE_REQUIRED'), { status: 400 });
-  if (!password) throw Object.assign(new Error('PASSWORD_REQUIRED'), { status: 400 });
+  if (!email) throw Object.assign(new Error('EMAIL_REQUIRED'), { status: 400 });
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const newRawPassword = generateRandomPassword(10);
+  const passwordHash = await bcrypt.hash(newRawPassword, 10);
 
   const user = await UserModel.createUser({ phone, email, name, passwordHash, role: 'RESTAURANT_OWNER' });
 
+  await sendWelcomeOwnerEmail(email, name, phone, newRawPassword);
+
   return {
-    user: { id: user.id, phone: user.phone, email: user.email, name: user.name, role: user.role }
+    user: { id: user.id, phone: user.phone, email: user.email, name: user.name, role: user.role },
+    message: 'OWNER_ACCOUNT_CREATED_AND_EMAILED'
   };
 }
 
@@ -262,6 +268,12 @@ async function requestPasswordReset({ phone, email }) {
     throw Object.assign(new Error('USER_NOT_FOUND_OR_MISMATCH'), { status: 404 });
   }
 
+  // Only CUSTOMER can use public forgot-password flow. 
+  // Restaurant Owners and Admin must be reset by Admin or other internal processes.
+  if (user.role !== 'CUSTOMER') {
+    throw Object.assign(new Error('ROLE_NOT_ALLOWED_FOR_SELF_RESET'), { status: 403 });
+  }
+
   // Anti-spam / rate limit checks
   const can = await otpUtil.canSendOtp(redis, phone, { cooldownSeconds: 60, maxPerWindow: 5, windowSeconds: 3600 });
   if (!can.ok) {
@@ -281,6 +293,10 @@ async function verifyAndResetPassword({ phone, otp }) {
 
   const user = await UserModel.findByPhoneOrEmail({ phone });
   if (!user) throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
+
+  if (user.role !== 'CUSTOMER') {
+    throw Object.assign(new Error('ROLE_NOT_ALLOWED_FOR_SELF_RESET'), { status: 403 });
+  }
 
   const newRawPassword = generateRandomPassword(8);
   const passwordHash = await bcrypt.hash(newRawPassword, 10);
@@ -353,7 +369,29 @@ function generateRandomPassword(length = 8) {
   return password;
 }
 
-const { sendNewPasswordEmail } = require('../utils/email_util');
+
+async function changePassword({ userId, oldPassword, newPassword, confirmPassword }) {
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    throw Object.assign(new Error('MISSING_REQUIRED_FIELDS'), { status: 400 });
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw Object.assign(new Error('NEW_PASSWORD_CONFIRM_MISMATCH'), { status: 400 });
+  }
+
+  const user = await UserModel.findById(userId);
+  if (!user) throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
+
+  // Verify old password
+  const isMatch = await bcrypt.compare(oldPassword, user.password);
+  if (!isMatch) throw Object.assign(new Error('INVALID_OLD_PASSWORD'), { status: 401 });
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await UserModel.updatePasswordById(userId, passwordHash);
+
+  return { success: true, message: 'PASSWORD_CHANGED_SUCCESSFULLY' };
+}
+
 
 
 async function resetPasswordOwnerByAdmin(userId) {
@@ -378,6 +416,86 @@ async function resetPasswordOwnerByAdmin(userId) {
   return { success: true, message: 'OWNER_PASSWORD_RESET_SUCCESSFULLY', email: user.email };
 }
 
+// ====== PARTNER REQUESTS (REDIS) ======
+async function submitPartnerRequest({ name, phone, email, documentUrl }) {
+  if (!name || !phone || !email || !documentUrl) {
+    throw Object.assign(new Error('MISSING_REQUIRED_FIELDS'), { status: 400 });
+  }
+  
+  const id = uuidv4();
+  const requestObj = {
+    id,
+    name,
+    phone,
+    email,
+    documentUrl,
+    createdAt: new Date().toISOString()
+  };
+  
+  const key = `partner_request:${id}`;
+  // Save hash
+  await redis.set(key, JSON.stringify(requestObj), { EX: 30 * 24 * 60 * 60 }); // 30 days
+  // Add to list
+  await redis.lPush('partner_requests_list', id);
+  
+  // Notify Admin
+  try {
+    const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+    await axios.post(`${notificationUrl}/test`, {
+      type: 'web',
+      payload: {
+        role: 'ADMIN',
+        event: 'partner_request_submitted',
+        message: `New partner request received from ${name} (${phone})`,
+        data: requestObj
+      }
+    });
+  } catch (err) {
+    console.error('Failed to send notification for partner request:', err.message);
+  }
+  
+  return { success: true, id, message: 'PARTNER_REQUEST_SUBMITTED' };
+}
+
+async function getPartnerRequests(query = {}) {
+  const page = parseInt(query.page || '1', 10);
+  const limit = parseInt(query.limit || '20', 10);
+  const offset = (page - 1) * limit;
+
+  // Lấy các IDs với phân trang
+  const ids = await redis.lRange('partner_requests_list', offset, offset + limit - 1);
+  const total = await redis.lLen('partner_requests_list');
+  
+  const data = [];
+  for (const id of ids) {
+    const raw = await redis.get(`partner_request:${id}`);
+    if (raw) {
+      try {
+        data.push(JSON.parse(raw));
+      } catch (e) {}
+    } else {
+      // Dọn dẹp key bị miss/hết hạn khỏi list. Làm đơn giản thì lách tạm (oops)
+      await redis.lRem('partner_requests_list', 0, id);
+    }
+  }
+
+  return {
+    data,
+    pagination: {
+      page,
+      limit,
+      total
+    }
+  };
+}
+
+async function deletePartnerRequest(id) {
+  const key = `partner_request:${id}`;
+  await redis.del(key);
+  await redis.lRem('partner_requests_list', 0, id);
+  return { success: true };
+}
+
 module.exports = {
   register,
   login,
@@ -387,5 +505,11 @@ module.exports = {
   verifyOtp,
   requestPasswordReset,
   verifyAndResetPassword,
-  resetPasswordOwnerByAdmin
+  googleSignIn,
+  changePassword,
+  createRestaurantOwnerByAdmin,
+  resetPasswordOwnerByAdmin,
+  submitPartnerRequest,
+  getPartnerRequests,
+  deletePartnerRequest
 };

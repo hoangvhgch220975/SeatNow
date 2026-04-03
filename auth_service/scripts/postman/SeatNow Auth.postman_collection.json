@@ -6,10 +6,26 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3001/api/v1/auth", "type": "string" },
-    { "key": "phone", "value": "+84818990222", "type": "string" },
-    { "key": "token", "value": "", "type": "string" },
-    { "key": "refreshToken", "value": "", "type": "string" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001/api/v1/auth",
+      "type": "string"
+    },
+    {
+      "key": "phone",
+      "value": "+84818990222",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    }
   ],
   "item": [
     {
@@ -43,16 +59,29 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"phone\": \"{{phone}}\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/send-otp",
-              "host": ["{{baseUrl}}"],
-              "path": ["send-otp"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "send-otp"
+              ]
             },
             "description": "Gui OTP den so dien thoai. OTP duoc luu tren Redis."
           },
@@ -80,16 +109,29 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/send-otp",
-              "host": ["{{baseUrl}}"],
-              "path": ["send-otp"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "send-otp"
+              ]
             },
             "description": "Error case: Gui OTP ma khong co phone -> expect 400"
           },
@@ -117,16 +159,29 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"123456\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/verify-otp",
-              "host": ["{{baseUrl}}"],
-              "path": ["verify-otp"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "verify-otp"
+              ]
             },
             "description": "Xac thuc OTP vua duoc gui. Thay '123456' bang ma OTP thuc."
           },
@@ -172,16 +227,29 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"otp\": \"123456\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["register"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "register"
+              ]
             },
             "description": "Dang ky tai khoan moi bang OTP da xac thuc. Thay '123456' bang OTP thuc te."
           },
@@ -204,16 +272,29 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"email\": \"test@example.com\",\n  \"name\": \"Test User\",\n  \"password\": \"P@ssw0rd!\",\n  \"firebaseToken\": \"<FIREBASE_ID_TOKEN>\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["register"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "register"
+              ]
             },
             "description": "Dang ky bang Firebase ID token (thay the OTP). Thay <FIREBASE_ID_TOKEN> bang token thuc."
           },
@@ -267,16 +348,29 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"identifier\": \"{{phone}}\",\n  \"password\": \"P@ssw0rd!\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "login"
+              ]
             },
             "description": "Dang nhap bang so dien thoai hoac email va mat khau. Auto-save accessToken va refreshToken."
           },
@@ -304,16 +398,29 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"identifier\": \"{{phone}}\",\n  \"password\": \"WrongPassword123!\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "login"
+              ]
             },
             "description": "Error case: Dang nhap sai mat khau -> expect 401"
           },
@@ -348,16 +455,29 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/refresh-token",
-              "host": ["{{baseUrl}}"],
-              "path": ["refresh-token"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "refresh-token"
+              ]
             },
             "description": "Lam moi access token bang refresh token. Su dung {{refreshToken}} tu Login."
           },
@@ -385,18 +505,92 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/logout",
-              "host": ["{{baseUrl}}"],
-              "path": ["logout"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "logout"
+              ]
             },
             "description": "Dang xuat, huy bo refresh token."
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Password changed successfully', function () {",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.message).to.eql('PASSWORD_CHANGED_SUCCESSFULLY');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"P@ssw0rd!\",\n  \"newPassword\": \"NewPassword123!\",\n  \"confirmPassword\": \"NewPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "change-password"
+              ]
+            },
+            "description": "Doi mat khau cho nguoi dung da dang nhap. Yeu cau Bearer Token."
           },
           "response": []
         }
@@ -428,16 +622,30 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"email\": \"test@example.com\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/forgot-password/request",
-              "host": ["{{baseUrl}}"],
-              "path": ["forgot-password", "request"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "forgot-password",
+                "request"
+              ]
             },
             "description": "Buoc 1: Gui ca Phone va Email de nhan OTP qua so dien thoai."
           },
@@ -466,16 +674,30 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"otp\": \"123456\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/forgot-password/verify-and-reset",
-              "host": ["{{baseUrl}}"],
-              "path": ["forgot-password", "verify-and-reset"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "forgot-password",
+                "verify-and-reset"
+              ]
             },
             "description": "Buoc 2: Xac nhan OTP va he thong se tu dong gui mat khau moi vao Email."
           },
@@ -514,16 +736,29 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idToken\": \"<GOOGLE_ID_TOKEN>\",\n  \"accountType\": \"customer\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/google-signin",
-              "host": ["{{baseUrl}}"],
-              "path": ["google-signin"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "google-signin"
+              ]
             },
             "description": "Dang nhap bang Google. Thay <GOOGLE_ID_TOKEN> bang token thuc tu Google."
           },
@@ -564,18 +799,34 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "x-internal-token", "value": "{{internalToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-internal-token",
+                "value": "{{internalToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"phone\": \"+84900000001\",\n  \"email\": \"owner_test@example.com\",\n  \"name\": \"Restaurant Owner Test\",\n  \"password\": \"OwnerPass123!\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/internal/users/restaurant-owner",
-              "host": ["{{baseUrl}}"],
-              "path": ["internal", "users", "restaurant-owner"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "internal",
+                "users",
+                "restaurant-owner"
+              ]
             },
             "description": "Internal API: Tao tai khoan RESTAURANT_OWNER. Goi tu admin-service. Can x-internal-token."
           },
@@ -604,34 +855,82 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "x-internal-token", "value": "{{internalToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-internal-token",
+                "value": "{{internalToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"newPassword\": \"NewOwnerPass123!\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/internal/users/{{ownerId}}/reset-password",
-              "host": ["{{baseUrl}}"],
-              "path": ["internal", "users", "{{ownerId}}", "reset-password"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "internal",
+                "users",
+                "{{ownerId}}",
+                "reset-password"
+              ]
             },
             "description": "Internal API: Admin dat lai mat khau cho restaurant owner. Can {{ownerId}} tu Create Owner."
           },
           "response": []
         }
       ]
+    },
+    {
+      "name": "Submit Partner Request",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"Mr. John\",\n    \"phone\": \"+84988123456\",\n    \"email\": \"john.smith@restaurant.com\",\n    \"documentUrl\": \"https://cloudinary.com/document.pdf\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/partner-request",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "partner-request"
+          ]
+        }
+      }
     }
   ],
   "event": [
     {
       "listen": "prerequest",
-      "script": { "exec": [], "type": "text/javascript" }
+      "script": {
+        "exec": [],
+        "type": "text/javascript"
+      }
     },
     {
       "listen": "test",
-      "script": { "exec": [], "type": "text/javascript" }
+      "script": {
+        "exec": [],
+        "type": "text/javascript"
+      }
     }
   ]
 }

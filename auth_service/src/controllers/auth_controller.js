@@ -90,10 +90,48 @@ exports.createRestaurantOwner = async (req, res, next) => {
   }
 };
 
-
 exports.resetPasswordOwnerByAdmin = async (req, res, next) => {
   try {
     const data = await AuthService.resetPasswordOwnerByAdmin(req.params.id);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.changePassword = async (req, res, next) => {
+  try {
+    const data = await AuthService.changePassword({
+      userId: req.user.id,
+      ...req.body
+    });
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.submitPartnerRequest = async (req, res, next) => {
+  try {
+    const data = await AuthService.submitPartnerRequest(req.body);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getPartnerRequests = async (req, res, next) => {
+  try {
+    const data = await AuthService.getPartnerRequests(req.query);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.deletePartnerRequest = async (req, res, next) => {
+  try {
+    const data = await AuthService.deletePartnerRequest(req.params.id);
     res.json(data);
   } catch (err) {
     next(err);
