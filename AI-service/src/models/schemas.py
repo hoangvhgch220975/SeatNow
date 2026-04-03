@@ -8,6 +8,10 @@ class ChatRequest(BaseModel):
     message: str
 
 
+class PublicRecommendRequest(BaseModel):
+    message: str
+
+
 class ChatResponse(BaseModel):
     reply: str
     session_key: str

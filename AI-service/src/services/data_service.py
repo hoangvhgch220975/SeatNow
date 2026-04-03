@@ -86,6 +86,77 @@ def get_active_restaurants(limit: int = 80) -> list[dict]:
     return results
 
 
+def get_trending_restaurants(limit: int = 5, days: int = 30) -> list[dict]:
+    """
+    Returns top restaurants by booking count in the last N days.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT TOP (?)
+            r.id, r.name, r.address, r.cuisineTypeJson, r.priceRange, r.ratingAvg,
+            COUNT(b.id) AS recentBookingCount
+        FROM dbo.Bookings b
+        JOIN dbo.Restaurants r ON r.id = b.restaurantId
+        WHERE b.bookingDate >= DATEADD(DAY, -?, CAST(GETDATE() AS DATE))
+          AND r.status = 'active'
+        GROUP BY r.id, r.name, r.address, r.cuisineTypeJson, r.priceRange, r.ratingAvg
+        ORDER BY recentBookingCount DESC
+        """,
+        (limit, days)
+    )
+    rows = cursor.fetchall()
+    columns = [col[0] for col in cursor.description]
+    results = []
+    for row in rows:
+        item = dict(zip(columns, row))
+        item["cuisineTypes"] = _safe_json(item.get("cuisineTypeJson"), [])
+        del item["cuisineTypeJson"]
+        results.append(item)
+    cursor.close()
+    conn.close()
+    return results
+
+
+def get_newest_restaurants(limit: int = 5) -> list[dict]:
+    """
+    Returns the most recently joined active restaurants.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    # Note: Using createdAt if exists, otherwise id (assuming sequential)
+    cursor.execute(
+        """
+        SELECT TOP (?)
+            id, name, address, cuisineTypeJson, priceRange, ratingAvg, createdAt
+        FROM dbo.Restaurants
+        WHERE status = 'active'
+        ORDER BY createdAt DESC, id DESC
+        """,
+        (limit,)
+    )
+    rows = cursor.fetchall()
+    columns = [col[0] for col in cursor.description]
+    results = []
+    for row in rows:
+        item = dict(zip(columns, row))
+        item["cuisineTypes"] = _safe_json(item.get("cuisineTypeJson"), [])
+        del item["cuisineTypeJson"]
+        results.append(item)
+    cursor.close()
+    conn.close()
+    return results
+
+
+def get_public_context() -> dict:
+    """Bundle context for guest recommendations."""
+    return {
+        "trending": get_trending_restaurants(5, 30),
+        "newest": get_newest_restaurants(5)
+    }
+
+
 # ────────────────── Admin context ──────────────────
 
 def get_monthly_revenue_summary(months: int = 12) -> list[dict]:
