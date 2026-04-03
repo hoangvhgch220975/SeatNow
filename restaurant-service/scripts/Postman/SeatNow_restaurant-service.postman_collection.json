@@ -590,6 +590,34 @@
           }
         },
         {
+          "name": "GET Review Summary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Response has breakdown', function () {",
+                  "    pm.expect(res).to.have.property('ratingBreakdown');",
+                  "    pm.expect(res.ratingBreakdown).to.have.property('5_star');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/reviews/summary",
+            "description": "Lay tom tat chi tiet so luong sao (breakdown) cua nha hang."
+          }
+        },
+        {
           "name": "POST Create Review [CUSTOMER|ADMIN]",
           "event": [
             {

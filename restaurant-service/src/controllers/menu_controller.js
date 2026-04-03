@@ -6,7 +6,10 @@ const menuSvc = require('../services/menu_service');
 // Hàm liệt kê thực đơn của một nhà hàng
 async function list(req, res) {
   try {
-    const data = await menuSvc.listMenu(req.params.id);
+    const restaurantId = await require('../services/restaurant_service').resolveId(req.params.id);
+    if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
+    
+    const data = await menuSvc.listMenu(restaurantId);
     res.json({ data });
   } catch (e) {
     res.status(400).json({ message: e.message });

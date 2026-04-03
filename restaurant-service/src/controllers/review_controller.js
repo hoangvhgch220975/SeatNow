@@ -6,7 +6,10 @@ const reviewSvc = require('../services/review_service');
 // Hàm liệt kê đánh giá của một nhà hàng với phân trang
 async function list(req, res) {
   try {
-    const data = await reviewSvc.listReviews(req.params.id, req.query);
+    const restaurantId = await require('../services/restaurant_service').resolveId(req.params.id);
+    if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
+    
+    const data = await reviewSvc.listReviews(restaurantId, req.query);
     res.json({ data, meta: { limit: req.query.limit, offset: req.query.offset } });
   } catch (e) {
     res.status(400).json({ message: e.message });
@@ -27,7 +30,10 @@ async function create(req, res) {
 // Lấy tóm tắt chi tiết (số lượng sao) cho nhà hàng
 async function getSummary(req, res) {
   try {
-    const data = await reviewSvc.getReviewSummary(req.params.id);
+    const restaurantId = await require('../services/restaurant_service').resolveId(req.params.id);
+    if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
+
+    const data = await reviewSvc.getReviewSummary(restaurantId);
     res.json(data);
   } catch (e) {
     res.status(400).json({ message: e.message });

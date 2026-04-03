@@ -112,7 +112,9 @@ async function remove(req, res) {
 // Proxy availability sang booking-service de dung chung logic slot/table.
 async function availability(req, res) {
   try {
-    const restaurantId = req.params.id;
+    const restaurantId = await restaurantSvc.resolveId(req.params.id);
+    if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
+
     const data = await restaurantSvc.getAvailability({
       restaurantId,
       date: req.query.date,
@@ -128,9 +130,12 @@ async function availability(req, res) {
 // Hàm lấy thống kê doanh thu
 async function revenueStats(req, res) {
   try {
+    const restaurantId = await restaurantSvc.resolveId(req.params.id);
+    if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
+
     const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : '';
     const data = await restaurantSvc.getRevenueStats({
-      restaurantId: req.params.id,
+      restaurantId,
       period: req.query.period,
       from: req.query.from,
       to: req.query.to,
@@ -156,7 +161,9 @@ async function portfolioSummary(req, res) {
 // Hàm lấy thống kê Summary cho duy nhất một nhà hàng
 async function getRestaurantStatsSummary(req, res) {
   try {
-    const restaurantId = req.params.id;
+    const restaurantId = await restaurantSvc.resolveId(req.params.id);
+    if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
+
     const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : '';
     const data = await restaurantSvc.getRestaurantStatsSummary(restaurantId, { token });
     res.json(data);

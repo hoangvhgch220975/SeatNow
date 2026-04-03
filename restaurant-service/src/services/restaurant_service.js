@@ -12,6 +12,19 @@ function hasGeo(q) {
 }
 
 /**
+ * Common helper to resolve restaurantId from either UUID or Slug.
+ * If slug is provided, it performs a lookup in SQL.
+ */
+async function resolveId(idOrSlug) {
+  if (!idOrSlug) return null;
+  const isUuid = typeof idOrSlug === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(idOrSlug);
+  if (isUuid) return idOrSlug;
+
+  const r = await restaurantSql.findBySlug(idOrSlug);
+  return r ? r.id : null;
+}
+
+/**
  * list/search restaurants
  * - nếu có lat/lng + sort=distance -> near-me chuẩn (SQL ORDER BY distance + paging)
  * - còn lại -> search thường (rating/newest) + paging
@@ -29,11 +42,10 @@ async function listRestaurants(query) {
 }
 
 // Hàm lấy thông tin chi tiết của một nhà hàng dựa trên ID
-async function getRestaurant(id) {
-  // Accept either UUID id or slug
-  const isUuid = typeof id === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
-  if (isUuid) return restaurantSql.findById(id);
-  return restaurantSql.findBySlug(id);
+async function getRestaurant(idOrSlug) {
+  const finalId = await resolveId(idOrSlug);
+  if (!finalId) return null;
+  return restaurantSql.findById(finalId);
 }
 
 
@@ -207,7 +219,8 @@ module.exports = {
   getAvailability,
   getRevenueStats,
   getOwnerPortfolioSummary,
-  getRestaurantStatsSummary
+  getRestaurantStatsSummary,
+  resolveId
 };
 
 
