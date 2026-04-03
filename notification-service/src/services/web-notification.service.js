@@ -69,7 +69,13 @@ function sendRoleNotification(role, event, payload) {
     timestamp: new Date().toISOString()
   });
   
-  console.log(`Web notification sent to role:${role} - Event: ${event}`);
+  // Also emit to generic 'notification' event for broader compatibility
+  io.to(`role:${role}`).emit('notification', {
+    ...payload,
+    timestamp: new Date().toISOString()
+  });
+  
+  console.log(`Web notification sent to role:${role} - Event: ${event} and 'notification'`);
   return true;
 }
 

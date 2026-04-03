@@ -44,6 +44,7 @@ module.exports = async function processNotification(job) {
         );
 
       case 'web':
+        console.log(`Worker: Emitting web notification for event: ${payload.event || 'notification'}`, payload);
         if (payload.role) {
           return webNotificationService.sendRoleNotification(
             payload.role,

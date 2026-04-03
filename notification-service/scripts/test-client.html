@@ -95,6 +95,16 @@
             socket.on('withdrawal_requested', (data) => {
                 addNotification('💥 Withdrawal Requested', data);
             });
+
+            // Listen for Partner Request notification
+            socket.on('partner_request_submitted', (data) => {
+                addNotification('🤝 Partner Request', data);
+            });
+
+            // Listen for Restaurant Creation notification
+            socket.on('restaurant_created', (data) => {
+                addNotification('🏠 Restaurant Created', data);
+            });
         }
 
         function addNotification(type, data) {
