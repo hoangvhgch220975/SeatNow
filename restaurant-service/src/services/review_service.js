@@ -3,17 +3,46 @@
  */
 const Review = require('../models/review_mongo');
 const restaurantSql = require('../models/restaurant_sql');
+const userSql = require('../models/user_sql'); // Thêm model lấy thông tin user
 
-// Hàm liệt kê đánh giá của một nhà hàng với các tùy chọn phân trang
+// Ảnh đại diện mặc định cho Khách vãng lai hoặc User chưa có ảnh
+const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?name=Guest&background=random';
+
+// Hàm liệt kê đánh giá của một nhà hàng với các tùy chọn phân trang và bổ sung thông tin User
 async function listReviews(restaurantId, { limit = 20, offset = 0 } = {}) {
-  return Review.find({ restaurantId })
+  // 1. Lấy danh sách đánh giá từ MongoDB
+  const reviews = await Review.find({ restaurantId })
     .sort({ createdAt: -1 })
     .skip(Number(offset))
     .limit(Number(limit))
     .lean();
+
+  if (!reviews.length) return [];
+
+  // 2. Thu thập danh sách customerId duy nhất (bỏ qua giá trị trống)
+  const customerIds = [...new Set(reviews.map(r => r.customerId).filter(id => id))];
+
+  // 3. Lấy thông tin chi tiết (tên, avatar) từ SQL Server
+  const users = await userSql.findUsersByIds(customerIds);
+  const userMap = users.reduce((map, u) => {
+    map[u.id.toLowerCase()] = u;
+    return map;
+  }, {});
+
+  // 4. Gắn thông tin người dùng vào từng đánh giá
+  return reviews.map(review => {
+    const userId = review.customerId?.toLowerCase();
+    const userInfo = userId ? userMap[userId] : null;
+
+    return {
+      ...review,
+      customerName: userInfo?.name || 'Khách vãng lai',
+      customerAvatar: userInfo?.avatar || DEFAULT_AVATAR
+    };
+  });
 }
 
-// Cập nhật lại Rating trung bình sau khi review
+// Cập nhật lại Rating trung bình sau khi có đánh giá mới
 async function aggregateRestaurantRating(restaurantId) {
   const stats = await Review.aggregate([
     { $match: { restaurantId: String(restaurantId) } },
@@ -30,7 +59,7 @@ async function aggregateRestaurantRating(restaurantId) {
     const roundedAvg = Math.round(avg * 10) / 10; // làm tròn 1 chữ số thập phân
     await restaurantSql.updateRestaurantRating(restaurantId, roundedAvg, count);
   } else {
-    // Nếu không có review nào
+    // Nếu không có đánh giá nào
     await restaurantSql.updateRestaurantRating(restaurantId, 0, 0);
   }
 }
@@ -48,7 +77,7 @@ async function getReviewSummary(restaurantId) {
     { $sort: { _id: -1 } }
   ]);
 
-  // Format lại thành object cho frontend dễ dùng (star_5: N, star_4: M, ...)
+  // Định dạng lại thành object cho frontend dễ sử dụng
   const summary = {
     totalReviews: 0,
     averageRating: 0,
@@ -85,7 +114,7 @@ async function createReview(restaurantId, customerId, payload) {
     isVerified: true
   });
   
-  // Tiến hành tính toán và lưu rating lên SQL Server đồng bộ
+  // Tính toán lại rating trung bình và cập nhật SQL Server
   await aggregateRestaurantRating(restaurantId);
 
   return doc.toObject();
