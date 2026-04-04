@@ -9,8 +9,15 @@ async function list(req, res) {
     const restaurantId = await require('../services/restaurant_service').resolveId(req.params.id);
     if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
     
-    const data = await menuSvc.listMenu(restaurantId);
-    res.json({ data });
+    const { menuItems, total } = await menuSvc.listMenu(restaurantId, req.query);
+    res.json({ 
+      data: menuItems, 
+      total, 
+      meta: { 
+        limit: parseInt(req.query.limit || 100, 10), 
+        offset: parseInt(req.query.offset || 0, 10) 
+      } 
+    });
   } catch (e) {
     res.status(400).json({ message: e.message });
   }

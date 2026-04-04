@@ -78,7 +78,6 @@ async function findMany({ q, cuisine, priceRange, status = 'active', limit = 20,
   addWhere(where, req, 'priceRange', sql.Int, priceRange, 'priceRange = @priceRange');
 
   if (cuisine) {
-    // cuisineTypeJson is JSON array -> OPENJSON; guard NULL
     where.push(`
       cuisineTypeJson IS NOT NULL
       AND EXISTS (
@@ -101,6 +100,10 @@ async function findMany({ q, cuisine, priceRange, status = 'active', limit = 20,
   req.input('offset', sql.Int, paging.offset);
 
   const rs = await req.query(`
+    -- Query 1: Total Count
+    SELECT COUNT(*) as Total FROM dbo.Restaurants WHERE ${where.join(' AND ')};
+
+    -- Query 2: Paged Data
     SELECT id, ownerId, name, slug, address, latitude, longitude, phone, email,
            cuisineTypeJson, priceRange, ratingAvg, ratingCount,
            description, imagesJson, openingHoursJson,
@@ -112,7 +115,9 @@ async function findMany({ q, cuisine, priceRange, status = 'active', limit = 20,
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
   `);
 
-  return rs.recordset.map(mapJsonFields);
+  const total = rs.recordsets[0][0].Total;
+  const rows = rs.recordsets[1].map(mapJsonFields);
+  return { rows, total };
 }
 
 /**
@@ -187,18 +192,26 @@ async function findManyNearMe({
         ))) AS distanceKm
       FROM dbo.Restaurants r
       WHERE ${where.join(' AND ')}
+    ),
+    filtered AS (
+      SELECT * FROM base WHERE distanceKm <= @radiusKm
     )
+    -- Query 1: Total Count
+    SELECT COUNT(*) as Total FROM filtered;
+
+    -- Query 2: Paged Data
     SELECT *
-    FROM base
-    WHERE distanceKm <= @radiusKm
+    FROM filtered
     ORDER BY distanceKm ASC, isPremium DESC, ratingAvg DESC
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
   `);
 
-  return rs.recordset.map((r) => ({
+  const total = rs.recordsets[0][0].Total;
+  const rows = rs.recordsets[1].map((r) => ({
     ...mapJsonFields(r),
     distanceKm: Number(r.distanceKm)
   }));
+  return { rows, total };
 }
 
 async function findById(id) {

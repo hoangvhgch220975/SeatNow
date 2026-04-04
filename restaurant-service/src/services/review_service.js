@@ -10,16 +10,19 @@ const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?name=Guest&background=random
 
 // Hàm liệt kê đánh giá của một nhà hàng với các tùy chọn phân trang và bổ sung thông tin User
 async function listReviews(restaurantId, { limit = 20, offset = 0 } = {}) {
-  // 1. Lấy danh sách đánh giá từ MongoDB
-  const reviews = await Review.find({ restaurantId })
-    .sort({ createdAt: -1 })
-    .skip(Number(offset))
-    .limit(Number(limit))
-    .lean();
+  // 1. Lấy danh sách đánh giá từ MongoDB và tổng số lượng
+  const [reviews, total] = await Promise.all([
+    Review.find({ restaurantId })
+      .sort({ createdAt: -1 })
+      .skip(Number(offset))
+      .limit(Number(limit))
+      .lean(),
+    Review.countDocuments({ restaurantId })
+  ]);
 
-  if (!reviews.length) return [];
+  if (!reviews.length) return { reviews: [], total };
 
-  // 2. Thu thập danh sách customerId duy nhất (bỏ qua giá trị trống)
+  // 2. Thu thập danh sách customerId duy nhất
   const customerIds = [...new Set(reviews.map(r => r.customerId).filter(id => id))];
 
   // 3. Lấy thông tin chi tiết (tên, avatar) từ SQL Server
@@ -30,7 +33,7 @@ async function listReviews(restaurantId, { limit = 20, offset = 0 } = {}) {
   }, {});
 
   // 4. Gắn thông tin người dùng vào từng đánh giá
-  return reviews.map(review => {
+  const rows = reviews.map(review => {
     const userId = review.customerId?.toLowerCase();
     const userInfo = userId ? userMap[userId] : null;
 
@@ -40,6 +43,8 @@ async function listReviews(restaurantId, { limit = 20, offset = 0 } = {}) {
       customerAvatar: userInfo?.avatar || DEFAULT_AVATAR
     };
   });
+
+  return { reviews: rows, total };
 }
 
 // Cập nhật lại Rating trung bình sau khi có đánh giá mới

@@ -4,8 +4,16 @@
 const MenuItem = require('../models/menuItem_mongo');
 
 // Hàm liệt kê các món ăn trong menu của một nhà hàng
-async function listMenu(restaurantId) {
-  return MenuItem.find({ restaurantId }).sort({ createdAt: -1 }).lean();
+async function listMenu(restaurantId, { limit = 100, offset = 0 } = {}) {
+  const [rows, total] = await Promise.all([
+    MenuItem.find({ restaurantId })
+      .sort({ createdAt: -1 })
+      .skip(Number(offset))
+      .limit(Number(limit))
+      .lean(),
+    MenuItem.countDocuments({ restaurantId })
+  ]);
+  return { menuItems: rows, total };
 }
 
 // Hàm tạo một món ăn mới trong menu của nhà hàng

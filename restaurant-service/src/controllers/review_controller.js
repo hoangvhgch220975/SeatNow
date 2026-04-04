@@ -9,8 +9,15 @@ async function list(req, res) {
     const restaurantId = await require('../services/restaurant_service').resolveId(req.params.id);
     if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
     
-    const data = await reviewSvc.listReviews(restaurantId, req.query);
-    res.json({ data, meta: { limit: req.query.limit, offset: req.query.offset } });
+    const { reviews, total } = await reviewSvc.listReviews(restaurantId, req.query);
+    res.json({ 
+      data: reviews, 
+      total, 
+      meta: { 
+        limit: parseInt(req.query.limit || 20, 10), 
+        offset: parseInt(req.query.offset || 0, 10) 
+      } 
+    });
   } catch (e) {
     res.status(400).json({ message: e.message });
   }
@@ -41,4 +48,3 @@ async function getSummary(req, res) {
 }
 
 module.exports = { list, create, getSummary };
-

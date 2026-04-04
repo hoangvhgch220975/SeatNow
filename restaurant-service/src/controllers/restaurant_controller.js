@@ -9,8 +9,15 @@ const ADMIN_ONLY_FIELDS = ['status', 'isPremium', 'commissionRate'];
 // Hàm liệt kê nhà hàng với phân trang và lọc
 async function list(req, res) {
   try {
-    const data = await restaurantSvc.listRestaurants(req.query);
-    res.json({ data, meta: { limit: req.query.limit, offset: req.query.offset } });
+    const { rows, total } = await restaurantSvc.listRestaurants(req.query);
+    res.json({ 
+      data: rows, 
+      total, 
+      meta: { 
+        limit: parseInt(req.query.limit || 20, 10), 
+        offset: parseInt(req.query.offset || 0, 10) 
+      } 
+    });
   } catch (e) {
     res.status(400).json({ message: e.message });
   }
