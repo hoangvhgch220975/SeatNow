@@ -36,7 +36,13 @@ def verify_token(request: Request) -> dict:
         return {"sub": "internal", "role": "admin"}
 
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(
+            token, 
+            JWT_SECRET, 
+            algorithms=[JWT_ALGORITHM],
+            audience="seatnow-client",
+            issuer="seatnow-auth-service"
+        )
         return payload
     except InvalidTokenError as e:
         raise HTTPException(

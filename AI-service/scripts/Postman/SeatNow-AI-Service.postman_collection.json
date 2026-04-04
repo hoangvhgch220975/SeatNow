@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "ai-service-seatnow-2026",
 		"name": "SeatNow - AI Service",
-		"description": "Test collection for SeatNow AI Service (port 3007).\n\n**3 main groups:**\n- Public AI: Guest recommendations (No Auth required)\n- Customer AI: restaurant recommendations + multi-turn chat\n- Admin AI: revenue analytics + business strategy chat\n\n**Setup:** Fill in `customerToken` and `adminToken` in the Variables tab before running tests.\n\nGet tokens via: POST http://localhost:3001/api/v1/auth/login",
+		"description": "Test collection for SeatNow AI Service (port 3007).\n\n**Key Features:**\n- **Redis Caching Layer:** High-performance data caching for restaurants, user history, and admin analytics (< 1ms data retrieval).\n- Public AI: Guest recommendations (No Auth required)\n- Customer AI: restaurant recommendations + multi-turn chat\n- Admin AI: revenue analytics + business strategy chat\n\n**Setup:** Fill in `customerToken` and `adminToken` in the Variables tab before running tests.\n\nGet tokens via: POST http://localhost:3001/api/v1/auth/login",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -84,6 +84,11 @@
 									"    pm.expect(res).to.have.property('recommendations');",
 									"    pm.expect(res.recommendations).to.be.a('string').and.not.empty;",
 									"    console.log('Guest Recommendations preview:', res.recommendations.substring(0, 300) + '...');",
+									"});",
+									"",
+									"pm.test('Performance: Response time is acceptable', function () {",
+									"    // First call (DB) may be ~100-300ms, second call (Cache) should be much faster.",
+									"    pm.expect(pm.response.responseTime).to.be.below(500);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -104,7 +109,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "ai", "public", "recommend"]
 						},
-						"description": "Public restaurant recommendation for guests. No authentication required. Uses trending and newest restaurants as context.\n\n**Suggested Questions for FE:**\n- Hôm nay nên đi đâu ăn?\n- Có nhà hàng nào mới mở không?\n- Quán nào đang hot nhất hiện nay?"
+						"description": "Public restaurant recommendation for guests. No authentication required. Uses trending and newest restaurants as context (Cached for 4 hours).\n\n**Suggested Questions for FE:**\n- Hôm nay nên đi đâu ăn?\n- Có nhà hàng nào mới mở không?\n- Quán nào đang hot nhất hiện nay?"
 					},
 					"response": []
 				}
@@ -145,7 +150,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "ai", "customer", "recommend"]
 						},
-						"description": "One-shot restaurant recommendation based on the customer's booking history. No chat history is stored.\n\n**Auth:** Customer JWT (role=customer)"
+						"description": "One-shot restaurant recommendation based on the customer's booking history (Personal history cached for 30 mins). No chat history is stored.\n\n**Auth:** Customer JWT (role=customer)"
 					},
 					"response": []
 				},
@@ -374,7 +379,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "ai", "admin", "revenue-summary"]
 						},
-						"description": "One-shot analysis of the last 12 months of revenue data. Returns trends, insights, and near-future business direction suggestions.\n\n**Auth:** Admin JWT (role=admin) or internal service token."
+						"description": "One-shot analysis of the last 12 months of revenue data. Returns trends, insights, and near-future business direction suggestions. (Revenue context cached for 6 hours).\n\n**Auth:** Admin JWT (role=admin) or internal service token."
 					},
 					"response": []
 				},

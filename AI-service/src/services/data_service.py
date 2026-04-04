@@ -4,6 +4,7 @@ Fetches business data from MSSQL to provide context for AI prompts.
 """
 import json
 from config.db import get_connection
+from config import redis_client
 
 
 # ────────────────── Customer context ──────────────────
@@ -12,6 +13,11 @@ def get_customer_booking_history(customer_id: str, limit: int = 30) -> list[dict
     """
     Returns the customer's recent completed/arrived bookings joined with restaurant info.
     """
+    cache_key = f"ai:cache:customer_history:{customer_id}"
+    cached_data = redis_client.get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -47,6 +53,9 @@ def get_customer_booking_history(customer_id: str, limit: int = 30) -> list[dict
         results.append(item)
     cursor.close()
     conn.close()
+
+    # Cache for 30 minutes
+    redis_client.set_cache(cache_key, results, 1800)
     return results
 
 
@@ -54,6 +63,11 @@ def get_active_restaurants(limit: int = 80) -> list[dict]:
     """
     Returns top active restaurants ordered by premium + rating — used for recommendation.
     """
+    cache_key = "ai:cache:active_restaurants"
+    cached_data = redis_client.get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -83,6 +97,9 @@ def get_active_restaurants(limit: int = 80) -> list[dict]:
         results.append(item)
     cursor.close()
     conn.close()
+
+    # Cache for 2 hours
+    redis_client.set_cache(cache_key, results, 7200)
     return results
 
 
@@ -150,11 +167,20 @@ def get_newest_restaurants(limit: int = 5) -> list[dict]:
 
 
 def get_public_context() -> dict:
-    """Bundle context for guest recommendations."""
-    return {
+    """Bundle context for guest recommendations (with caching)."""
+    cache_key = "ai:cache:public_context"
+    cached_data = redis_client.get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
+    data = {
         "trending": get_trending_restaurants(5, 30),
         "newest": get_newest_restaurants(5)
     }
+
+    # Cache for 4 hours
+    redis_client.set_cache(cache_key, data, 14400)
+    return data
 
 
 # ────────────────── Admin context ──────────────────
@@ -227,11 +253,20 @@ def get_top_restaurants_by_commission(limit: int = 10, months: int = 12) -> list
 
 
 def get_admin_overview_context() -> dict:
-    """Bundle all admin context data in one call."""
-    return {
+    """Bundle all admin context data in one call (with caching)."""
+    cache_key = "ai:cache:admin_overview"
+    cached_data = redis_client.get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
+    data = {
         "monthly_revenue": get_monthly_revenue_summary(12),
         "top_restaurants": get_top_restaurants_by_commission(10, 12),
     }
+
+    # Cache for 6 hours
+    redis_client.set_cache(cache_key, data, 21600)
+    return data
 
 
 # ────────────────── Utilities ──────────────────

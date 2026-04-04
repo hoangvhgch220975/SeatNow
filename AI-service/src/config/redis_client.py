@@ -44,3 +44,26 @@ def append_message(session_key: str, role: str, content: str) -> list[dict]:
 def clear_history(session_key: str) -> None:
     """Delete chat history for a session."""
     _client.delete(session_key)
+
+
+# ─────────────────────── Generic caching helpers ───────────────────────
+
+def get_cache(key: str) -> any:
+    """Get JSON-parsed data from Redis cache."""
+    raw = _client.get(key)
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
+def set_cache(key: str, data: any, ttl_sec: int) -> None:
+    """Save data as JSON to Redis cache with TTL."""
+    _client.set(key, json.dumps(data, ensure_ascii=False, default=str), ex=ttl_sec)
+
+
+def delete_cache(key: str) -> None:
+    """Delete a specific cache key."""
+    _client.delete(key)
