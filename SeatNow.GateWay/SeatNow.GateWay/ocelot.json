@@ -19,7 +19,7 @@
       "UpstreamPathTemplate": "/api/v1/users/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+        "AuthenticationProviderKey": "GatewayJwt"
       }
     },
 
@@ -41,7 +41,7 @@
       "UpstreamPathTemplate": "/api/v1/portfolio/{everything}",
       "UpstreamHttpMethod": [ "GET", "OPTIONS" ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+        "AuthenticationProviderKey": "GatewayJwt"
       }
     },
 
@@ -72,7 +72,7 @@
       "UpstreamPathTemplate": "/api/v1/owner/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+        "AuthenticationProviderKey": "GatewayJwt"
       }
     },
 
@@ -95,7 +95,7 @@
       "UpstreamPathTemplate": "/api/v1/admin/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+        "AuthenticationProviderKey": "GatewayJwt"
       },
       "RouteClaimsRequirement": {
         "role": "ADMIN"
@@ -120,7 +120,7 @@
       "UpstreamPathTemplate": "/api/v1/ai/customer/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+        "AuthenticationProviderKey": "GatewayJwt"
       }
     },
     {
@@ -132,7 +132,7 @@
       "UpstreamPathTemplate": "/api/v1/ai/admin/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKeys": [ "GatewayJwt" ]
+        "AuthenticationProviderKey": "GatewayJwt"
       },
       "RouteClaimsRequirement": {
         "role": "ADMIN"
@@ -145,7 +145,7 @@
         { "Host": "localhost", "Port": 3007 }
       ],
       "UpstreamPathTemplate": "/api/v1/ai/health",
-      "UpstreamHttpMethod": [ "GET" ]
+      "UpstreamHttpMethod": [ "GET", "OPTIONS" ]
     },
 
     {

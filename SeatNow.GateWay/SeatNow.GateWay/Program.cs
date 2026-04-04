@@ -1,9 +1,12 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
+
+// IdentityModelEventSource.ShowPII = true; // Disabled for security
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +20,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("GatewayCors", policy =>
     {
-        policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin();
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -30,21 +36,39 @@ if (string.IsNullOrWhiteSpace(jwtSecret))
 }
 
 builder.Services
-    .AddAuthentication()
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = "GatewayJwt";
+        options.DefaultChallengeScheme = "GatewayJwt";
+    })
     .AddJwtBearer("GatewayJwt", options =>
     {
-        options.RequireHttpsMetadata = false;
-        options.SaveToken = true;
+        options.UseSecurityTokenValidators = true; // Use old but stable JwtSecurityTokenHandler
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidIssuer = "seatnow-auth-service",
+            ValidAudience = "seatnow-client",
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtSecret)
             ),
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.FromSeconds(30),
+            ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 }
+        };
+        options.MapInboundClaims = false; // Disable claim mapping for consistency
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.Request.Method == "OPTIONS")
+                {
+                    context.NoResult();
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
