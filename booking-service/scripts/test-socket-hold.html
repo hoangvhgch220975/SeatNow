@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Test Socket.IO - Hold/Release Table</title>
+  <title>Test Socket.IO - Hold/Release Table (Zero-Latency)</title>
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <style>
     body {
@@ -135,7 +135,7 @@
     }
     .table-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
       gap: 15px;
       margin-top: 15px;
     }
@@ -162,10 +162,9 @@
       background: #f1f8e9;
     }
     .table-box.occupied {
-      border-color: #e0e0e0;
-      background: #f5f5f5;
+      border-color: #f44336;
+      background: #ffebee;
       cursor: not-allowed;
-      opacity: 0.5;
     }
     .table-box.held {
       border-color: #FF9800;
@@ -216,8 +215,9 @@
       border: 1px solid #ddd;
     }
     .legend-box.available { background: #f1f8e9; border-color: #4CAF50; }
-    .legend-box.selected { background: #e3f2fd; border-color: #2196F3; }
-    .legend-box.occupied { background: #f5f5f5; border-color: #e0e0e0; opacity: 0.5; }
+    .legend-box.held { background: #FFF3E0; border-color: #FF9800; }
+    .legend-box.occupied { background: #ffebee; border-color: #f44336; }
+    .legend-box.my-selection { border: 2px dashed #2196F3; background: #e3f2fd; }
     .location-tag {
       font-size: 10px;
       color: #777;
@@ -228,11 +228,11 @@
 </head>
 <body>
   <div class="container">
-    <h1>🔌 Test Socket.IO - Hold/Release Table</h1>
+    <h1>🔌 Test Socket.IO - Zero-Latency Table Sync</h1>
     
     <div class="section">
       <h3>Connection Status: <span id="status" class="status disconnected">Disconnected</span></h3>
-      <label>Access Token (Optional - Guest mode if empty):</label>
+      <label>Access Token (Optional):</label>
       <input type="text" id="token" placeholder="Paste access token here...">
       
       <label>Server URL (Through Gateway):</label>
@@ -243,14 +243,9 @@
     </div>
 
     <div class="section">
-      <h3>Test Data</h3>
+      <h3>Configuration</h3>
       <label>Restaurant ID:</label>
       <input type="text" id="restaurantId" value="BA3FB828-C52C-4FBE-83E7-4F326A9892A2">
-      
-      <label>Table ID:</label>
-      <select id="tableId">
-        <option value="">-- Chọn bàn (tải từ DB) --</option>
-      </select>
       
       <label>Booking Date:</label>
       <input type="date" id="bookingDate">
@@ -258,46 +253,40 @@
       <label>Booking Time:</label>
       <select id="bookingTime"></select>
       
-      <button onclick="joinRestaurant()" class="secondary">Join Restaurant Room</button>
+      <button onclick="joinRestaurant()" class="secondary">Join Room</button>
     </div>
 
     <div class="section">
-      <h3>Actions</h3>
-      <div style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 15px;">
-        <div style="flex: 1;">
-          <label>📁 Filter by Floor:</label>
-          <select id="floorFilter" onchange="checkAvailability()">
-            <option value="">-- All Floors --</option>
-            <option value="1st Floor">1st Floor</option>
-            <option value="2nd Floor">2nd Floor</option>
-            <option value="3rd Floor">3rd Floor</option>
-            <option value="4th Floor">4th Floor</option>
-            <option value="5th Floor">5th Floor</option>
-            <option value="Rooftop">Rooftop</option>
-            <option value="Terrace">Terrace</option>
-            <option value="Outdoor">Outdoor</option>
-          </select>
-        </div>
-        <button onclick="checkAvailability()" class="secondary">📋 Refresh Tables</button>
+      <h3>Live Table Map</h3>
+      <div style="margin-bottom: 15px;">
+        <label>Filter by Floor:</label>
+        <select id="floorFilter" onchange="checkAvailability()">
+          <option value="">-- All Floors --</option>
+          <option value="1st Floor">1st Floor</option>
+          <option value="2nd Floor">2nd Floor</option>
+          <option value="3rd Floor">3rd Floor</option>
+          <option value="Rooftop">Rooftop</option>
+        </select>
+        <button onclick="checkAvailability()" class="secondary">Refresh Map</button>
       </div>
       
       <div id="countdown" class="countdown" style="display:none;">
-        Còn <span id="countdownTime">00:00</span> để hoàn tất
+        Holding table for <span id="countdownTime">02:00</span>
       </div>
 
-      <div id="tableSection" class="section" style="display:none;">
-        <h3>🗺️ Table Map (Cinema Grid)</h3>
+      <div id="tableSection">
         <div class="grid-legend">
-          <div class="legend-item"><div class="legend-box available"></div> Trống (Available)</div>
-          <div class="legend-item"><div class="legend-box occupied"></div> Đã khóa (Occupied)</div>
-          <div class="legend-item"><div class="legend-box held"></div> Bàn bạn giữ (Your Hold)</div>
+          <div class="legend-item"><div class="legend-box available"></div> Available</div>
+          <div class="legend-item"><div class="legend-box held"></div> Someone holding</div>
+          <div class="legend-item"><div class="legend-box occupied"></div> Occupied (Booked)</div>
+          <div class="legend-item"><div class="legend-box my-selection"></div> Your Selection</div>
         </div>
         <div id="tableGrid" class="table-grid"></div>
       </div>
     </div>
 
     <div class="section">
-      <h3>📊 Console Log</h3>
+      <h3>📊 Event Logs</h3>
       <button onclick="clearLog()" class="secondary">Clear Log</button>
       <div id="log" class="log"></div>
     </div>
@@ -317,12 +306,10 @@
       entry.textContent = `[${timestamp}] ${message}`;
       logDiv.appendChild(entry);
       logDiv.scrollTop = logDiv.scrollHeight;
-      console.log(`[${type.toUpperCase()}]`, message);
     }
 
     function clearLog() {
       document.getElementById('log').innerHTML = '';
-      log('Log cleared', 'info');
     }
 
     function updateStatus(connected) {
@@ -335,16 +322,8 @@
       const serverUrl = document.getElementById('serverUrl').value;
       const token = document.getElementById('token').value.trim();
 
-      const config = {
-        autoConnect: false
-      };
-
-      if (token) {
-        config.auth = { token };
-        log(`Connecting with token: ${token.substring(0, 20)}...`, 'info');
-      } else {
-        log('Connecting in guest mode (no token)', 'warning');
-      }
+      const config = { autoConnect: false };
+      if (token) config.auth = { token };
 
       socket = io(serverUrl, config);
 
@@ -361,28 +340,16 @@
         stopCountdown();
       });
 
-      socket.on('connect_error', (error) => {
-        log(`❌ Connection error: ${error.message}`, 'error');
-        updateStatus(false);
-      });
-
-      socket.on('availabilityChanged', (data) => {
-        log(`🔄 Availability changed: ${JSON.stringify(data)}`, 'warning');
+      socket.on('tableStatusChanged', (data) => {
+        const { tableId, status, bookingDate, bookingTime } = data;
+        log(`⚡ Status Changed: Table ${tableId} -> ${status}`, 'info');
         
-        // Auto refresh if date/time matches current selection
         const uiDate = document.getElementById('bookingDate').value;
         const uiTime = document.getElementById('bookingTime').value;
         
-        if (!data.bookingDate || (data.bookingDate === uiDate && data.bookingTime === uiTime)) {
-          if (!isProcessing) {
-            log('⚡ Real-time update triggered!', 'info');
-            checkAvailability();
-          }
+        if (bookingDate === uiDate && bookingTime === uiTime) {
+          updateSingleTableInGrid(tableId, status);
         }
-      });
-
-      socket.on('bookingChanged', (data) => {
-        log(`📢 Booking changed: ${JSON.stringify(data)}`, 'info');
       });
 
       socket.connect();
@@ -392,259 +359,143 @@
       if (socket) {
         socket.disconnect();
         socket = null;
-        log('Disconnected from server', 'info');
         updateStatus(false);
         stopCountdown();
       }
     }
 
     function joinRestaurant() {
-      if (!socket || !socket.connected) {
-        log('❌ Socket not connected! Click "Connect" first.', 'error');
-        return;
-      }
-
+      if (!socket || !socket.connected) return;
       const restaurantId = document.getElementById('restaurantId').value;
       socket.emit('joinRestaurant', restaurantId);
       log(`✅ Joined restaurant room: ${restaurantId}`, 'success');
     }
 
-    function holdTable(tableId = null) {
+    function holdTable(tableId) {
       return new Promise((resolve, reject) => {
         if (!socket || !socket.connected) {
           log('❌ Socket not connected!', 'error');
           return reject(new Error('Socket not connected'));
         }
 
-        const id = tableId || document.getElementById('tableId').value;
-        if (!id) {
-          log('❌ No table selected!', 'error');
-          return reject(new Error('No table selected'));
-        }
-
         const data = {
           restaurantId: document.getElementById('restaurantId').value,
-          tableId: id,
+          tableId: tableId,
           bookingDate: document.getElementById('bookingDate').value,
           bookingTime: document.getElementById('bookingTime').value
         };
 
-        log(`🔒 Attempting to hold table: ${data.tableId}`, 'info');
-
         socket.emit('holdTable', data, (response) => {
           if (response.success) {
-            log(`✅ Table held successfully! Expires in ${response.expiresIn} seconds`, 'success');
-            currentlyHeldTableId = id;
+            log(`🔒 Table held! Expires in ${response.expiresIn}s`, 'success');
+            currentlyHeldTableId = tableId;
             startCountdown(response.expiresIn);
-            checkAvailability(); // Auto-refresh for the initiator
+            updateSingleTableInGrid(tableId, 'held');
             resolve(response);
           } else {
-            log(`❌ Failed to hold table: ${response.error}`, 'error');
+            log(`❌ Hold failed: ${response.error}`, 'error');
             reject(new Error(response.error));
           }
         });
       });
     }
 
-    function releaseHold(tableId = null) {
-      return new Promise((resolve) => {
+    function releaseHold(tableId) {
+      return new Promise((resolve, reject) => {
         if (!socket || !socket.connected) {
           log('❌ Socket not connected!', 'error');
-          return resolve({ error: 'Socket not connected' });
+          return reject(new Error('Socket not connected'));
         }
-
-        const id = tableId || currentlyHeldTableId || document.getElementById('tableId').value;
-        if (!id) return resolve({ success: true });
 
         const data = {
           restaurantId: document.getElementById('restaurantId').value,
-          tableId: id,
+          tableId: tableId,
           bookingDate: document.getElementById('bookingDate').value,
           bookingTime: document.getElementById('bookingTime').value
         };
 
-        log(`🔓 Releasing hold for table: ${data.tableId}`, 'info');
-
         socket.emit('releaseHold', data, (response) => {
           if (response.success) {
-            log('✅ Hold released successfully!', 'success');
-            if (id === currentlyHeldTableId) {
+            log(`🔓 Hold released for Table ${tableId}`, 'success');
+            if (tableId === currentlyHeldTableId) {
               currentlyHeldTableId = null;
               stopCountdown();
             }
-            checkAvailability(); // Auto-refresh for the initiator
+            updateSingleTableInGrid(tableId, 'available');
             resolve(response);
           } else {
-            log(`❌ Failed to release hold: ${response.error}`, 'error');
-            resolve(response); // Resolve anyway to allow next steps
+            log(`❌ Release failed: ${response.error}`, 'error');
+            reject(new Error(response.error));
           }
         });
       });
+    }
+
+    function updateSingleTableInGrid(tableId, status) {
+      const box = document.getElementById(`table-box-${tableId}`);
+      if (!box) return;
+
+      box.classList.remove('available', 'held', 'occupied');
+      box.style.border = '';
+
+      if (String(currentlyHeldTableId).toLowerCase() === String(tableId).toLowerCase() && status === 'held') {
+        box.classList.add('held');
+        box.style.border = '2px dashed #2196F3';
+      } else {
+        box.classList.add(status);
+      }
     }
 
     async function checkAvailability() {
       const restaurantId = document.getElementById('restaurantId').value;
       const date = document.getElementById('bookingDate').value;
       const time = document.getElementById('bookingTime').value;
-      const guests = 4;
+      const token = document.getElementById('token').value.trim();
 
       const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
-      const url = `${serverUrl}/api/v1/booking-restaurants/${restaurantId}/availability?date=${date}&time=${time}&guests=${guests}`;
+      const location = document.getElementById('floorFilter').value;
       
-      log(`📋 Checking availability: ${date} ${time}`, 'info');
-
       try {
-        const res = await fetch(url);
-        const data = await res.json();
-        log(`✅ Available tables: ${data.items.length}`, 'success');
-        data.items.forEach(table => {
-          log(`   - ${table.tableNumber} (${table.capacity} guests, ${table.type})`, 'info');
-        });
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        let tablesUrl = `${serverUrl}/api/v1/restaurants/${restaurantId}/tables`;
+        if (location) tablesUrl += `?location=${encodeURIComponent(location)}`;
+
+        const [resAll, resAvail] = await Promise.all([
+          fetch(tablesUrl, { headers }),
+          fetch(`${serverUrl}/api/v1/booking-restaurants/${restaurantId}/availability?date=${date}&time=${time}&guests=1`)
+        ]);
+
+        const dataAll = await resAll.json();
+        const dataAvail = await resAvail.json();
+        
+        renderTableGrid(dataAll.data || [], (dataAvail.items || []).map(t => t.id));
       } catch (err) {
-        log(`❌ Error checking availability: ${err.message}`, 'error');
+        log(`❌ Refresh Error: ${err.message}`, 'error');
       }
     }
 
-    function startCountdown(seconds) {
-      stopCountdown();
-      
-      const countdownDiv = document.getElementById('countdown');
-      const countdownTime = document.getElementById('countdownTime');
-      countdownDiv.style.display = 'block';
-
-      let remaining = seconds;
-      updateCountdownDisplay(remaining);
-
-      countdownInterval = setInterval(() => {
-        remaining--;
-        updateCountdownDisplay(remaining);
-
-        if (remaining <= 0) {
-          stopCountdown();
-          log('⏰ Hold expired! Table is now available again.', 'warning');
-        }
-      }, 1000);
-    }
-
-    function updateCountdownDisplay(seconds) {
-      const minutes = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      document.getElementById('countdownTime').textContent = 
-        `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    function stopCountdown() {
-      if (countdownInterval) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-      }
-      document.getElementById('countdown').style.display = 'none';
-    }
-
-    // Utility: generate 2-hour time slots from start to end (inclusive)
-    function generateTimeSlots(startHour = 7, endHour = 21, slotMinutes = 120) {
-      const slots = [];
-      for (let h = startHour; h <= endHour; h += slotMinutes / 60) {
-        const hh = Math.floor(h).toString().padStart(2, '0');
-        const mm = Math.round((h - Math.floor(h)) * 60).toString().padStart(2, '0');
-        slots.push(`${hh}:${mm}`);
-      }
-      return slots;
-    }
-
-    async function populateBookingTimes() {
-      const select = document.getElementById('bookingTime');
-      const restaurantId = document.getElementById('restaurantId').value;
-      select.innerHTML = '';
-      
-      let startHour = 7;
-      let endHour = 22;
-
-      const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
-      try {
-        const res = await fetch(`${serverUrl}/api/v1/restaurants/${restaurantId}`);
-        if (res.ok) {
-          const data = await res.json();
-          const r = data.data || data;
-          const hours = r.openingHours || {};
-          
-          const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-          const today = days[new Date().getDay()];
-          const todayRange = hours[today] || Object.values(hours)[0];
-          
-          if (typeof todayRange === 'string' && todayRange.includes('-')) {
-            const [openStr, closeStr] = todayRange.split('-');
-            startHour = parseInt(openStr.split(':')[0], 10);
-            endHour = parseInt(closeStr.split(':')[0], 10);
-            log(`🕒 Using hours for ${today}: ${openStr} - ${closeStr}`, 'info');
-          } else if (todayRange && todayRange.open) {
-            startHour = parseInt(todayRange.open.split(':')[0], 10);
-            endHour = parseInt(todayRange.close.split(':')[0], 10);
-            log(`🕒 Using hours for ${today}: ${todayRange.open} - ${todayRange.close}`, 'info');
-          } else {
-            log(`⚠️ Could not find hours for ${today}, using default ${startHour}:00 - ${endHour}:00`, 'warning');
-          }
-        }
-      } catch (e) {
-        log('⚠️ Error fetching restaurant hours, using default 07:00 - 22:00', 'warning');
-      }
-
-      const slots = generateTimeSlots(startHour, endHour, 120);
-      slots.forEach((s, i) => {
-        const opt = document.createElement('option');
-        opt.value = s;
-        opt.textContent = s;
-        if (i === 0) opt.selected = true;
-        select.appendChild(opt);
-      });
-    }
-
-    function setDefaultDateToToday() {
-      const d = new Date();
-      const iso = d.toISOString().slice(0, 10);
-      const el = document.getElementById('bookingDate');
-      if (!el.value) el.value = iso;
-    }
-
-    function updateTableSelect(availableTables) {
-      const sel = document.getElementById('tableId');
-      const currentVal = sel.value;
-      
-      sel.innerHTML = '';
-      const placeholder = document.createElement('option');
-      placeholder.value = '';
-      placeholder.textContent = '-- Chọn bàn (tải từ DB) --';
-      sel.appendChild(placeholder);
-      
-      for (const t of availableTables) {
-        const o = document.createElement('option');
-        o.value = t.id;
-        o.textContent = `${t.tableNumber} (${t.capacity} chỗ) - ${t.type}`;
-        sel.appendChild(o);
-      }
-      
-      // Preserve selection if still available
-      if (currentVal) sel.value = currentVal;
-    }
-
-    function renderTableGrid(allTables, availableTableIds) {
+    function renderTableGrid(allTables, availableIds) {
       const grid = document.getElementById('tableGrid');
-      const tableSection = document.getElementById('tableSection');
-      const sel = document.getElementById('tableId');
-      
       grid.innerHTML = '';
-      tableSection.style.display = 'block';
       
       allTables.forEach(t => {
-        const isAvailable = availableTableIds.some(aid => String(aid).toLowerCase() === String(t.id).toLowerCase());
-        const isMyHold = String(currentlyHeldTableId).toLowerCase() === String(t.id).toLowerCase();
+        const isAvail = availableIds.some(aid => String(aid).toLowerCase() === String(t.id).toLowerCase());
+        const isMine = String(currentlyHeldTableId).toLowerCase() === String(t.id).toLowerCase();
         
         const box = document.createElement('div');
         box.className = 'table-box';
+        box.id = `table-box-${t.id}`;
         
-        if (isMyHold) box.classList.add('held');
-        else if (isAvailable) box.classList.add('available');
-        else box.classList.add('occupied');
+        if (isMine) {
+          box.classList.add('held');
+          box.style.border = '2px dashed #2196F3';
+        } else if (isAvail) {
+          box.classList.add('available');
+        } else {
+          box.classList.add('occupied');
+        }
         
         box.innerHTML = `
           <span class="type-tag">${t.type}</span>
@@ -653,127 +504,70 @@
           <span class="location-tag">📍 ${t.location || 'Unknown'}</span>
         `;
         
-        if (isAvailable || isMyHold) {
-          box.onclick = async () => {
-            if (isProcessing) return;
-            isProcessing = true;
-            
-            try {
-              if (isMyHold) {
-                log(`🔓 Releasing hold for table: ${t.tableNumber}...`, 'info');
-                await releaseHold(t.id);
-              } else {
-                log(`🔒 Attempting to hold table: ${t.tableNumber}...`, 'info');
-                await holdTable(t.id);
+        box.onclick = async () => {
+          if (isProcessing) return;
+          
+          const dynamicIsMine = String(currentlyHeldTableId).toLowerCase() === String(t.id).toLowerCase();
+          
+          // Nếu bàn đã occupied (màu đỏ) và không phải của mình, không làm gì cả
+          if (box.classList.contains('occupied') && !dynamicIsMine) {
+            log(`🚫 Table ${t.tableNumber} is already occupied!`, 'error');
+            return;
+          }
+
+          isProcessing = true;
+          try {
+            if (dynamicIsMine) {
+              log(`🔓 Releasing hold for table: ${t.tableNumber}...`, 'info');
+              await releaseHold(t.id);
+            } else {
+              // Nếu đang giữ bàn khác, nhả bàn đó ra trước
+              if (currentlyHeldTableId && currentlyHeldTableId !== t.id) {
+                log(`🕒 Switching tables. Releasing Table ${currentlyHeldTableId}...`, 'warning');
+                await releaseHold(currentlyHeldTableId);
               }
-            } catch (e) {
-              log(`❌ Operation failed: ${e.message}`, 'error');
-            } finally {
-              isProcessing = false;
+              log(`🔒 Attempting to hold table: ${t.tableNumber}...`, 'info');
+              await holdTable(t.id);
             }
-          };
-        }
+          } catch (e) {
+            log(`❌ Operation failed: ${e.message}`, 'error');
+          } finally {
+            isProcessing = false;
+          }
+        };
         
         grid.appendChild(box);
       });
     }
 
-    // Enhance checkAvailability to populate table list from real DB
-    async function checkAvailability() {
-      const restaurantId = document.getElementById('restaurantId').value;
-      const date = document.getElementById('bookingDate').value;
-      const time = document.getElementById('bookingTime').value;
-      const token = document.getElementById('token').value.trim();
-      const guests = 1; // Default min guest for list
-
-      log(`📋 Refreshing table status for: ${date} ${time}`, 'info');
-
-      try {
-        // 1. Fetch ALL tables from restaurant-service (needs owner/admin token)
-        let allTables = [];
-        let fetchSuccessful = false;
-        try {
-          const headers = {};
-          if (token) headers['Authorization'] = `Bearer ${token}`;
-          
-          const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
-          const floorValue = document.getElementById('floorFilter').value;
-          let tablesUrl = `${serverUrl}/api/v1/restaurants/${restaurantId}/tables`;
-          if (floorValue) {
-            tablesUrl += `?location=${encodeURIComponent(floorValue)}`;
-          }
-          
-          const resAll = await fetch(tablesUrl, { headers });
-          if (resAll.ok) {
-            const dataAll = await resAll.json();
-            allTables = dataAll.data || [];
-            fetchSuccessful = true;
-          } else {
-            const errData = await resAll.json().catch(() => ({}));
-            if (resAll.status === 401) {
-              log('⚠️ 401 Unauthorized: Cần nhập Access Token (Owner hoặc Customer) để xem sơ đồ bàn.', 'error');
-            } else if (resAll.status === 403) {
-              log('⚠️ 403 Forbidden: Token của bạn không có quyền xem sơ đồ bàn.', 'error');
-            } else {
-              log(`⚠️ Could not fetch all tables (${resAll.status}). Showing only available ones.`, 'warning');
-            }
-          }
-        } catch (e) {
-          log('⚠️ Error fetching all tables from restaurant-service', 'warning');
-        }
-
-        // 2. Fetch AVAILABLE tables from booking-service
-        const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
-        const urlAvail = `${serverUrl}/api/v1/booking-restaurants/${restaurantId}/availability?date=${date}&time=${time}&guests=${guests}`;
-        const resAvail = await fetch(urlAvail);
-        if (!resAvail.ok) throw new Error(`HTTP ${resAvail.status}`);
-        const dataAvail = await resAvail.json();
-        const availableTables = dataAvail.items || [];
-        const availableIds = availableTables.map(t => t.id);
-
-        log(`✅ Found ${availableTables.length} available tables out of ${allTables.length || 'unknown'} total.`, 'success');
-
-        if (!allTables.length && !availableTables.length) {
-          log('⚠️ Warning: No table data received. Grid will be empty.', 'warning');
-        } else if (!allTables.length) {
-          log('⚠️ Warning: Could not fetch master table list. Showing only available tables.', 'warning');
-        }
-
-        // If allTables fetch worked (even if empty), use it. Only fallback if fetch failed/unauthorized.
-        const finalAllTables = fetchSuccessful ? allTables : availableTables;
-
-        updateTableSelect(availableTables);
-        renderTableGrid(finalAllTables, availableIds);
-
-      } catch (err) {
-        log(`❌ Error: ${err.message}`, 'error');
-      }
+    function startCountdown(seconds) {
+      stopCountdown();
+      const div = document.getElementById('countdown');
+      div.style.display = 'block';
+      let remaining = seconds;
+      countdownInterval = setInterval(() => {
+        remaining--;
+        const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+        const s = (remaining % 60).toString().padStart(2, '0');
+        document.getElementById('countdownTime').textContent = `${m}:${s}`;
+        if (remaining <= 0) stopCountdown();
+      }, 1000);
     }
 
-    // Initialize UI
+    function stopCountdown() {
+      clearInterval(countdownInterval);
+      document.getElementById('countdown').style.display = 'none';
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-      populateBookingTimes();
-      setDefaultDateToToday();
-
-      // Add listeners to release hold if date/time changes
-      const releaseOnMatch = () => {
-        if (currentlyHeldTableId) {
-          log('🕒 Date/Time changed. Releasing previous hold...', 'warning');
-          releaseHold(currentlyHeldTableId);
-        }
-        checkAvailability();
-      };
-
-      document.getElementById('bookingDate').onchange = releaseOnMatch;
-      document.getElementById('bookingTime').onchange = releaseOnMatch;
-      
-      document.getElementById('restaurantId').onchange = () => {
-        populateBookingTimes();
-        checkAvailability();
-      };
-      
-      // Load slots immediately for the default restaurantId
-      populateBookingTimes();
+      document.getElementById('bookingDate').value = new Date().toISOString().split('T')[0];
+      const select = document.getElementById('bookingTime');
+      for (let h = 7; h <= 21; h += 2) {
+        const time = `${h.toString().padStart(2, '0')}:00`;
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = time;
+        select.appendChild(opt);
+      }
     });
   </script>
 </body>

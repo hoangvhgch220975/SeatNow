@@ -56,7 +56,7 @@ function initSocket(httpServer) {
       socket.leave(`restaurant:${restaurantId}:owners`);
     });
 
-    // Hold table (UI selection lock - 2 phút)
+    // Giữ bàn (UI selection lock - 2 phút)
     socket.on('holdTable', async (data, callback) => {
       try {
         const { restaurantId, tableId, bookingDate, bookingTime } = data;
@@ -67,14 +67,14 @@ function initSocket(httpServer) {
 
         console.log('[holdTable] Start', { restaurantId, tableId, userId, holdKey });
 
-        // 0. Check Table status in DB
+        // 0. Kiểm tra trạng thái bàn trong DB
         const bookingSql = require('../models/booking_sql');
         const table = await bookingSql.getTable(tableId);
         if (!table || table.status !== 'available') {
           return callback?.({ error: 'Table is currently unavailable' });
         }
 
-        // 1. Auto-release ANY other tables
+        // 1. Tự động giải phóng các bàn khác đã giữ trước đó cho slot này
         try {
           const userPattern = `table:hold:${restaurantId}:*:${bookingDate}:${bookingTime}`;
           const existingKeys = await redis.keys(userPattern);
@@ -82,22 +82,24 @@ function initSocket(httpServer) {
             const holder = await redis.get(String(k));
             if (String(holder) === userId && String(k) !== holdKey) {
               await redis.del(String(k));
-              io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { restaurantId, bookingDate, bookingTime });
+              // Extract tableId từ key để thông báo statusChanged
+              const parts = k.split(':');
+              const oldTableId = parts[3];
+              emitTableStatusChanged({ restaurantId, tableId: oldTableId, bookingDate, bookingTime, status: 'available' });
             }
           }
         } catch (scanErr) {
           console.warn('[holdTable] Scan/Release error:', scanErr.message);
         }
 
-        // 2. Check targets
+        // 2. Kiểm tra xem bàn đã có ai giữ chưa
         const existing = await redis.get(holdKey);
         if (existing && String(existing) !== userId) {
           return callback?.({ error: 'Table is being selected by another user' });
         }
 
-        // 3. Set new hold
+        // 3. Thực hiện giữ bàn mới
         try {
-          // Explicitly cast both key and value
           await redis.set(String(holdKey), String(userId));
           await redis.expire(String(holdKey), holdTTL);
         } catch (setErr) {
@@ -105,7 +107,7 @@ function initSocket(httpServer) {
           return callback?.({ error: `Redis SET error: ${setErr.message}` });
         }
 
-        // 4. Cache Invalidation
+        // 4. Xóa cache availability liên quan
         try {
           const availPrefix = `restaurant:${restaurantId}:tables:available:${bookingDate}:${bookingTime}:`;
           const availKeys = await redis.keys(`${availPrefix}*`);
@@ -116,7 +118,9 @@ function initSocket(httpServer) {
           console.warn('[holdTable] Cache error:', cacheErr.message);
         }
 
-        io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { restaurantId, bookingDate, bookingTime });
+        // Phát sự kiện mới: Bàn đã được giữ (màu cam)
+        emitTableStatusChanged({ restaurantId, tableId, bookingDate, bookingTime, status: 'held' });
+        
         callback?.({ success: true, expiresIn: holdTTL });
       } catch (err) {
         console.error('[holdTable] Global error:', err.message);
@@ -124,7 +128,7 @@ function initSocket(httpServer) {
       }
     });
 
-    // Release hold
+    // Giải phóng lượt giữ bàn
     socket.on('releaseHold', async (data, callback) => {
       try {
         const { restaurantId, tableId, bookingDate, bookingTime } = data;
@@ -136,12 +140,12 @@ function initSocket(httpServer) {
         const redis = await getRedis();
         const holdKey = `table:hold:${restaurantId}:${tableId}:${bookingDate}:${bookingTime}`;
 
-        // Only release if held by this user
+        // Chỉ được giải phóng nếu chính mình đang giữ
         const existing = await redis.get(holdKey);
         if (existing && String(existing) === userId) {
           await redis.del(holdKey);
           
-          // Invalidate availability cache for this slot
+          // Xóa cache availability
           try {
             const availPrefix = `restaurant:${restaurantId}:tables:available:${bookingDate}:${bookingTime}:`;
             const availKeys = await redis.keys(`${availPrefix}*`);
@@ -152,7 +156,8 @@ function initSocket(httpServer) {
             console.error('Release Cache Invalidation error:', cacheErr.message);
           }
 
-          io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { restaurantId, bookingDate, bookingTime });
+          // Phát sự kiện: Bàn đã trống trở lại (màu xanh)
+          emitTableStatusChanged({ restaurantId, tableId, bookingDate, bookingTime, status: 'available' });
         }
 
         callback?.({ success: true });
@@ -161,30 +166,37 @@ function initSocket(httpServer) {
       }
     });
 
-    // Auto-release holds on disconnect
+    // Tự động giải phóng khi mất kết nối
     socket.on('disconnect', async () => {
       try {
         const userId = String(socket.user?.id || socket.id);
         const redis = await getRedis();
         
-        // Scan và release tất cả holds của user này
-        for await (const key of redis.scanIterator({ MATCH: 'table:hold:*', COUNT: 100 })) {
+        // Cần lấy tất cả keys mang prefix table:hold
+        const pattern = 'table:hold:*';
+        const keys = await redis.keys(pattern);
+
+        for (const key of keys) {
           const holder = await redis.get(key);
           if (holder === userId) {
             await redis.del(key);
-            // Extract info từ key để invalidate cache
+            
+            // Phân tích key để lấy thông tin phát socket
             const parts = key.split(':');
             if (parts.length >= 6) {
               const restaurantId = parts[2];
+              const tableId = parts[3];
               const bookingDate = parts[4];
               const bookingTime = parts[5];
               
               const availPrefix = `restaurant:${restaurantId}:tables:available:${bookingDate}:${bookingTime}:`;
-              for await (const k of redis.scanIterator({ MATCH: `${availPrefix}*`, COUNT: 200 })) {
-                await redis.del(k);
+              const availKeys = await redis.keys(`${availPrefix}*`);
+              for (const ak of availKeys) {
+                await redis.del(ak);
               }
 
-              io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { restaurantId, bookingDate, bookingTime });
+              // Thông báo bàn trống đến những người dùng khác
+              emitTableStatusChanged({ restaurantId, tableId, bookingDate, bookingTime, status: 'available' });
             }
           }
         }
@@ -201,18 +213,41 @@ function getIO() {
   return io;
 }
 
+/**
+ * Phát sự kiện thay đổi danh sách bàn trống (chung cho cả restaurant)
+ * @deprecated Dùng emitTableStatusChanged để tối ưu tốc độ đồng bộ từng bàn
+ */
 function emitAvailabilityChanged(restaurantId, payload) {
   if (!io || !restaurantId) return;
   io.to(`restaurant:${restaurantId}`).emit('availabilityChanged', { ...payload, restaurantId });
 }
 
+/**
+ * Phát sự kiện thay đổi trạng thái chi tiết của một bàn (Zero-Latency)
+ * @param {Object} data - { restaurantId, tableId, bookingDate, bookingTime, status }
+ * @param {string} data.status - 'available' | 'held' | 'occupied'
+ */
+function emitTableStatusChanged({ restaurantId, tableId, bookingDate, bookingTime, status }) {
+  if (!io || !restaurantId) return;
+  
+  console.log(`[Socket] Broadcasting tableStatusChanged: ${tableId} -> ${status}`);
+  
+  io.to(`restaurant:${restaurantId}`).emit('tableStatusChanged', {
+    restaurantId,
+    tableId,
+    bookingDate,
+    bookingTime,
+    status
+  });
+}
+
 function emitBookingChanged({ restaurantId, customerId, payload }) {
   if (!io || !restaurantId) return;
 
-  // owner/admin nhận đầy đủ
+  // Chủ nhà hàng nhận đầy đủ thông tin thay đổi
   io.to(`restaurant:${restaurantId}:owners`).emit('bookingChanged', payload);
 
-  // customer nhận booking của mình
+  // Khách hàng nhận thông báo về đơn của chính mình
   if (customerId) io.to(`user:${customerId}`).emit('bookingChanged', payload);
 }
 
@@ -220,5 +255,6 @@ module.exports = {
   initSocket,
   getIO,
   emitAvailabilityChanged,
+  emitTableStatusChanged,
   emitBookingChanged
 };

@@ -168,6 +168,19 @@ async function createBooking({ actor, body }) {
     const holdKey = `table:hold:${body.restaurantId}:${tableId}:${body.bookingDate}:${body.bookingTime}`;
     try { await redis.del(holdKey); } catch (e) {}
 
+    // Phát sự kiện mới: Bàn đã được đặt (màu đỏ - occupied)
+    try {
+      socket.emitTableStatusChanged({
+        restaurantId: body.restaurantId,
+        tableId,
+        bookingDate: body.bookingDate,
+        bookingTime: body.bookingTime,
+        status: 'occupied'
+      });
+    } catch (e) {
+      console.error('Error emitting tableStatusChanged for createBooking', e);
+    }
+
     return { booking: row, depositRequired, depositAmount };
   } finally {
     await releaseLock(redis, lockKey, token);
@@ -298,8 +311,18 @@ async function confirm(idOrCode) {
   const updated = await bookingSql.updateStatus(id, ['PENDING'], 'CONFIRMED', 'confirmedAt');
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
+  
   try { 
     socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'confirmed', booking: updated } }); 
+    
+    // Đảm bảo trạng thái bàn vẫn là occupied khi confirm (màu đỏ)
+    socket.emitTableStatusChanged({
+      restaurantId: updated.restaurantId,
+      tableId: updated.tableId,
+      bookingDate: formatDate(updated.bookingDate),
+      bookingTime: formatTime(updated.bookingTime),
+      status: 'occupied'
+    });
     
     // Notify Customer via Email
     const r = await bookingSql.getRestaurant(updated.restaurantId);
@@ -360,6 +383,19 @@ async function complete(idOrCode) {
   }
   const updated = await bookingSql.updateStatus(id, ['ARRIVED'], 'COMPLETED', 'completedAt');
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
+
+  // Giải phóng trạng thái bàn (trở về màu xanh)
+  try {
+    socket.emitTableStatusChanged({
+      restaurantId: updated.restaurantId,
+      tableId: updated.tableId,
+      bookingDate: formatDate(updated.bookingDate),
+      bookingTime: formatTime(updated.bookingTime),
+      status: 'available'
+    });
+  } catch (e) {
+    console.error('Error emitting tableStatusChanged for complete', e);
+  }
 
   // Award loyalty points for registered customers
   if (updated.customerId) {
@@ -461,6 +497,19 @@ async function cancel(idOrCode, actor = null, cancellationReason = null) {
   const updated = await bookingSql.cancelBooking(id, ['PENDING','CONFIRMED'], cancelledBy, cancellationReason, shouldRefund);
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
+  
+  // Giải phóng trạng thái bàn khi hủy (trở về màu xanh)
+  try {
+    socket.emitTableStatusChanged({
+      restaurantId: updated.restaurantId,
+      tableId: updated.tableId,
+      bookingDate: formatDate(updated.bookingDate),
+      bookingTime: formatTime(updated.bookingTime),
+      status: 'available'
+    });
+  } catch (e) {
+    console.error('Error emitting tableStatusChanged for cancel', e);
+  }
   try { 
     socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'cancelled', booking: updated } }); 
     
@@ -518,6 +567,20 @@ async function noShow(idOrCode) {
   const updated = await bookingSql.updateStatus(id, ['CONFIRMED'], 'NO_SHOW', 'cancelledAt');
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
+  
+  // Giải phóng trạng thái bàn khi khách không đến (trở về màu xanh)
+  try {
+    socket.emitTableStatusChanged({
+      restaurantId: updated.restaurantId,
+      tableId: updated.tableId,
+      bookingDate: formatDate(updated.bookingDate),
+      bookingTime: formatTime(updated.bookingTime),
+      status: 'available'
+    });
+  } catch (e) {
+    console.error('Error emitting tableStatusChanged for noShow', e);
+  }
+
   try { socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'no_show', booking: updated } }); } catch (e) {}
   return updated;
 }

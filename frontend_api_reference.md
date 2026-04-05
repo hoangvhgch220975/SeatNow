@@ -242,7 +242,14 @@ Chỉ dành cho tài khoản có Role là **`CUSTOMER`**. Các tài khoản **`R
     "tuesday": "09:00-22:00"
   },
   "isPremium": true,
-  "status": "active"
+  "status": "active",
+  "depositEnabled": true,
+  "depositPolicy": {
+    "required": true,
+    "minGuests": 4,
+    "type": "per_person",
+    "minAmount": 50000
+  }
 }
 ```
 | `POST`   | `/restaurants`                    | Tạo nhà hàng mới           | ✅                | ADMIN, OWNER |
@@ -548,7 +555,20 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 | `bookingCode` | string | Mã booking          |
 | `guestPhone`  | string | Số điện thoại khách |
 
-### 4.2 Booking Status Updates
+### 4.2 Quy tắc tính tiền cọc (Deposit Amount)
+
+Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tính toán số tiền cọc hiển thị dựa trên `depositPolicy` lấy từ dữ liệu Nhà hàng:
+
+- **Nếu `depositEnabled` = `false`**: Không yêu cầu đặt cọc.
+- **Nếu `numGuests` < `depositPolicy.minGuests`**: Không yêu cầu đặt cọc cho đơn này.
+- **Cách tính `depositAmount`**:
+  - Nếu `type` là `per_person`: `depositAmount = minAmount * numGuests`.
+  - Nếu `type` là `fixed`: `depositAmount = minAmount`.
+
+> [!TIP]
+> **Lưu ý:** Khi gửi request `POST /bookings`, bạn không cần gửi kèm `depositAmount`. Server sẽ tự tính toán lại dựa trên Policy hiện tại để đảm bảo tính chính xác và an toàn.
+
+### 4.3 Booking Status Updates
 
 | Method | Endpoint                     | Mô tả                              | Auth              | Role                   |
 | ------ | ---------------------------- | ---------------------------------- | ----------------- | ---------------------- |
@@ -610,10 +630,30 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 
 #### Server → Client (on):
 
-| Event                 | Payload                                      | Mô tả                                       |
-| --------------------- | -------------------------------------------- | ------------------------------------------- |
-| `availabilityChanged` | `{ restaurantId, bookingDate, bookingTime }` | Có thay đổi sức chứa (hold/release/booking) |
-| `bookingChanged`      | `{ bookingId, status, ... }`                 | Trạng thái booking thay đổi                 |
+| Event                | Payload                                                       | Mô tả                                                               |
+| -------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `availabilityChanged`| `{ restaurantId, bookingDate, bookingTime }`                  | **(Deprecated)** Có thay đổi về bàn (Nên dùng `tableStatusChanged`). |
+| `tableStatusChanged` | `{ restaurantId, tableId, bookingDate, bookingTime, status }` | **(New - Zero Latency)** Thông báo trạng thái chi tiết của một bàn.  |
+| `bookingChanged`     | `{ bookingId, status, ... }`                                  | Trạng thái booking thay đổi (Dành cho Owner/User).                  |
+
+#### 📍 Chi tiết sự kiện `tableStatusChanged`:
+Sự kiện này được phát ra ngay lập tức khi một bàn cụ thể có sự thay đổi về trạng thái, giúp Frontend cập nhật màu sắc bàn trên sơ đồ mà không cần gọi lại API.
+
+**Các trạng thái (`status`):**
+- `available`: Bàn trống hoàn toàn, có thể chọn (Màu xanh).
+- `held`: Bàn đang được người dùng khác nhấn chọn - giữ chỗ tạm 2 phút (Màu cam).
+- `occupied`: Bàn đã được đặt thành công - Booking ở trạng thái `PENDING` hoặc `CONFIRMED` (Màu đỏ).
+
+**Dữ liệu mẫu:**
+```json
+{
+  "restaurantId": "BA3FB828-C52C-4FBE-83E7-4F326A9892A2",
+  "tableId": "D1E2F3G4...",
+  "bookingDate": "2026-04-05",
+  "bookingTime": "19:00",
+  "status": "held"
+}
+```
 
 #### Callback Response (holdTable):
 

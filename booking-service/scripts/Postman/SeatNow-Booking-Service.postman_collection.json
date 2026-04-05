@@ -515,6 +515,29 @@
           }
         }
       ]
+    },
+    {
+      "name": "4. Zero-Latency Verification",
+      "description": "Requests to verify the Zero-Latency Table Synchronization system. \n\nNote: For real-time testing, use the `scripts/test-socket-hold.html` tool to observe the `tableStatusChanged` socket events.",
+      "item": [
+        {
+          "name": "Check Real-time Availability (Fallback)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/booking-restaurants/{{restaurantId}}/availability?date=2026-12-25&time=19:00&guests=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking-restaurants", "{{restaurantId}}", "availability"],
+              "query": [
+                { "key": "date", "value": "2026-12-25" },
+                { "key": "time", "value": "19:00" },
+                { "key": "guests", "value": "1" }
+              ]
+            },
+            "description": "API fallback to verify table status if Socket.IO is disconnected."
+          }
+        }
+      ]
     }
   ]
 }
