@@ -8,7 +8,10 @@ function extractUser(req) {
   if (!process.env.JWT_ACCESS_SECRET) return null;
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET || '');
+    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET || '', {
+      audience: 'seatnow-client',
+      issuer: 'seatnow-auth-service'
+    });
     return {
       id: payload.sub || payload.userId || payload.id,
       role: payload.role

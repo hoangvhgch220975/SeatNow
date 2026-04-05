@@ -156,6 +156,24 @@
       ],
       "UpstreamPathTemplate": "/api/v1/notifications/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "DELETE", "OPTIONS" ]
+    },
+    {
+      "DownstreamPathTemplate": "/socket.io/{everything}",
+      "DownstreamScheme": "ws",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 3004 }
+      ],
+      "UpstreamPathTemplate": "/socket.io/{everything}",
+      "UpstreamScheme": "ws"
+    },
+    {
+      "DownstreamPathTemplate": "/notification.io/{everything}",
+      "DownstreamScheme": "ws",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 3008 }
+      ],
+      "UpstreamPathTemplate": "/notification.io/{everything}",
+      "UpstreamScheme": "ws"
     }
   ],
   "GlobalConfiguration": {

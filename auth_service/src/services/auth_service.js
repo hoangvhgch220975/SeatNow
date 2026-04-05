@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 
 const UserModel = require('../models/user_model');
-const axios = require('axios');
+const axios = require('axios'); 
 const { RedisClient } = require('../config/redis');
 const { getFirebaseAdmin } = require('../config/firebase');
 const otpUtil = require('../utils/otp_util');
@@ -19,10 +19,16 @@ function mapAccountTypeToRole(accountType) {
 }
 
 function signAccessToken({ userId, role, sid }) {
+  const secret = process.env.JWT_ACCESS_SECRET;
+  console.log(`[AUTH_SERVICE_DEBUG] JWT_ACCESS_SECRET length: ${secret?.length || 0}`);
   return jwt.sign(
     { sub: userId, role, sid, type: 'access' },
     process.env.JWT_ACCESS_SECRET,
-    { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' }
+    { 
+      expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+      audience: 'seatnow-client',
+      issuer: 'seatnow-auth-service'
+    }
   );
 }
 
@@ -30,7 +36,11 @@ function signRefreshToken({ userId, role, sid }) {
   return jwt.sign(
     { sub: userId, role, sid, type: 'refresh' },
     process.env.JWT_REFRESH_SECRET,
-    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    { 
+      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+      audience: 'seatnow-client',
+      issuer: 'seatnow-auth-service'
+    }
   );
 }
 
@@ -105,8 +115,14 @@ async function register({ phone, email, name, password, accountType }) {
 
   return {
     user: { id: user.id, phone: user.phone, email: user.email, name: user.name, role: user.role },
-    accessToken,
-    refreshToken
+    accessToken: { 
+      accessToken, 
+      expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' 
+    },
+    refreshToken: { 
+      refreshToken, 
+      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' 
+    }
   };
 }
 
@@ -203,20 +219,23 @@ async function refreshToken({ refreshToken }) {
     throw Object.assign(new Error('INVALID_REFRESH_TOKEN'), { status: 401 });
   }
 
-  // rotate session: remove old and create new
-  await redis.del(sessionKey);
-
   const user = await UserModel.findById(payload.sub);
   if (!user) throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
 
-  const sid = createSid();
+  const sid = payload.sid; // Keep the same session ID
   const newAccessToken = signAccessToken({ userId: user.id, role: user.role, sid });
   const newRefreshToken = signRefreshToken({ userId: user.id, role: user.role, sid });
   await persistSession({ sid, userId: user.id, role: user.role, refreshToken: newRefreshToken });
 
   return {
-    accessToken: newAccessToken,
-    refreshToken: newRefreshToken
+    accessToken: { 
+      accessToken: newAccessToken, 
+      expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' 
+    },
+    refreshToken: { 
+      refreshToken: newRefreshToken, 
+      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' 
+    }
   };
 }
 
@@ -385,8 +404,14 @@ async function googleSignIn({ idToken, accountType, phone }) {
 
   return {
     user: { id: user.id, phone: user.phone, email: user.email, name: user.name, role: user.role, avatar: user.avatar },
-    accessToken,
-    refreshToken
+    accessToken: { 
+      accessToken, 
+      expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' 
+    },
+    refreshToken: { 
+      refreshToken, 
+      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' 
+    }
   };
 }
 

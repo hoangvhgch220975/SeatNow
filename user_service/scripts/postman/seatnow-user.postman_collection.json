@@ -26,14 +26,14 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Response has user data', function () {",
-                  "    pm.expect(res).to.have.property('id');",
-                  "    pm.expect(res).to.have.property('phone');",
-                  "    pm.expect(res).to.have.property('role');",
+                  "    pm.expect(res.data).to.have.property('id');",
+                  "    pm.expect(res.data).to.have.property('phone');",
+                  "    pm.expect(res.data).to.have.property('role');",
                   "});",
                   "",
                   "pm.test('Password is not exposed', function () {",
-                  "    pm.expect(res).to.not.have.property('password');",
-                  "    pm.expect(res).to.not.have.property('passwordHash');",
+                  "    pm.expect(res.data).to.not.have.property('password');",
+                  "    pm.expect(res.data).to.not.have.property('passwordHash');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -94,11 +94,11 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Updated user data returned', function () {",
-                  "    pm.expect(res).to.have.property('id');",
+                  "    pm.expect(res.data).to.have.property('id');",
                   "});",
                   "",
                   "pm.test('Name was updated', function () {",
-                  "    pm.expect(res.name).to.eql('New Name Updated');",
+                  "    pm.expect(res.data.name).to.eql('New Name Updated');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -193,12 +193,12 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Wallet has balance field', function () {",
-                  "    pm.expect(res).to.have.property('balance');",
-                  "    pm.expect(Number(res.balance)).to.be.at.least(0);",
+                  "    pm.expect(res.data).to.have.property('balance');",
+                  "    pm.expect(Number(res.data.balance)).to.be.at.least(0);",
                   "});",
                   "",
                   "pm.test('Wallet has lockedAmount field', function () {",
-                  "    pm.expect(res).to.have.property('lockedAmount');",
+                  "    pm.expect(res.data).to.have.property('lockedAmount');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -237,8 +237,8 @@
                   "",
                   "const res = pm.response.json();",
                   "pm.test('Has loyalty points data', function () {",
-                  "    pm.expect(res).to.have.property('points');",
-                  "    pm.expect(Number(res.points)).to.be.at.least(0);",
+                  "    pm.expect(res.data).to.have.property('loyaltyPoints');",
+                  "    pm.expect(Number(res.data.loyaltyPoints)).to.be.at.least(0);",
                   "});"
                 ],
                 "type": "text/javascript"

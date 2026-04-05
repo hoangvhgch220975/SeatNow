@@ -336,7 +336,7 @@ SeatNow/                     # Thư mục gốc của dự án
 |   │       │   └── promotion.validator.js   # Joi / Zod schemas
 |   │       └── utils/              # Small helpers/utilities
 |   │           └── promotion-calculator.js  # Discount calculation helpers
-│   ├── notification-service/               # Notification worker: SMS/Email/Push (async jobs)
+│   ├── notification-service/               # Notification service: Realtime (Web) + Email/SMS
 │   │   ├── Dockerfile                      # Build image notification worker
 │   │   ├── package.json                    # Dependency senders + queue client
 │   │   ├── .env.example                    # Redis + API keys (SendGrid/Twilio...)
@@ -345,8 +345,8 @@ SeatNow/                     # Thư mục gốc của dự án
 │   │       │   └── redis.js                # Redis connection (Bull/queue)
 │   │       ├── index.js                    # Worker entrypoint: subscribe queue + process jobs
 │   │       ├── services/
-│   │       │   ├── sms.service.js          # Provider adapter: Twilio/SMSAPI...
-│   │       │   └── email.service.js        # Provider adapter: SendGrid/Nodemailer...
+│   │       │   ├── web-notification.service.js # Socket.io cho chủ nhà hàng (Dashboard)
+│   │       │   └── email.service.js        # Nodemailer (Gmail/SendGrid) cho khách hàng
 │   │       └── queues/
 │   │           └── notification.queue.js   # Queue definitions: job names, retries, backoff...
 │   │
@@ -1180,6 +1180,28 @@ async function applyPromotion({ code, bookingId, customerId }) {
     throw e;
   }
 }
+```
+
+### 5.6 Notification Service (Triggers & Logic)
+Dịch vụ thông báo xử lý các sự kiện từ các service khác (thông qua Message Queue hoặc Socket trực tiếp) để gửi đến người dùng.
+
+#### 1) Luồng Đặt bàn & Hủy bàn (Booking Flow)
+*   **Trình kích hoạt (Trigger)**: Khi khách hàng thực hiện Đặt bàn (`createBooking`) hoặc Hủy bàn (`cancel`).
+*   **Thông báo cho Chủ nhà hàng (Restaurant Owner)**:
+    *   **Kênh**: Web Notification (Socket.io) / Dashboard.
+    *   **Nội dung**: "Có đơn đặt bàn mới [Mã đơn]" hoặc "Khách đã hủy đơn [Mã đơn]".
+    *   **Lưu ý**: Hiển thị trạng thái tương ứng dựa trên việc nhà hàng có chế độ đặt cọc (`depositEnabled`) hay không (Ví dụ: "Chờ thanh toán" hoặc "Đã xác nhận").
+*   **Xác nhận/Hủy từ Nhà hàng (Confirmed/Cancelled by Restaurant)**:
+    *   **Trình kích hoạt**: Khi nhà hàng xác nhận (`confirm`) hoặc hủy (`restaurant-cancel`) đơn.
+    *   **Thông báo cho Khách hàng (Customer)**:
+        *   **Kênh**: Email (Nodemailer).
+        *   **Nội dung**: "Đơn đặt bàn [Mã đơn] tại [Tên nhà hàng] đã được xác nhận" hoặc "Rất tiếc, đơn đặt bàn [Mã đơn] đã bị nhà hàng hủy".
+
+#### 2) Luồng Khuyến mãi mới (Promotion Flow - Placeholder)
+*   **Trình kích hoạt**: Khi `Promotion Service` tạo một chương trình khuyến mãi mới (hệ thống chưa triển khai đầy đủ, đang làm placeholder).
+*   **Thông báo cho Khách hàng**:
+    *   **Kênh**: Email.
+    *   **Nội dung**: "SeatNow Ưu đãi mới: [Tên khuyến mãi] tại nhà hàng [Tên nhà hàng]".
 ```
 ---
 

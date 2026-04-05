@@ -6,7 +6,10 @@ function requireAuth(req, res, next) {
   if (!token) return res.status(401).json({ message: 'Missing access token' });
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET, {
+      audience: 'seatnow-client',
+      issuer: 'seatnow-auth-service'
+    });
     // auth-service nên sign payload kiểu: { sub: userId, role, ... }
     req.user = {
       id: payload.sub || payload.userId || payload.id,

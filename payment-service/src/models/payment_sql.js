@@ -524,22 +524,6 @@ async function completeDepositTransaction({ referenceCode, providerTxnId, metada
        AND status = 'PENDING'
       `);
 
-    // Award loyalty points (100k = 1 point)
-    if (booking.customerId) {
-      const points = Math.floor(Number(row.amount) / 100000);
-      if (points > 0) {
-        await req
-          .input('awardPoints', sql.Int, points)
-          .input('cid', sql.UniqueIdentifier, booking.customerId)
-          .query(`
-            UPDATE dbo.Users 
-            SET loyaltyPoints = ISNULL(loyaltyPoints, 0) + @awardPoints,
-                updatedAt = SYSUTCDATETIME()
-            WHERE id = @cid
-          `);
-      }
-    }
-
     await tx.commit();
     return { success: true, bookingId: row.bookingId };
   } catch (err) {

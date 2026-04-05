@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeatNow - Be My Member Test</title>
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-color: #1f2937;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: var(--primary);
+            margin: 0 0 10px 0;
+        }
+
+        .header p {
+            color: #6b7280;
+            margin: 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .notification {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        .error {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Be My Member</h1>
+        <p>Become a SeatNow Partner Restaurant</p>
+    </div>
+
+    <form id="partnerForm">
+        <div class="form-group">
+            <label for="name">Your Name</label>
+            <input type="text" id="name" required placeholder="e.g. John Doe">
+        </div>
+        
+        <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input type="tel" id="phone" required placeholder="e.g. 0912345678">
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" required placeholder="e.g. admin@restaurant.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="documentUrl">Document/Image URL (Cloudinary)</label>
+            <input type="text" id="documentUrl" required placeholder="https://res.cloudinary.com/.../document.pdf">
+        </div>
+
+        <button type="submit" id="submitBtn">Submit Application</button>
+    </form>
+
+    <div id="notification" class="notification"></div>
+</div>
+
+<script>
+    document.getElementById('partnerForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('submitBtn');
+        const notif = document.getElementById('notification');
+        
+        // Reset states
+        btn.disabled = true;
+        btn.innerText = 'Submitting...';
+        notif.style.display = 'none';
+
+        const payload = {
+            name: document.getElementById('name').value,
+            phone: document.getElementById('phone').value,
+            email: document.getElementById('email').value,
+            documentUrl: document.getElementById('documentUrl').value
+        };
+
+        try {
+            // Note: Make sure Gateway runs on 7000
+            const response = await fetch('http://localhost:7000/api/v1/auth/partner-request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (response.ok || data.success) {
+                notif.className = 'notification success';
+                notif.innerText = 'Application submitted successfully! Our Admin will review it shortly.';
+                document.getElementById('partnerForm').reset();
+            } else {
+                notif.className = 'notification error';
+                notif.innerText = 'Error: ' + (data.message || 'Something went wrong :(');
+            }
+        } catch (err) {
+            notif.className = 'notification error';
+            notif.innerText = 'Network error: Make sure the API is running on localhost:7000. ' + err.message;
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Submit Application';
+            notif.style.display = 'block';
+        }
+    });
+</script>
+
+</body>
+</html>

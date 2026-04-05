@@ -40,8 +40,12 @@ async function listRestaurants(query) {
   // 1. Có yêu cầu bán kính cụ thể (radiusKm)
   // 2. Hoặc đang yêu cầu sắp xếp theo khoảng cách (Near Me mặc định)
   const shouldFilterByLocation = query.radiusKm || query.sort === 'distance';
+  const nLat = parseFloat(query.lat);
+  const nLng = parseFloat(query.lng);
+  const nRadius = parseFloat(query.radiusKm || 5);
+
   const bbox = (geo && shouldFilterByLocation) 
-    ? bboxFromRadius(query.lat, query.lng, query.radiusKm || 5) 
+    ? bboxFromRadius(nLat, nLng, nRadius) 
     : null;
 
   return restaurantSql.findMany({ 

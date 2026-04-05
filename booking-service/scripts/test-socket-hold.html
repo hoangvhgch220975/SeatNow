@@ -235,8 +235,8 @@
       <label>Access Token (Optional - Guest mode if empty):</label>
       <input type="text" id="token" placeholder="Paste access token here...">
       
-      <label>Server URL:</label>
-      <input type="text" id="serverUrl" value="http://localhost:3004">
+      <label>Server URL (Through Gateway):</label>
+      <input type="text" id="serverUrl" value="http://localhost:7000">
       
       <button onclick="connectSocket()">Connect</button>
       <button onclick="disconnectSocket()" class="danger">Disconnect</button>
@@ -488,7 +488,8 @@
       const time = document.getElementById('bookingTime').value;
       const guests = 4;
 
-      const url = `http://localhost:3004/api/v1/restaurants/${restaurantId}/availability?date=${date}&time=${time}&guests=${guests}`;
+      const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
+      const url = `${serverUrl}/api/v1/booking-restaurants/${restaurantId}/availability?date=${date}&time=${time}&guests=${guests}`;
       
       log(`📋 Checking availability: ${date} ${time}`, 'info');
 
@@ -559,8 +560,9 @@
       let startHour = 7;
       let endHour = 22;
 
+      const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
       try {
-        const res = await fetch(`http://localhost:3003/api/v1/restaurants/${restaurantId}`);
+        const res = await fetch(`${serverUrl}/api/v1/restaurants/${restaurantId}`);
         if (res.ok) {
           const data = await res.json();
           const r = data.data || data;
@@ -694,8 +696,9 @@
           const headers = {};
           if (token) headers['Authorization'] = `Bearer ${token}`;
           
+          const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
           const floorValue = document.getElementById('floorFilter').value;
-          let tablesUrl = `http://localhost:3003/api/v1/restaurants/${restaurantId}/tables`;
+          let tablesUrl = `${serverUrl}/api/v1/restaurants/${restaurantId}/tables`;
           if (floorValue) {
             tablesUrl += `?location=${encodeURIComponent(floorValue)}`;
           }
@@ -720,7 +723,8 @@
         }
 
         // 2. Fetch AVAILABLE tables from booking-service
-        const urlAvail = `http://localhost:3004/api/v1/restaurants/${restaurantId}/availability?date=${date}&time=${time}&guests=${guests}`;
+        const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
+        const urlAvail = `${serverUrl}/api/v1/booking-restaurants/${restaurantId}/availability?date=${date}&time=${time}&guests=${guests}`;
         const resAvail = await fetch(urlAvail);
         if (!resAvail.ok) throw new Error(`HTTP ${resAvail.status}`);
         const dataAvail = await resAvail.json();

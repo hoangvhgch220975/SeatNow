@@ -15,16 +15,21 @@ const notificationWorker = require('./workers/notification.worker');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
+  path: '/notification.io',
   cors: {
-    origin: '*', // Adjust for production
-    methods: ['GET', 'POST']
+    origin: 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
 const PORT = process.env.PORT || 3008;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true
+}));
 app.use(morgan('dev'));
 app.use(express.json());
 

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SeatNow.GateWay")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dbb3be14680f8def09a2594a1e33b548c92e4ae0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8c1580a196e79562fb3d2f3610300feb17939099")]
 [assembly: System.Reflection.AssemblyProductAttribute("SeatNow.GateWay")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SeatNow.GateWay")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

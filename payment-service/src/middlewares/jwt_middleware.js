@@ -1,16 +1,26 @@
-// jwt.middleware.js
-// Purpose: extract and verify JWT from Authorization header and
-// attach `req.user` with `{ id, role, ... }` to downstream handlers.
-// Implementation note: reuse project's auth-service public key or secret.
+const jwt = require('jsonwebtoken');
 
 module.exports = {
   requireAuth: function (req, res, next) {
-    // placeholder implementation
-    if (req.headers.authorization) {
-      // parse token, verify and attach req.user
-      req.user = { id: 'placeholder', role: 'CUSTOMER' };
-      return next();
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+
+    if (!token) {
+      return res.status(401).json({ message: 'Missing access token' });
     }
-    return res.status(401).json({ message: 'Unauthorized' });
+
+    try {
+      const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET, {
+        audience: 'seatnow-client',
+        issuer: 'seatnow-auth-service'
+      });
+      req.user = {
+        id: payload.sub || payload.userId || payload.id,
+        role: payload.role
+      };
+      next();
+    } catch (e) {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
   }
 };

@@ -80,6 +80,7 @@ async function findMany({
   const req = pool.request();
   const paging = normalizePaging({ limit, offset });
 
+  // 1. Base Where Clause
   const where = ['r.status = @status'];
   req.input('status', sql.NVarChar(30), status);
 
@@ -88,7 +89,11 @@ async function findMany({
     req.input('q', sql.NVarChar(200), `%${q}%`);
   }
 
-  addWhere(where, req, 'priceRange', sql.Int, priceRange, 'r.priceRange = @priceRange');
+  // Use addWhere helper safely for priceRange
+  if (priceRange !== undefined && priceRange !== null && priceRange !== '') {
+    where.push('r.priceRange = @priceRange');
+    req.input('priceRange', sql.Int, parseInt(priceRange, 10));
+  }
 
   if (cuisine) {
     where.push(`
@@ -103,110 +108,63 @@ async function findMany({
   }
 
   if (bbox) {
-    addWhere(where, req, 'minLat', sql.Float, bbox.minLat, 'r.latitude >= @minLat');
-    addWhere(where, req, 'maxLat', sql.Float, bbox.maxLat, 'r.latitude <= @maxLat');
-    addWhere(where, req, 'minLng', sql.Float, bbox.minLng, 'r.longitude >= @minLng');
-    addWhere(where, req, 'maxLng', sql.Float, bbox.maxLng, 'r.longitude <= @maxLng');
+    where.push('r.latitude >= @minLat AND r.latitude <= @maxLat AND r.longitude >= @minLng AND r.longitude <= @maxLng');
+    req.input('minLat', sql.Float, bbox.minLat);
+    req.input('maxLat', sql.Float, bbox.maxLat);
+    req.input('minLng', sql.Float, bbox.minLng);
+    req.input('maxLng', sql.Float, bbox.maxLng);
   }
 
-  // Distance parameters
+  // 2. Distance Logic
   const nLat = parseFloat(lat);
   const nLng = parseFloat(lng);
+  const nRadius = parseFloat(radiusKm);
   const hasGeo = !isNaN(nLat) && !isNaN(nLng);
+  const hasRadius = !isNaN(nRadius);
+
   if (hasGeo) {
     req.input('lat', sql.Float, nLat);
     req.input('lng', sql.Float, nLng);
+  }
+  if (hasRadius) {
+    req.input('radiusKm', sql.Float, nRadius);
   }
 
   req.input('limit', sql.Int, paging.limit);
   req.input('offset', sql.Int, paging.offset);
 
-  // Build the Distance Formula
-  const distFormula = hasGeo 
-    ? `(6371 * 2 * ASIN(SQRT(
-        POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
-        COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
-        POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
-      )))`
-    : 'NULL';
-
-  // Build Filter for Radius
-  let haveRadiusFilter = '';
-  if (hasGeo && radiusKm) {
-    req.input('radiusKm', sql.Float, radiusKm);
-    haveRadiusFilter = 'AND distanceKm <= @radiusKm';
-  }
-
-  // Build Order By
-  let orderBy = buildOrderBy(sort);
-  if (sort === 'distance' && hasGeo) {
-    orderBy = 'distanceKm ASC, isPremium DESC, ratingAvg DESC';
-  }
+  const distFormula = `(6371 * 2 * ASIN(SQRT(
+    POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
+    COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
+    POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
+  )))`;
 
   // --- Query 1: Total Count ---
+  const countWhere = [...where];
+  if (hasGeo && hasRadius) {
+    countWhere.push(`${distFormula} <= @radiusKm`);
+  }
+
   const countQuery = `
     SELECT COUNT(*) as Total
     FROM dbo.Restaurants r
-    WHERE r.status = @status
-      ${q ? 'AND (r.name LIKE @q OR r.address LIKE @q)' : ''}
-      ${priceRange !== undefined ? 'AND r.priceRange = @priceRange' : ''}
-      ${cuisine ? `AND r.cuisineTypeJson IS NOT NULL AND EXISTS (SELECT 1 FROM OPENJSON(r.cuisineTypeJson) WITH (value NVARCHAR(100) '$') j WHERE j.value = @cuisine)` : ''}
-      ${bbox ? 'AND r.latitude >= @minLat AND r.latitude <= @maxLat AND r.longitude >= @minLng AND r.longitude <= @maxLng' : ''}
-      ${hasGeo && radiusKm ? `
-        AND (6371 * 2 * ASIN(SQRT(
-          POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
-          COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
-          POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
-        ))) <= @radiusKm` : ''}
+    WHERE ${countWhere.join(' AND ')}
   `;
+
   const rsCount = await req.query(countQuery);
   const total = rsCount.recordset[0].Total;
 
   // --- Query 2: Paged Data ---
-  const dataQuery = `
-    SELECT
-      r.*,
-      ${hasGeo ? `(6371 * 2 * ASIN(SQRT(
-        POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
-        COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
-        POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
-      )))` : 'NULL'} AS distanceKm
-    FROM dbo.Restaurants r
-    WHERE r.status = @status
-      ${q ? 'AND (r.name LIKE @q OR r.address LIKE @q)' : ''}
-      ${priceRange !== undefined ? 'AND r.priceRange = @priceRange' : ''}
-      ${cuisine ? `AND r.cuisineTypeJson IS NOT NULL AND EXISTS (SELECT 1 FROM OPENJSON(r.cuisineTypeJson) WITH (value NVARCHAR(100) '$') j WHERE j.value = @cuisine)` : ''}
-      ${bbox ? 'AND r.latitude >= @minLat AND r.latitude <= @maxLat AND r.longitude >= @minLng AND r.longitude <= @maxLng' : ''}
-      ${hasGeo && radiusKm ? `
-        HAVING (6371 * 2 * ASIN(SQRT(
-          POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
-          COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
-          POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
-        ))) <= @radiusKm` : ''}
-    ORDER BY ${sort === 'distance' && hasGeo ? 'distanceKm ASC, isPremium DESC, ratingAvg DESC' : buildOrderBy(sort)}
-    OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
-  `;
-
-  // Note: OFFSET/FETCH logic works better if distanceKm is available for ORDER BY.
-  // We use a subquery if distance sorting is needed, or just calculate in-place.
-  // Simplified for robustness with msnodesqlv8.
+  // We use a subquery to make distanceKm available for paging filter and sorting
   const finalDataQuery = `
     SELECT * FROM (
       SELECT
         r.*,
-        ${hasGeo ? `(6371 * 2 * ASIN(SQRT(
-          POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
-          COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
-          POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
-        )))` : 'NULL'} AS distanceKm
+        ${hasGeo ? distFormula : 'NULL'} AS distanceKm
       FROM dbo.Restaurants r
-      WHERE r.status = @status
-        ${q ? 'AND (r.name LIKE @q OR r.address LIKE @q)' : ''}
-        ${priceRange !== undefined ? 'AND r.priceRange = @priceRange' : ''}
-        ${cuisine ? `AND r.cuisineTypeJson IS NOT NULL AND EXISTS (SELECT 1 FROM OPENJSON(r.cuisineTypeJson) WITH (value NVARCHAR(100) '$') j WHERE j.value = @cuisine)` : ''}
-        ${bbox ? 'AND r.latitude >= @minLat AND r.latitude <= @maxLat AND r.longitude >= @minLng AND r.longitude <= @maxLng' : ''}
+      WHERE ${where.join(' AND ')}
     ) as sub
-    WHERE 1=1 ${hasGeo && radiusKm ? 'AND distanceKm <= @radiusKm' : ''}
+    WHERE 1=1 ${hasGeo && hasRadius ? 'AND distanceKm <= @radiusKm' : ''}
     ORDER BY ${sort === 'distance' && hasGeo ? 'distanceKm ASC, isPremium DESC, ratingAvg DESC' : buildOrderBy(sort)}
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
   `;

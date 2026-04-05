@@ -125,11 +125,11 @@ async function main() {
     console.log('Login success:', { user: login.user });
 
     console.log('Refreshing token...');
-    const tokens = await AuthService.refreshToken({ refreshToken: login.refreshToken });
+    const tokens = await AuthService.refreshToken({ refreshToken: login.refreshToken.refreshToken });
     console.log('Refresh success:', Object.keys(tokens));
 
     console.log('Logging out...');
-    await AuthService.logout({ refreshToken: tokens.refreshToken });
+    await AuthService.logout({ refreshToken: tokens.refreshToken.refreshToken });
     console.log('Logout completed.');
 
     // --- New: Test Combined Forgot Password Flow ---
