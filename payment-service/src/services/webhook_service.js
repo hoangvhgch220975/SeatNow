@@ -7,16 +7,19 @@ const { acquireIdempotency } = require('../utils/idempotency');
 const momoProvider = require('../providers/momo_provider');
 const vnpayProvider = require('../providers/vnpay_provider');
 
-// Tao URL redirect ve frontend sau khi thanh toan
+// Tao URL redirect ve frontend sau khi thanh toan dựa trên loại khách hàng
 function buildRedirectUrl({ bookingId, isGuest, success }) {
   const status = success ? 'success' : 'failed';
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
+  // Neu la khach vang lai -> Ve trang chu
   if (isGuest) {
-    return `${process.env.GUEST_HOME_URL}?payment=${status}`;
+    return `${frontendUrl}/?payment=${status}`;
   }
 
-  const template = process.env.CUSTOMER_BOOKING_DETAIL_URL_TEMPLATE;
-  return `${template.replace('{bookingId}', bookingId)}?payment=${status}`;
+  // Neu la thanh vien -> Ve trang lich su don hang cua toi
+  // URL: http://localhost:5173/my-bookings/{bookingId}?payment=success
+  return `${frontendUrl}/my-bookings/${bookingId}?payment=${status}`;
 }
 
 // Xu ly payload webhook theo tung provider
@@ -52,8 +55,11 @@ async function processProviderResult({ provider, payload, verifySignature = true
     return { duplicated: true };
   }
 
+  console.log(`[DEBUG_PAYMENT] Start processing provider result. Provider: ${provider}, Ref: ${referenceCode}`);
+
   const tx = await paymentModel.findTransactionByReferenceCode(referenceCode);
   if (!tx) {
+    console.error(`[DEBUG_PAYMENT] Transaction NOT FOUND: ${referenceCode}`);
     throw new Error('Transaction not found');
   }
 
@@ -73,10 +79,24 @@ async function processProviderResult({ provider, payload, verifySignature = true
           const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
           const headers = internalToken ? { 'x-internal-token': internalToken, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
           
+          console.log(`[DEBUG_PAYMENT] Calling Booking Service Socket for ID: ${depositResult.bookingId}`);
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seconds timeout
+
           fetch(`${bookingBase}/internal/bookings/${depositResult.bookingId}/payment-success`, {
             method: 'POST',
-            headers
-          }).catch(e => console.error('Failed to trigger payment success webhook to booking service', e));
+            headers,
+            signal: controller.signal
+          })
+          .then(() => {
+            clearTimeout(timeoutId);
+            console.log(`[DEBUG_PAYMENT] Booking Service Socket triggered successfully.`);
+          })
+          .catch(e => {
+             clearTimeout(timeoutId);
+             console.log(`[DEBUG_PAYMENT] Booking Service Socket trigger SKIPPED/FAILED (Timeout or Error): ${e.message}`);
+          });
         } catch (e) {
           console.error('Error triggering booking service socket', e);
         }
@@ -117,6 +137,8 @@ async function handleProviderReturn({ provider, query, body }) {
     throw new Error('Unsupported provider');
   }
 
+  console.log(`[Payment Return] Provider: ${provider}, Ref: ${parsed.referenceCode}, Success: ${parsed.success}`);
+
   // Van thu xu ly ket qua nhu webhook; loi thi log va tiep tuc redirect
   try {
     await processProviderResult({
@@ -125,30 +147,45 @@ async function handleProviderReturn({ provider, query, body }) {
       verifySignature: true
     });
   } catch (err) {
-    console.error('Return processing error:', err.message);
+    console.warn(`[Payment Return] Non-critical processing error: ${err.message}`);
   }
 
   // Tim transaction va booking de tao URL redirect dung nguoi dung
   const tx = await paymentModel.findTransactionByReferenceCode(parsed.referenceCode);
   if (!tx) {
-    return `${process.env.GUEST_HOME_URL}?payment=failed`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    console.warn(`[Payment Return] Transaction ${parsed.referenceCode} not found for redirect.`);
+    return { redirectUrl: `${frontendUrl}/?payment=failed`, success: false };
   }
 
   // Giao dich top-up khong gan booking, redirect ve trang chung.
   if (!tx.bookingId) {
-    return `${process.env.GUEST_HOME_URL}?payment=${parsed.success ? 'success' : 'failed'}`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    return { 
+      redirectUrl: `${frontendUrl}/?payment=${parsed.success ? 'success' : 'failed'}`,
+      success: parsed.success 
+    };
   }
 
   const booking = await paymentModel.findBookingForDeposit(tx.bookingId);
   if (!booking) {
-    return `${process.env.GUEST_HOME_URL}?payment=failed`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    console.warn(`[Payment Return] Booking Id ${tx.bookingId} not found.`);
+    return { redirectUrl: `${frontendUrl}/?payment=failed`, success: false };
   }
 
-  return buildRedirectUrl({
-    bookingId: booking.id,
-    isGuest: !booking.customerId,
-    success: parsed.success
-  });
+  const finalRedirect = {
+    redirectUrl: buildRedirectUrl({
+      bookingId: booking.id,
+      isGuest: !booking.customerId,
+      success: parsed.success
+    }),
+    success: parsed.success,
+    bookingId: booking.id // Explicitly return bookingId
+  };
+
+  console.log(`[Payment Return] Success! Final URL: ${finalRedirect.redirectUrl}`);
+  return finalRedirect;
 }
 
 module.exports = {
