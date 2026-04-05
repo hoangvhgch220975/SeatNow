@@ -8,7 +8,9 @@ const { makeSlug } = require('../utils/slug');
 
 // Helpers
 function hasGeo(q) {
-  return typeof q.lat === 'number' && typeof q.lng === 'number';
+  const lat = parseFloat(q.lat);
+  const lng = parseFloat(q.lng);
+  return !isNaN(lat) && !isNaN(lng);
 }
 
 /**
@@ -33,12 +35,20 @@ async function resolveId(idOrSlug) {
 // Hàm liệt kê nhà hàng với các tùy chọn truy vấn
 async function listRestaurants(query) {
   const geo = hasGeo(query);
-  const bbox = geo ? bboxFromRadius(query.lat, query.lng, query.radiusKm || 5) : null;
+  
+  // Chỉ áp dụng giới hạn Bounding Box (bbox) nếu:
+  // 1. Có yêu cầu bán kính cụ thể (radiusKm)
+  // 2. Hoặc đang yêu cầu sắp xếp theo khoảng cách (Near Me mặc định)
+  const shouldFilterByLocation = query.radiusKm || query.sort === 'distance';
+  const bbox = (geo && shouldFilterByLocation) 
+    ? bboxFromRadius(query.lat, query.lng, query.radiusKm || 5) 
+    : null;
 
-  if (geo && query.sort === 'distance') {
-    return restaurantSql.findManyNearMe({ ...query, bbox });
-  }
-  return restaurantSql.findMany({ ...query, bbox });
+  return restaurantSql.findMany({ 
+    ...query, 
+    bbox,
+    radiusKm: shouldFilterByLocation ? (query.radiusKm || 5) : null 
+  });
 }
 
 // Hàm lấy thông tin chi tiết của một nhà hàng dựa trên ID

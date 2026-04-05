@@ -58,86 +58,23 @@ function buildOrderBy(sort) {
 /* ------------------------- queries ------------------------- */
 
 /**
- * Search thường (KHÔNG sort distance trong SQL)
- * - bbox chỉ filter thô (nếu có)
- * - sort: 'rating' | 'newest'
+ * Unified Search:
+ * - Nếu có lat/lng: Tính toán distanceKm bằng Haversine.
+ * - Nếu có radiusKm: Lọc trong bán kính.
+ * - Hỗ trợ sort: 'rating' | 'newest' | 'distance'
  */
-async function findMany({ q, cuisine, priceRange, status = 'active', limit = 20, offset = 0, bbox, sort = 'rating' }) {
-  const pool = await getPool();
-  const req = pool.request();
-  const paging = normalizePaging({ limit, offset });
-
-  const where = ['status = @status'];
-  req.input('status', sql.NVarChar(30), status);
-
-  if (q) {
-    where.push('(name LIKE @q OR address LIKE @q)');
-    req.input('q', sql.NVarChar(200), `%${q}%`);
-  }
-
-  addWhere(where, req, 'priceRange', sql.Int, priceRange, 'priceRange = @priceRange');
-
-  if (cuisine) {
-    where.push(`
-      cuisineTypeJson IS NOT NULL
-      AND EXISTS (
-        SELECT 1
-        FROM OPENJSON(cuisineTypeJson) WITH (value NVARCHAR(100) '$') j
-        WHERE j.value = @cuisine
-      )
-    `);
-    req.input('cuisine', sql.NVarChar(100), cuisine);
-  }
-
-  if (bbox) {
-    addWhere(where, req, 'minLat', sql.Float, bbox.minLat, 'latitude >= @minLat');
-    addWhere(where, req, 'maxLat', sql.Float, bbox.maxLat, 'latitude <= @maxLat');
-    addWhere(where, req, 'minLng', sql.Float, bbox.minLng, 'longitude >= @minLng');
-    addWhere(where, req, 'maxLng', sql.Float, bbox.maxLng, 'longitude <= @maxLng');
-  }
-
-  req.input('limit', sql.Int, paging.limit);
-  req.input('offset', sql.Int, paging.offset);
-
-  const rs = await req.query(`
-    -- Query 1: Total Count
-    SELECT COUNT(*) as Total FROM dbo.Restaurants WHERE ${where.join(' AND ')};
-
-    -- Query 2: Paged Data
-    SELECT id, ownerId, name, slug, address, latitude, longitude, phone, email,
-           cuisineTypeJson, priceRange, ratingAvg, ratingCount,
-           description, imagesJson, openingHoursJson,
-           depositEnabled, depositPolicyJson,
-           commissionRate, status, isPremium, createdAt, updatedAt
-    FROM dbo.Restaurants
-    WHERE ${where.join(' AND ')}
-    ORDER BY ${buildOrderBy(sort)}
-    OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
-  `);
-
-  const total = rs.recordsets[0][0].Total;
-  const rows = rs.recordsets[1].map(mapJsonFields);
-  return { rows, total };
-}
-
-/**
- * Near-me chuẩn:
- * - bbox filter thô (khuyến nghị truyền vào từ service)
- * - tính distanceKm trong SQL
- * - WHERE distanceKm <= radiusKm
- * - ORDER BY distanceKm + paging chuẩn
- */
-async function findManyNearMe({
+async function findMany({
   q,
   cuisine,
   priceRange,
   status = 'active',
   lat,
   lng,
-  radiusKm = 5,
+  radiusKm,
   limit = 20,
   offset = 0,
-  bbox
+  bbox,
+  sort = 'rating'
 }) {
   const pool = await getPool();
   const req = pool.request();
@@ -145,11 +82,6 @@ async function findManyNearMe({
 
   const where = ['r.status = @status'];
   req.input('status', sql.NVarChar(30), status);
-
-  // required for near-me
-  req.input('lat', sql.Float, lat);
-  req.input('lng', sql.Float, lng);
-  req.input('radiusKm', sql.Float, radiusKm);
 
   if (q) {
     where.push('(r.name LIKE @q OR r.address LIKE @q)');
@@ -177,40 +109,114 @@ async function findManyNearMe({
     addWhere(where, req, 'maxLng', sql.Float, bbox.maxLng, 'r.longitude <= @maxLng');
   }
 
+  // Distance parameters
+  const nLat = parseFloat(lat);
+  const nLng = parseFloat(lng);
+  const hasGeo = !isNaN(nLat) && !isNaN(nLng);
+  if (hasGeo) {
+    req.input('lat', sql.Float, nLat);
+    req.input('lng', sql.Float, nLng);
+  }
+
   req.input('limit', sql.Int, paging.limit);
   req.input('offset', sql.Int, paging.offset);
 
-  // Haversine in SQL (km)
-  const rs = await req.query(`
-    WITH base AS (
-      SELECT
-        r.*,
-        (6371 * 2 * ASIN(SQRT(
+  // Build the Distance Formula
+  const distFormula = hasGeo 
+    ? `(6371 * 2 * ASIN(SQRT(
+        POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
+        COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
+        POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
+      )))`
+    : 'NULL';
+
+  // Build Filter for Radius
+  let haveRadiusFilter = '';
+  if (hasGeo && radiusKm) {
+    req.input('radiusKm', sql.Float, radiusKm);
+    haveRadiusFilter = 'AND distanceKm <= @radiusKm';
+  }
+
+  // Build Order By
+  let orderBy = buildOrderBy(sort);
+  if (sort === 'distance' && hasGeo) {
+    orderBy = 'distanceKm ASC, isPremium DESC, ratingAvg DESC';
+  }
+
+  // --- Query 1: Total Count ---
+  const countQuery = `
+    SELECT COUNT(*) as Total
+    FROM dbo.Restaurants r
+    WHERE r.status = @status
+      ${q ? 'AND (r.name LIKE @q OR r.address LIKE @q)' : ''}
+      ${priceRange !== undefined ? 'AND r.priceRange = @priceRange' : ''}
+      ${cuisine ? `AND r.cuisineTypeJson IS NOT NULL AND EXISTS (SELECT 1 FROM OPENJSON(r.cuisineTypeJson) WITH (value NVARCHAR(100) '$') j WHERE j.value = @cuisine)` : ''}
+      ${bbox ? 'AND r.latitude >= @minLat AND r.latitude <= @maxLat AND r.longitude >= @minLng AND r.longitude <= @maxLng' : ''}
+      ${hasGeo && radiusKm ? `
+        AND (6371 * 2 * ASIN(SQRT(
           POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
           COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
           POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
-        ))) AS distanceKm
-      FROM dbo.Restaurants r
-      WHERE ${where.join(' AND ')}
-    ),
-    filtered AS (
-      SELECT * FROM base WHERE distanceKm <= @radiusKm
-    )
-    -- Query 1: Total Count
-    SELECT COUNT(*) as Total FROM filtered;
+        ))) <= @radiusKm` : ''}
+  `;
+  const rsCount = await req.query(countQuery);
+  const total = rsCount.recordset[0].Total;
 
-    -- Query 2: Paged Data
-    SELECT *
-    FROM filtered
-    ORDER BY distanceKm ASC, isPremium DESC, ratingAvg DESC
+  // --- Query 2: Paged Data ---
+  const dataQuery = `
+    SELECT
+      r.*,
+      ${hasGeo ? `(6371 * 2 * ASIN(SQRT(
+        POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
+        COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
+        POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
+      )))` : 'NULL'} AS distanceKm
+    FROM dbo.Restaurants r
+    WHERE r.status = @status
+      ${q ? 'AND (r.name LIKE @q OR r.address LIKE @q)' : ''}
+      ${priceRange !== undefined ? 'AND r.priceRange = @priceRange' : ''}
+      ${cuisine ? `AND r.cuisineTypeJson IS NOT NULL AND EXISTS (SELECT 1 FROM OPENJSON(r.cuisineTypeJson) WITH (value NVARCHAR(100) '$') j WHERE j.value = @cuisine)` : ''}
+      ${bbox ? 'AND r.latitude >= @minLat AND r.latitude <= @maxLat AND r.longitude >= @minLng AND r.longitude <= @maxLng' : ''}
+      ${hasGeo && radiusKm ? `
+        HAVING (6371 * 2 * ASIN(SQRT(
+          POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
+          COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
+          POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
+        ))) <= @radiusKm` : ''}
+    ORDER BY ${sort === 'distance' && hasGeo ? 'distanceKm ASC, isPremium DESC, ratingAvg DESC' : buildOrderBy(sort)}
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
-  `);
+  `;
 
-  const total = rs.recordsets[0][0].Total;
-  const rows = rs.recordsets[1].map((r) => ({
+  // Note: OFFSET/FETCH logic works better if distanceKm is available for ORDER BY.
+  // We use a subquery if distance sorting is needed, or just calculate in-place.
+  // Simplified for robustness with msnodesqlv8.
+  const finalDataQuery = `
+    SELECT * FROM (
+      SELECT
+        r.*,
+        ${hasGeo ? `(6371 * 2 * ASIN(SQRT(
+          POWER(SIN((RADIANS(r.latitude - @lat)) / 2), 2) +
+          COS(RADIANS(@lat)) * COS(RADIANS(r.latitude)) *
+          POWER(SIN((RADIANS(r.longitude - @lng)) / 2), 2)
+        )))` : 'NULL'} AS distanceKm
+      FROM dbo.Restaurants r
+      WHERE r.status = @status
+        ${q ? 'AND (r.name LIKE @q OR r.address LIKE @q)' : ''}
+        ${priceRange !== undefined ? 'AND r.priceRange = @priceRange' : ''}
+        ${cuisine ? `AND r.cuisineTypeJson IS NOT NULL AND EXISTS (SELECT 1 FROM OPENJSON(r.cuisineTypeJson) WITH (value NVARCHAR(100) '$') j WHERE j.value = @cuisine)` : ''}
+        ${bbox ? 'AND r.latitude >= @minLat AND r.latitude <= @maxLat AND r.longitude >= @minLng AND r.longitude <= @maxLng' : ''}
+    ) as sub
+    WHERE 1=1 ${hasGeo && radiusKm ? 'AND distanceKm <= @radiusKm' : ''}
+    ORDER BY ${sort === 'distance' && hasGeo ? 'distanceKm ASC, isPremium DESC, ratingAvg DESC' : buildOrderBy(sort)}
+    OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
+  `;
+
+  const rsData = await req.query(finalDataQuery);
+  const rows = rsData.recordset.map((r) => ({
     ...mapJsonFields(r),
-    distanceKm: Number(r.distanceKm)
+    distanceKm: r.distanceKm !== null ? Number(r.distanceKm) : null
   }));
+
   return { rows, total };
 }
 
@@ -386,7 +392,6 @@ async function updateRestaurantRating(id, ratingAvg, ratingCount) {
 
 module.exports = {
   findMany,
-  findManyNearMe,
   findById,
   findBySlug,
   createRestaurant,
