@@ -360,6 +360,28 @@ async function complete(idOrCode) {
   }
   const updated = await bookingSql.updateStatus(id, ['ARRIVED'], 'COMPLETED', 'completedAt');
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
+
+  // Award loyalty points for registered customers
+  if (updated.customerId) {
+    let points = 0;
+    if (updated.depositPaid && updated.depositAmount > 0) {
+      // 10,000 VND = 1 point
+      points = Math.floor(Number(updated.depositAmount) / 10000);
+    } else {
+      // No deposit or deposit not paid: 1 guest = 1 point
+      points = Number(updated.numGuests || 0);
+    }
+
+    if (points > 0) {
+      try {
+        await bookingSql.incrementUserLoyaltyPoints(updated.customerId, points);
+        console.log(`[LoyaltyPoints] Awarded ${points} points to user ${updated.customerId} for booking ${updated.bookingCode}`);
+      } catch (err) {
+        console.error('[LoyaltyPoints] Error awarding points:', err);
+      }
+    }
+  }
+
   try { socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'completed', booking: updated } }); } catch (e) {}
   return updated;
 }

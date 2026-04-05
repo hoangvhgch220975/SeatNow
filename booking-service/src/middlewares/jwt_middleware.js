@@ -13,7 +13,10 @@ function _extractUserFromHeaders(req) {
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return null;
   try {
-    const p = jwt.verify(token, process.env.JWT_ACCESS_SECRET || '');
+    const p = jwt.verify(token, process.env.JWT_ACCESS_SECRET || '', {
+      audience: 'seatnow-client',
+      issuer: 'seatnow-auth-service'
+    });
     return { id: p.sub || p.userId || p.id, role: p.role };
   } catch (e) {
     return null;

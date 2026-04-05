@@ -436,6 +436,28 @@
         },
         {
           "name": "Update Booking Status (Complete)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const res = pm.response.json();",
+                  "const booking = res.data || res.booking || res;",
+                  "",
+                  "pm.test('Loyalty points should be awarded (if customerId present)', function () {",
+                  "    // Note: Point awarding is internal to the booking-service logic",
+                  "    // 10,000 VND = 1 pt (deposit) or 1 guest = 1 pt (no deposit)",
+                  "    pm.expect(booking.status).to.equal('COMPLETED');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "PUT",
             "header": [

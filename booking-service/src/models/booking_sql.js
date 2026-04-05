@@ -694,6 +694,19 @@ async function getOwnerHourlyBookingStats(ownerId, { from, to } = {}) {
   return rs.recordset || [];
 }
 
+async function incrementUserLoyaltyPoints(userId, points) {
+  const pool = await getPool();
+  return pool.request()
+    .input('userId', sql.UniqueIdentifier, userId)
+    .input('points', sql.Int, points)
+    .query(`
+      UPDATE dbo.Users
+      SET loyaltyPoints = ISNULL(loyaltyPoints, 0) + @points,
+          updatedAt = SYSUTCDATETIME()
+      WHERE id = @userId
+    `);
+}
+
 module.exports = {
   ACTIVE_STATUSES,
   j,
@@ -716,5 +729,6 @@ module.exports = {
   getHourlyBookingStats,
   getOwnerHourlyBookingStats,
   isValidGuid,
-  findByCode
+  findByCode,
+  incrementUserLoyaltyPoints
 };
