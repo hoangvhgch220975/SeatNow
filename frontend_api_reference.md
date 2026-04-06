@@ -1422,10 +1422,10 @@ Hệ thống cung cấp các bộ chỉ số giúp người dùng theo dõi hi�
 1. **Gọi API:** Khi người dùng chọn bộ lọc thời gian trên UI (ví dụ: "7 ngày qua"), FE chỉ cần gửi `period=week` cùng với dải `from/to`.
 2. **Dữ liệu trục X (xAxis):** FE sử dụng trường `timePeriod` để hiển thị nhãn (Label) cho biểu đồ. Backend đã sắp xếp sẵn theo thứ tự thời gian tăng dần.
 3. **Dữ liệu trục Y (yAxis):**
-   - Vẽ doanh thu tổng (Gross Revenue): Sử dụng `totalGrossRevenue`.
-   - Vẽ doanh thu thuần (Net Revenue): Sử dụng `totalRevenue`.
-   - Vẽ đơn hàng (Bookings): Sử dụng `totalBookings`.
-4. **Không cần Fill Zero:** Backend đã sử dụng SQL CTE để lấp đầy các khoảng thời gian không có doanh thu bằng giá trị `0`. FE nhận mảng bao nhiêu phần tử thì vẽ bấy nhiêu điểm, không cần logic kiểm tra mảng trống.
+   - **Doanh thu tổng (`totalGrossRevenue`):** Tổng toàn bộ tiền cọc (`depositAmount`) của các đơn đã thanh toán.
+   - **Doanh thu thực nhận (`totalRevenue`):** Doanh thu Net sau khi trừ phí hoa hồng. Luôn được đảm bảo >= 0.
+   - **Số lượt đặt bàn (`totalBookings`):** Đếm tất cả các đơn có trạng thái `COMPLETED`, `ARRIVED`, `CONFIRMED`. Lưu ý: Đơn không yêu cầu cọc vẫn được tính vào đây để FE vẽ biểu đồ lượng khách chính xác.
+4. **Không cần Fill Zero:** Backend đã sử dụng SQL CTE và Subquery để lấp đầy các khoảng thời gian không có doanh thu bằng giá trị `0`. FE nhận mảng bao nhiêu phần tử thì vẽ bấy nhiêu điểm, mảng tuyệt đối KHÔNG bị nhảy quãng (Gaps).
 
 #### Cấu trúc mảng `data` thực tế:
 ```json
