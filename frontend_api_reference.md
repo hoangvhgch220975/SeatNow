@@ -1406,23 +1406,35 @@ Hệ thống cung cấp các bộ chỉ số giúp người dùng theo dõi hi�
 | **Revenue Tracking** | Doanh thu theo chuỗi thời gian (Ngày/Tuần/Tháng/Năm) của 1 quán cụ thể.      | `/restaurants/:id/revenue-stats` |
 | **Hourly Analysis**  | Phân bổ giờ đặt bàn. Mặc định trả về **12 điểm** (00:00, 02:00, ..., 22:00). | `/restaurants/:id/stats/hourly`  |
 
-> [!NOTE]
+> [!IMPORTANT]
 > **Quy tắc về số lượng điểm dữ liệu (Data Points) tối ưu cho FE:**
-> Để biểu đồ mượt mà và trực quan, Backend tự động gộp dữ liệu dựa trên bộ lọc:
-> - **Filter Ngày (Day):** Kết quả trả về **12 điểm** (mỗi 2 giờ là 1 cột/nút).
-> - **Filter Tuần (Week):** Kết quả trả về **7 điểm** (từng ngày trong tuần).
-> - **Filter Tháng (Month):** Kết quả trả về **4-5 điểm** (từng tuần trong tháng).
-> - **Filter Năm (Year):** Kết quả trả về **12 điểm** (từng tháng trong năm).
+> Để biểu đồ mượt mà và trực quan, Backend tự động gộp (Group) và lấp đầy (Fill Zero) dữ liệu dựa trên tham số `period`:
+>
+> | Giá trị `period` | Số điểm (Points) | Ý nghĩa (Trục X) | Loại biểu đồ gợi ý |
+> | :--- | :--- | :--- | :--- |
+> | `day` | **12 điểm** | Cụm 2 giờ (`00:00`, `02:00`...) | BarChart / AreaChart |
+> | `week` | **7 điểm** | Từng ngày (`YYYY-MM-DD`) | LineChart |
+> | `month` | **5 điểm** | Từng tuần (`Week 1` -> `Week 5`) | LineChart / BarChart |
+> | `year` | **12 điểm** | Từng tháng (`YYYY-MM`) | LineChart |
 
-#### Cấu trúc mảng `data` trả về cho Chart:
+#### Hướng xử lý cho Frontend (How to apply):
+
+1. **Gọi API:** Khi người dùng chọn bộ lọc thời gian trên UI (ví dụ: "7 ngày qua"), FE chỉ cần gửi `period=week` cùng với dải `from/to`.
+2. **Dữ liệu trục X (xAxis):** FE sử dụng trường `timePeriod` để hiển thị nhãn (Label) cho biểu đồ. Backend đã sắp xếp sẵn theo thứ tự thời gian tăng dần.
+3. **Dữ liệu trục Y (yAxis):**
+   - Vẽ doanh thu (Revenue): Sử dụng `totalRevenue`.
+   - Vẽ đơn hàng (Bookings): Sử dụng `totalBookings`.
+4. **Không cần Fill Zero:** Backend đã sử dụng SQL CTE để lấp đầy các khoảng thời gian không có doanh thu bằng giá trị `0`. FE nhận mảng bao nhiêu phần tử thì vẽ bấy nhiêu điểm, không cần logic kiểm tra mảng trống.
+
+#### Cấu trúc mảng `data` thực tế:
 ```json
 "data": [
-  { "timePeriod": "00:00", "totalRevenue": 150000, "totalBookings": 2 },
-  { "timePeriod": "02:00", "totalRevenue": 0, "totalBookings": 0 },
-  ...
+  { "timePeriod": "00:00", "totalRevenue": 150000, "totalBookings": 2, "totalGuests": 4 },
+  { "timePeriod": "02:00", "totalRevenue": 0, "totalBookings": 0, "totalGuests": 0 },
+  ... (đủ 12 điểm cho period=day)
 ]
 ```
-*(Đối với BarChart Booking, trục X sẽ là `hour` thay vì `timePeriod`)*
+*(Lưu ý: Với API `/stats/hourly`, trục X sẽ là trường `hour` thay vì `timePeriod`)*
 
 ### 2. Dành cho Quản trị viên (Admin)
 
