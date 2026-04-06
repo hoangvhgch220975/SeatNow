@@ -631,18 +631,17 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
         SELECT 0 AS h UNION ALL SELECT h + 2 FROM Hours WHERE h < 22
       )
       SELECT 
-        RIGHT('0' + CAST(h AS VARCHAR(2)), 2) + ':00' AS timePeriod,
-        COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(ISNULL(b.depositAmount, 0)), 0) AS totalGrossRevenue,
-        CASE WHEN ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) < 0 THEN 0 
-             ELSE ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) END AS totalRevenue,
-        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+        COUNT(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.id END) AS totalBookings,
+        COUNT(CASE WHEN b.status = 'CANCELLED' THEN b.id END) AS totalCancelled,
+        ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) END), 0) AS totalGrossRevenue,
+        CASE WHEN ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) < 0 THEN 0 
+             ELSE ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) END AS totalRevenue,
+        ISNULL(SUM(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.numGuests END), 0) AS totalGuests
       FROM Hours
       LEFT JOIN (
         SELECT b.* FROM dbo.Bookings b
         WHERE b.restaurantId = @restaurantId
-          AND b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') -- Đếm tất cả các đơn hợp lệ
-          AND ISNULL(b.depositRefunded, 0) = 0
+          AND b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED')
           ${from ? 'AND b.bookingDate >= @from' : ''}
           ${to ? 'AND b.bookingDate <= @to' : ''}
       ) b ON FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2) * 2 = Hours.h
@@ -658,17 +657,17 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
       )
       SELECT 
         FORMAT(DateCTE.d, 'yyyy-MM-dd') AS timePeriod,
-        COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(ISNULL(b.depositAmount, 0)), 0) AS totalGrossRevenue,
-        CASE WHEN ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) < 0 THEN 0 
-             ELSE ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) END AS totalRevenue,
-        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+        COUNT(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.id END) AS totalBookings,
+        COUNT(CASE WHEN b.status = 'CANCELLED' THEN b.id END) AS totalCancelled,
+        ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) END), 0) AS totalGrossRevenue,
+        CASE WHEN ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) < 0 THEN 0 
+             ELSE ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) END AS totalRevenue,
+        ISNULL(SUM(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.numGuests END), 0) AS totalGuests
       FROM DateCTE
       LEFT JOIN (
         SELECT b.* FROM dbo.Bookings b
         WHERE b.restaurantId = @restaurantId
-          AND b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED')
-          AND ISNULL(b.depositRefunded, 0) = 0
+          AND b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED')
       ) b ON CAST(b.bookingDate AS DATE) = DateCTE.d
       GROUP BY DateCTE.d
       ORDER BY DateCTE.d ASC
@@ -680,17 +679,17 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
       )
       SELECT 
         CONCAT('Week ', WeekCTE.w) AS timePeriod,
-        COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(ISNULL(b.depositAmount, 0)), 0) AS totalGrossRevenue,
-        CASE WHEN ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) < 0 THEN 0 
-             ELSE ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) END AS totalRevenue,
-        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+        COUNT(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.id END) AS totalBookings,
+        COUNT(CASE WHEN b.status = 'CANCELLED' THEN b.id END) AS totalCancelled,
+        ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) END), 0) AS totalGrossRevenue,
+        CASE WHEN ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) < 0 THEN 0 
+             ELSE ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) END AS totalRevenue,
+        ISNULL(SUM(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.numGuests END), 0) AS totalGuests
       FROM WeekCTE
       LEFT JOIN (
         SELECT b.* FROM dbo.Bookings b
         WHERE b.restaurantId = @restaurantId
-          AND b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED')
-          AND ISNULL(b.depositRefunded, 0) = 0
+          AND b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED')
           ${from ? 'AND b.bookingDate >= @from' : ''}
           ${to ? 'AND b.bookingDate <= @to' : ''}
       ) b ON (DATEPART(day, b.bookingDate) - 1) / 7 + 1 = WeekCTE.w
@@ -701,13 +700,14 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
     query = `
       SELECT
         ${periodExpr} AS timePeriod,
-        COUNT(id) AS totalBookings,
-        ISNULL(SUM(ISNULL(depositAmount, 0)), 0) AS totalGrossRevenue,
-        CASE WHEN ISNULL(SUM(ISNULL(depositAmount, 0) - ISNULL(commissionFee, 0)), 0) < 0 THEN 0 
-             ELSE ISNULL(SUM(ISNULL(depositAmount, 0) - ISNULL(commissionFee, 0)), 0) END AS totalRevenue,
-        ISNULL(SUM(numGuests), 0) AS totalGuests
+        COUNT(CASE WHEN status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN id END) AS totalBookings,
+        COUNT(CASE WHEN status = 'CANCELLED' THEN id END) AS totalCancelled,
+        ISNULL(SUM(CASE WHEN depositPaid = 1 AND ISNULL(depositRefunded, 0) = 0 THEN ISNULL(depositAmount, 0) END), 0) AS totalGrossRevenue,
+        CASE WHEN ISNULL(SUM(CASE WHEN depositPaid = 1 AND ISNULL(depositRefunded, 0) = 0 THEN ISNULL(depositAmount, 0) - ISNULL(commissionFee, 0) END), 0) < 0 THEN 0 
+             ELSE ISNULL(SUM(CASE WHEN depositPaid = 1 AND ISNULL(depositRefunded, 0) = 0 THEN ISNULL(depositAmount, 0) - ISNULL(commissionFee, 0) END), 0) END AS totalRevenue,
+        ISNULL(SUM(CASE WHEN status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN numGuests END), 0) AS totalGuests
       FROM dbo.Bookings
-      WHERE ${where.join(' AND ')}
+      WHERE restaurantId = @restaurantId AND status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED')
       GROUP BY ${periodExpr}
       ORDER BY timePeriod ASC
     `;
@@ -838,17 +838,17 @@ async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to }
       )
       SELECT 
         RIGHT('0' + CAST(h AS VARCHAR(2)), 2) + ':00' AS timePeriod,
-        COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(ISNULL(b.depositAmount, 0)), 0) AS totalGrossRevenue,
-        CASE WHEN ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) < 0 THEN 0 
-             ELSE ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) END AS totalRevenue,
-        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+        COUNT(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.id END) AS totalBookings,
+        COUNT(CASE WHEN b.status = 'CANCELLED' THEN b.id END) AS totalCancelled,
+        ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) END), 0) AS totalGrossRevenue,
+        CASE WHEN ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) < 0 THEN 0 
+             ELSE ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) END AS totalRevenue,
+        ISNULL(SUM(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.numGuests END), 0) AS totalGuests
       FROM Hours
       LEFT JOIN (
         SELECT b.* FROM dbo.Bookings b
         JOIN dbo.Restaurants r ON b.restaurantId = r.id AND r.ownerId = @ownerId
-        WHERE b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') -- Đếm tất cả các đơn hợp lệ của Owner
-          AND ISNULL(b.depositRefunded, 0) = 0
+        WHERE b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED')
           ${from ? 'AND b.bookingDate >= @from' : ''}
           ${to ? 'AND b.bookingDate <= @to' : ''}
       ) b ON FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2) * 2 = Hours.h
@@ -864,18 +864,18 @@ async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to }
       )
       SELECT 
         FORMAT(DateCTE.d, 'yyyy-MM-dd') AS timePeriod,
-        COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(ISNULL(b.depositAmount, 0)), 0) AS totalGrossRevenue,
-        CASE WHEN ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) < 0 THEN 0 
-             ELSE ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) END AS totalRevenue,
-        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+        COUNT(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.id END) AS totalBookings,
+        COUNT(CASE WHEN b.status = 'CANCELLED' THEN b.id END) AS totalCancelled,
+        ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) END), 0) AS totalGrossRevenue,
+        CASE WHEN ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) < 0 THEN 0 
+             ELSE ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) END AS totalRevenue,
+        ISNULL(SUM(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.numGuests END), 0) AS totalGuests
       FROM DateCTE
       LEFT JOIN (
         SELECT b.* 
         FROM dbo.Bookings b
         JOIN dbo.Restaurants r ON b.restaurantId = r.id AND r.ownerId = @ownerId
-        WHERE b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED')
-          AND ISNULL(b.depositRefunded, 0) = 0
+        WHERE b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED')
       ) b ON CAST(b.bookingDate AS DATE) = DateCTE.d
       GROUP BY DateCTE.d
       ORDER BY DateCTE.d ASC
@@ -887,17 +887,18 @@ async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to }
       )
       SELECT 
         CONCAT('Week ', WeekCTE.w) AS timePeriod,
-        COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(ISNULL(b.depositAmount, 0)), 0) AS totalGrossRevenue,
-        CASE WHEN ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) < 0 THEN 0 
-             ELSE ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) END AS totalRevenue,
-        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+        COUNT(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.id END) AS totalBookings,
+        COUNT(CASE WHEN b.status = 'CANCELLED' THEN b.id END) AS totalCancelled,
+        ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) END), 0) AS totalGrossRevenue,
+        CASE WHEN ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) < 0 THEN 0 
+             ELSE ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) END AS totalRevenue,
+        ISNULL(SUM(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.numGuests END), 0) AS totalGuests
       FROM WeekCTE
       LEFT JOIN (
         SELECT b.* 
         FROM dbo.Bookings b
         JOIN dbo.Restaurants r ON b.restaurantId = r.id AND r.ownerId = @ownerId
-        WHERE b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED')
+        WHERE b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED')
           AND ISNULL(b.depositRefunded, 0) = 0
           ${from ? 'AND b.bookingDate >= @from' : ''}
           ${to ? 'AND b.bookingDate <= @to' : ''}
@@ -909,14 +910,15 @@ async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to }
     query = `
       SELECT
         ${periodExpr} AS timePeriod,
-        COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(ISNULL(b.depositAmount, 0)), 0) AS totalGrossRevenue,
-        CASE WHEN ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) < 0 THEN 0 
-             ELSE ISNULL(SUM(ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)), 0) END AS totalRevenue,
-        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+        COUNT(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.id END) AS totalBookings,
+        COUNT(CASE WHEN b.status = 'CANCELLED' THEN b.id END) AS totalCancelled,
+        ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) END), 0) AS totalGrossRevenue,
+        CASE WHEN ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) < 0 THEN 0 
+             ELSE ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) END AS totalRevenue,
+        ISNULL(SUM(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED') THEN b.numGuests END), 0) AS totalGuests
       FROM dbo.Bookings b
       JOIN dbo.Restaurants r ON b.restaurantId = r.id
-      WHERE ${where.join(' AND ')}
+      WHERE r.ownerId = @ownerId AND b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED')
       GROUP BY ${periodExpr}
       ORDER BY timePeriod ASC
     `;

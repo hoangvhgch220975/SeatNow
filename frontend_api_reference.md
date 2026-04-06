@@ -1424,7 +1424,8 @@ Hệ thống cung cấp các bộ chỉ số giúp người dùng theo dõi hi�
 3. **Dữ liệu trục Y (yAxis):**
    - **Doanh thu tổng (`totalGrossRevenue`):** Tổng toàn bộ tiền cọc (`depositAmount`) của các đơn đã thanh toán.
    - **Doanh thu thực nhận (`totalRevenue`):** Doanh thu Net sau khi trừ phí hoa hồng. Luôn được đảm bảo >= 0.
-   - **Số lượt đặt bàn (`totalBookings`):** Đếm tất cả các đơn có trạng thái `COMPLETED`, `ARRIVED`, `CONFIRMED`. Lưu ý: Đơn không yêu cầu cọc vẫn được tính vào đây để FE vẽ biểu đồ lượng khách chính xác.
+   - **Số lượt đặt bàn (`totalBookings`):** Đếm tất cả các đơn có trạng thái `COMPLETED`, `ARRIVED`, `CONFIRMED`.
+   - **Số đơn bị hủy (`totalCancelled`):** Đếm các đơn có trạng thái `CANCELLED`. Việc tách riêng trường này giúp FE vẽ biểu đồ so sánh tỷ lệ hủy đơn cực kỳ trực quan.
 4. **Không cần Fill Zero:** Backend đã sử dụng SQL CTE và Subquery để lấp đầy các khoảng thời gian không có doanh thu bằng giá trị `0`. FE nhận mảng bao nhiêu phần tử thì vẽ bấy nhiêu điểm, mảng tuyệt đối KHÔNG bị nhảy quãng (Gaps).
 
 #### Cấu trúc mảng `data` thực tế:
