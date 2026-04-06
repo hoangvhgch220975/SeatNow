@@ -8,7 +8,7 @@ const listQuerySchema = Joi.object({
   q: Joi.string().allow('').max(200),
   cuisine: Joi.string().max(100),
   priceRange: Joi.number().integer().min(1).max(4),
-  status: Joi.string().valid('pending', 'active', 'suspended').default('active'),
+  status: Joi.string().valid('pending', 'active', 'suspended', 'all').default('active'),
 
   lat: Joi.number().min(-90).max(90),
   lng: Joi.number().min(-180).max(180),

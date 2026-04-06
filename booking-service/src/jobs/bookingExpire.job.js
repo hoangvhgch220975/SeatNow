@@ -51,7 +51,7 @@ async function markNoShow() {
       FROM dbo.Bookings
       WHERE status='CONFIRMED'
         AND DATEADD(minute, @grace,
-            CAST(CONCAT(CONVERT(varchar(10), bookingDate, 23),' ', bookingTime, ':00') AS datetime2)
+            CAST(CONCAT(CONVERT(VARCHAR(10), bookingDate, 120), ' ', bookingTime) AS DATETIME2)
         ) < SYSUTCDATETIME()
     `);
 

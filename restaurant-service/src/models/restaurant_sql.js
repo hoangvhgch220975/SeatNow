@@ -81,8 +81,16 @@ async function findMany({
   const paging = normalizePaging({ limit, offset });
 
   // 1. Base Where Clause
-  const where = ['r.status = @status'];
-  req.input('status', sql.NVarChar(30), status);
+  const where = [];
+  if (status !== 'all') {
+    where.push('r.status = @status');
+    req.input('status', sql.NVarChar(30), status);
+  } else {
+    // If 'all', return all except soft-deleted if applicable. 
+    // In this simplified model, 'suspended' is the soft-delete state.
+    // If we want truly ALL including suspended, we just leave where empty or 1=1.
+    where.push('1=1');
+  }
 
   if (q) {
     where.push('(r.name LIKE @q OR r.address LIKE @q)');
