@@ -814,9 +814,46 @@ async function paymentSuccess(id) {
   return booking;
 }
 
+function getPreviousPeriod(from, to) {
+  let dateFrom = from ? new Date(from) : new Date();
+  let dateTo = to ? new Date(to) : new Date();
+
+  // Neu khong co filter: Mac dinh la thang nay so voi thang truoc
+  if (!from && !to) {
+    const firstDayThisMonth = new Date(dateFrom.getFullYear(), dateFrom.getMonth(), 1);
+    const lastDayLastMonth = new Date(dateFrom.getFullYear(), dateFrom.getMonth(), 0);
+    const firstDayLastMonth = new Date(dateFrom.getFullYear(), dateFrom.getMonth() - 1, 1);
+    return {
+      prevFrom: firstDayLastMonth.toISOString().split('T')[0],
+      prevTo: lastDayLastMonth.toISOString().split('T')[0],
+      isDefault: true
+    };
+  }
+
+  // Neu co filter: Tinh do dai khoang thoi gian de lay ky truoc tuong duong
+  const diffMs = dateTo.getTime() - dateFrom.getTime();
+  const prevToObj = new Date(dateFrom.getTime() - (1 * 24 * 60 * 60 * 1000)); // Ngay truoc ngay bat dau
+  const prevFromObj = new Date(prevToObj.getTime() - diffMs);
+  
+  return {
+    prevFrom: prevFromObj.toISOString().split('T')[0],
+    prevTo: prevToObj.toISOString().split('T')[0],
+    isDefault: false
+  };
+}
+
+function calculateGrowth(current, previous) {
+  if (!previous || previous === 0) return current > 0 ? 100 : 0;
+  return parseFloat((( (current - previous) / previous ) * 100).toFixed(2));
+}
+
 // Thống kê Portfolio cho Chủ chuỗi nhà hàng (Global)
 async function getOwnerPortfolioSummary(actor, filters = {}) {
-  const data = await bookingSql.getOwnerPortfolioSummary(actor.id, filters);
+  const currentData = await bookingSql.getOwnerPortfolioSummary(actor.id, filters);
+  
+  // Logic tinh toan Tang truong (Growth)
+  const { prevFrom, prevTo } = getPreviousPeriod(filters.from, filters.to);
+  const previousData = await bookingSql.getOwnerPortfolioSummary(actor.id, { from: prevFrom, to: prevTo });
 
   const calculatePercentages = (counts, total) => {
     if (!total || total === 0) return { percentCouple: 0, percentSmallGroup: 0, percentParty: 0 };
@@ -828,17 +865,24 @@ async function getOwnerPortfolioSummary(actor, filters = {}) {
   };
 
   // Tính % cho Global Summary
-  const globalPercentages = calculatePercentages(data.summary.guestSizeCounts, data.summary.totalBookings);
-  Object.assign(data.summary.guestSizeCounts, globalPercentages);
+  const globalPercentages = calculatePercentages(currentData.summary.guestSizeCounts, currentData.summary.totalBookings);
+  Object.assign(currentData.summary.guestSizeCounts, globalPercentages);
+
+  // Bo sung comparisons Growth
+  currentData.summary.comparisons = {
+    revenueGrowth: calculateGrowth(currentData.summary.totalRevenue, previousData.summary.totalRevenue),
+    bookingsGrowth: calculateGrowth(currentData.summary.totalBookings, previousData.summary.totalBookings),
+    period: filters.from && filters.to ? 'Previous Period' : 'MoM'
+  };
 
   // Tính % cho từng nhà hàng trong Breakdown
-  data.breakdown = data.breakdown.map(item => {
+  currentData.breakdown = currentData.breakdown.map(item => {
     const itemPercentages = calculatePercentages(item.guestSizeCounts, item.totalBookings);
     Object.assign(item.guestSizeCounts, itemPercentages);
     return item;
   });
 
-  return data;
+  return currentData;
 }
 
 // Thống kê Summary cho DUY NHẤT một nhà hàng (không theo period)
@@ -853,19 +897,30 @@ async function getRestaurantStatsSummary(restaurantId, actor, filters = {}) {
     const e = new Error('Forbidden'); e.status = 403; throw e;
   }
 
-  const data = await bookingSql.getRestaurantStatsSummary(restaurantId, filters);
+  const currentData = await bookingSql.getRestaurantStatsSummary(restaurantId, filters);
   
-  if (data.totalBookings > 0) {
-    data.guestSizeCounts.percentCouple = parseFloat(((data.guestSizeCounts.couple / data.totalBookings) * 100).toFixed(2));
-    data.guestSizeCounts.percentSmallGroup = parseFloat(((data.guestSizeCounts.smallGroup / data.totalBookings) * 100).toFixed(2));
-    data.guestSizeCounts.percentParty = parseFloat(((data.guestSizeCounts.party / data.totalBookings) * 100).toFixed(2));
+  // Logic tinh toan Tang truong (Growth) cho 1 nha hang
+  const { prevFrom, prevTo } = getPreviousPeriod(filters.from, filters.to);
+  const previousData = await bookingSql.getRestaurantStatsSummary(restaurantId, { from: prevFrom, to: prevTo });
+
+  if (currentData.totalBookings > 0) {
+    currentData.guestSizeCounts.percentCouple = parseFloat(((currentData.guestSizeCounts.couple / currentData.totalBookings) * 100).toFixed(2));
+    currentData.guestSizeCounts.percentSmallGroup = parseFloat(((currentData.guestSizeCounts.smallGroup / currentData.totalBookings) * 100).toFixed(2));
+    currentData.guestSizeCounts.percentParty = parseFloat(((currentData.guestSizeCounts.party / currentData.totalBookings) * 100).toFixed(2));
   } else {
-    data.guestSizeCounts.percentCouple = 0;
-    data.guestSizeCounts.percentSmallGroup = 0;
-    data.guestSizeCounts.percentParty = 0;
+    currentData.guestSizeCounts.percentCouple = 0;
+    currentData.guestSizeCounts.percentSmallGroup = 0;
+    currentData.guestSizeCounts.percentParty = 0;
   }
 
-  return data;
+  // Bo sung comparisons Growth
+  currentData.comparisons = {
+    revenueGrowth: calculateGrowth(currentData.totalRevenue, previousData.totalRevenue),
+    bookingsGrowth: calculateGrowth(currentData.totalBookings, previousData.totalBookings),
+    period: filters.from && filters.to ? 'Previous Period' : 'MoM'
+  };
+
+  return currentData;
 }
 
 // Thống kê phân bổ giờ đặt bàn cho một nhà hàng

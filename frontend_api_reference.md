@@ -728,6 +728,69 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 | `GET`  | `/owner/portfolio-summary`             | Tổng hợp Portfolio      | ✅   | OWNER, ADMIN |
 | `GET`  | `/owner/stats/hourly`                  | Phân bổ giờ Portfolio   | ✅   | OWNER, ADMIN |
 
+#### Response mẫu (Stats Summary - 200 OK):
+
+```json
+{
+  "data": {
+    "restaurantId": "uuid",
+    "totalBookings": 150,
+    "totalRevenue": 45000000,
+    "totalCancelled": 12,
+    "totalNoShow": 5,
+    "cancellationRate": 0.1133,
+    "guestSizeCounts": {
+      "couple": 80,
+      "smallGroup": 50,
+      "party": 20,
+      "percentCouple": 53.33,
+      "percentSmallGroup": 33.33,
+      "percentParty": 13.34
+    },
+    "comparisons": {
+      "revenueGrowth": 12.5, // % tăng trưởng doanh thu vs kỳ trước
+      "bookingsGrowth": 8.4,  // % tăng trưởng số đơn vs kỳ trước
+      "period": "MoM"         // Month-over-Month
+    }
+  }
+}
+```
+
+#### Response mẫu (Portfolio Summary - 200 OK):
+
+```json
+{
+  "data": {
+    "summary": {
+      "totalBookings": 450,
+      "totalRevenue": 135000000,
+      "guestSizeCounts": {
+        "couple": 240,
+        "percentCouple": 53.33,
+        "smallGroup": 150,
+        "percentSmallGroup": 33.33,
+        "party": 60,
+        "percentParty": 13.33
+      },
+      "comparisons": {
+        "revenueGrowth": 15.2,
+        "bookingsGrowth": 10.5
+      }
+    },
+    "breakdown": [
+      {
+        "restaurantId": "uuid-1",
+        "name": "Restaurant A",
+        "totalBookings": 200,
+        "totalRevenue": 60000000,
+        "guestSizeCounts": { "couple": 100, "smallGroup": 70, "party": 30 }
+      }
+    ]
+  }
+}
+```
+
+
 > Khi gọi qua Gateway, các route `/restaurants/*` dùng prefix: `/api/v1/booking-restaurants/...`
 > Các route `/owner/*` dùng prefix: `/api/v1/owner/...`
 
