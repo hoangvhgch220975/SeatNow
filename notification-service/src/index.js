@@ -11,6 +11,7 @@ require('dotenv').config();
 const webNotificationService = require('./services/web-notification.service');
 const { notificationQueue } = require('./queues/notification.queue');
 const notificationWorker = require('./workers/notification.worker');
+const activityRouter = require('./routes/activity.route');
 
 const app = express();
 const server = http.createServer(app);
@@ -55,6 +56,10 @@ app.post('/api/v1/notifications/test', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ─── Owner Activity Feed Routes ───────────────────────────────────────────────
+// Gắn toàn bộ các route activity vào prefix /api/v1/owner/activity
+app.use('/api/v1/owner/activity', activityRouter);
 
 // Attach Worker to Queue
 notificationQueue.process(notificationWorker);

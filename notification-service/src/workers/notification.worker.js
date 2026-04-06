@@ -5,6 +5,7 @@ const emailService = require('../services/email.service');
 const firebaseService = require('../services/firebase.service');
 const webNotificationService = require('../services/web-notification.service');
 const templates = require('../utils/template_helper');
+const notificationModel = require('../models/notification.model');
 
 /**
  * Main processor for the notification queue
@@ -45,6 +46,24 @@ module.exports = async function processNotification(job) {
 
       case 'web':
         console.log(`Worker: Emitting web notification for event: ${payload.event || 'notification'}`, payload);
+        
+        // Tự động lưu vào DB nếu có đầy đủ thông tin ownerId
+        if (payload.ownerId || payload.userId) {
+          try {
+            await notificationModel.saveNotification({
+              ownerId:      payload.ownerId || payload.userId,
+              restaurantId: payload.restaurantId || null,
+              type:         payload.activityType || payload.event || 'SYSTEM',
+              title:        payload.title        || payload.event || 'Notification',
+              message:      payload.message      || '',
+              metadata:     payload.data         || null
+            });
+          } catch (dbErr) {
+            // Lỗi lưu DB không dừng việc gửi socket
+            console.warn('[Worker] Failed to persist notification to DB:', dbErr.message);
+          }
+        }
+
         if (payload.role) {
           return webNotificationService.sendRoleNotification(
             payload.role,

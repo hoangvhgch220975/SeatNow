@@ -1144,7 +1144,81 @@ Các API này không yêu cầu Token, dành cho khách vãng lai hoặc trang c
 | `GET`  | `/health` (root) | Health check              | ❌   |
 | `POST` | `/test`          | Trigger test notification | ❌   |
 
-### Socket.IO – Web Notifications
+### 🔔 8.1 Owner Activity Feed (Lịch sử hoạt động)
+
+API cung cấp dữ liệu bền vững (persistent) cho bảng "Recent Global Activity" trên Dashboard của chủ sở hữu. Khác với Socket.IO (chỉ nhận khi đang online), API này lưu trữ lịch sử vào Database để Owner có thể xem lại khi refresh trang.
+
+| Method | Endpoint                          | Mô tả                                   | Auth | Role         |
+| ------ | --------------------------------- | --------------------------------------- | ---- | ------------ |
+| `GET`  | `/api/v1/owner/activity`          | Lấy danh sách hoạt động gần đây         | ✅   | OWNER, ADMIN |
+| `PUT`  | `/api/v1/owner/activity/:id/read` | Đánh dấu một thông báo là đã đọc        | ✅   | OWNER, ADMIN |
+| `PUT`  | `/api/v1/owner/activity/read-all` | Đánh dấu tất cả thông báo là đã đọc     | ✅   | OWNER, ADMIN |
+
+#### Query Params (GET /api/v1/owner/activity):
+
+| Param    | Type   | Mô tả                                                    | Mặc định |
+| -------- | ------ | -------------------------------------------------------- | -------- |
+| `limit`  | number | Số bản ghi mỗi trang (tối đa 50)                         | 20       |
+| `offset` | number | Vị trí bắt đầu (dùng để phân trang)                      | 0        |
+| `type`   | string | Lọc theo loại hoạt động (xem bảng Activity Types bên dưới) | (tất cả) |
+
+#### Các loại hoạt động (`type`):
+
+| Loại (`type`)                  | Mô tả                                                |
+| ------------------------------ | ---------------------------------------------------- |
+| `BOOKING_NEW`                  | Có đơn đặt bàn mới                                   |
+| `BOOKING_CONFIRMED`            | Đặt bàn được xác nhận                                |
+| `BOOKING_CANCELLED`            | Đặt bàn bị hủy                                      |
+| `BOOKING_NO_SHOW`              | Khách không đến (No-Show)                            |
+| `TRANSACTION_DEPOSIT`          | Nhận tiền cọc từ khách hàng                          |
+| `TRANSACTION_TOPUP`            | Nạp tiền ví thành công                               |
+| `TRANSACTION_WITHDRAW_APPROVED`| Admin duyệt yêu cầu rút tiền                         |
+| `REVIEW_NEW`                   | Nhận được đánh giá mới                               |
+| `COMMISSION_SETTLED`           | Phí hoa hồng tháng đã được khấu trừ                  |
+| `ADMIN_BROADCAST`              | Thông báo toàn hệ thống từ Admin                     |
+
+#### Response mẫu (GET /api/v1/owner/activity - 200 OK):
+
+```json
+{
+  "success": true,
+  "data": {
+    "total": 48,
+    "unreadCount": 3,
+    "items": [
+      {
+        "id": "uuid-1",
+        "ownerId": "C4E503D9-9B33-4C61-AA19-7EF824D55226",
+        "restaurantId": "BA3FB828-C52C-4FBE-83E7-4F326A9892A2",
+        "type": "BOOKING_NEW",
+        "title": "New Booking Received",
+        "message": "Guest Nguyen Van A has just booked table #5 for 2 guests at 19:00.",
+        "metadata": { "bookingCode": "BK-20260407-001", "numGuests": 2 },
+        "isRead": false,
+        "createdAt": "2026-04-07T03:00:00.000Z"
+      },
+      {
+        "id": "uuid-2",
+        "ownerId": "C4E503D9-9B33-4C61-AA19-7EF824D55226",
+        "restaurantId": null,
+        "type": "TRANSACTION_WITHDRAW_APPROVED",
+        "title": "Withdrawal Request Approved",
+        "message": "Admin has approved your withdrawal request of 5,000,000 VND.",
+        "metadata": { "amount": 5000000 },
+        "isRead": false,
+        "createdAt": "2026-04-07T02:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+> [!TIP]
+> **Tích hợp Socket + API (Recommended Pattern):**
+> 1. **Khi tải trang:** Gọi `GET /api/v1/owner/activity` để hiển thị danh sách ban đầu (bao gồm lịch sử offline).
+> 2. **Real-time:** Lắng nghe socket event `notification` để đẩy thêm mục mới lên đầu danh sách mà không cần reload.
+> 3. **Phân trang:** Khi người dùng cuộn xuống, gọi lại API với `offset` tăng dần.
+
 
 **Kết nối:** `io("http://localhost:3008", { query: { userId: "<uuid>", role: "<ROLE>" } })`
 
