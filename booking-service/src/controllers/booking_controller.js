@@ -273,12 +273,25 @@ async function restaurantStatsSummary(req, res) {
   }
 }
 
-// Thống kê Portfolio cho Chủ chuỗi nhà hàng (Global)
-// Thống kê Portfolio cho Chủ chuỗi nhà hàng (Global)
+// Thống kê Portfolio cho Chủ chuỗi nhà hàng (Global Summary)
 async function portfolioSummary(req, res) {
   try {
     const { from, to } = req.query;
     const data = await bookingSvc.getOwnerPortfolioSummary(req.user, { from, to });
+    return res.json({ data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ message: e.message });
+  }
+}
+
+// Thống kê Doanh thu và Đơn đặt bàn Portfolio cho chủ (Timeline)
+async function portfolioRevenueStatistics(req, res) {
+  try {
+    const data = await bookingSvc.getOwnerRevenueStatistics(req.user, {
+      period: req.query.period,
+      from: req.query.from,
+      to: req.query.to
+    });
     return res.json({ data });
   } catch (e) {
     return res.status(e.status || 400).json({ message: e.message });
@@ -434,6 +447,7 @@ module.exports = {
   getQr,
   revenueStatistics,
   portfolioSummary,
+  portfolioRevenueStatistics,
   restaurantStatsSummary,
   getHourlyStats,
   getOwnerHourlyStats

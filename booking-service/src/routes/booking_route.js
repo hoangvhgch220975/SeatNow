@@ -61,6 +61,7 @@ r.get('/restaurants/:id/stats/hourly', jwt.requireAuth, requireRole('RESTAURANT_
 
 // Thống kê Portfolio (Global cho chủ sở hữu chuỗi)
 r.get('/owner/portfolio-summary', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.portfolioSummary);
+r.get('/owner/revenue-stats', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.portfolioRevenueStatistics);
 
 // Thống kê phân bổ giờ đặt bàn Portfolio (aggregated)
 r.get('/owner/stats/hourly', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.getOwnerHourlyStats);

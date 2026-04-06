@@ -698,6 +698,54 @@ async function getOwnerHourlyBookingStats(ownerId, { from, to } = {}) {
   return rs.recordset || [];
 }
 
+// Thống kê doanh thu và đơn đặt bàn Portfolio (toàn bộ nhà hàng của một owner) theo thời gian (Timeline)
+async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to } = {}) {
+  const pool = await getPool();
+  const req = pool.request().input('ownerId', sql.UniqueIdentifier, ownerId);
+
+  let periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')"; // day
+  if (period === 'week') {
+    periodExpr = "CONCAT(YEAR(bookingDate), '-W', RIGHT('0' + CAST(DATEPART(iso_week, bookingDate) AS VARCHAR(2)), 2))";
+  } else if (period === 'month') {
+    periodExpr = "FORMAT(bookingDate, 'yyyy-MM')";
+  } else if (period === 'quarter') {
+    periodExpr = "CONCAT(YEAR(bookingDate), '-Q', DATEPART(quarter, bookingDate))";
+  } else if (period === 'year') {
+    periodExpr = "FORMAT(bookingDate, 'yyyy')";
+  }
+
+  const where = [
+    'r.ownerId = @ownerId',
+    'b.depositPaid = 1',
+    'ISNULL(b.depositRefunded, 0) = 0'
+  ];
+
+  if (from) {
+    where.push('b.bookingDate >= @from');
+    req.input('from', sql.Date, from);
+  }
+  if (to) {
+    where.push('b.bookingDate <= @to');
+    req.input('to', sql.Date, to);
+  }
+
+  const query = `
+    SELECT
+      ${periodExpr} AS timePeriod,
+      COUNT(b.id) AS totalBookings,
+      ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+      ISNULL(SUM(b.numGuests), 0) AS totalGuests
+    FROM dbo.Bookings b
+    JOIN dbo.Restaurants r ON b.restaurantId = r.id
+    WHERE ${where.join(' AND ')}
+    GROUP BY ${periodExpr}
+    ORDER BY ${periodExpr} ASC
+  `;
+
+  const rs = await req.query(query);
+  return rs.recordset || [];
+}
+
 async function incrementUserLoyaltyPoints(userId, points) {
   const pool = await getPool();
   return pool.request()
@@ -732,6 +780,7 @@ module.exports = {
   getRevenueStatistics,
   getHourlyBookingStats,
   getOwnerHourlyBookingStats,
+  getOwnerRevenueStatistics,
   isValidGuid,
   findByCode,
   incrementUserLoyaltyPoints

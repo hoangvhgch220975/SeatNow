@@ -4,7 +4,9 @@
 > **Cập nhật lần cuối:** 2026-04-05
 
 ---
+
 [Lưu ý quan trọng] - Tất cả data BE trả về đều là dạng json
+
 ## 🌐 Kiến trúc tổng quan
 
 ```
@@ -17,17 +19,17 @@
 └───────┴───────┴──────┴──────┴──────┴──────┴────┴─────┘
 ```
 
-| Service                  | Port   | Công nghệ                          | Database                                       |
-| ------------------------ | ------ | ---------------------------------- | ---------------------------------------------- |
-| **API Gateway**          | `7000` | .NET Ocelot                        | –                                              |
-| **Auth Service**         | `3001` | Node.js/Express                    | SQL Server                                     |
-| **User Service**         | `3002` | Node.js/Express                    | SQL Server                                     |
-| **Restaurant Service**   | `3003` | Node.js/Express                    | SQL Server + MongoDB                           |
-| **Booking Service**      | `3004` | Node.js/Express + Socket.IO        | SQL Server + Redis                             |
-| **Payment Service**      | `3005` | Node.js/Express                    | SQL Server                                     |
-| **Admin Service**        | `3006` | Node.js/Express                    | SQL Server (gọi internal API các service khác) |
+| Service                  | Port   | Công nghệ                          | Database                                                  |
+| ------------------------ | ------ | ---------------------------------- | --------------------------------------------------------- |
+| **API Gateway**          | `7000` | .NET Ocelot                        | –                                                         |
+| **Auth Service**         | `3001` | Node.js/Express                    | SQL Server                                                |
+| **User Service**         | `3002` | Node.js/Express                    | SQL Server                                                |
+| **Restaurant Service**   | `3003` | Node.js/Express                    | SQL Server + MongoDB                                      |
+| **Booking Service**      | `3004` | Node.js/Express + Socket.IO        | SQL Server + Redis                                        |
+| **Payment Service**      | `3005` | Node.js/Express                    | SQL Server                                                |
+| **Admin Service**        | `3006` | Node.js/Express                    | SQL Server (gọi internal API các service khác)            |
 | **AI Service**           | `3007` | Python/FastAPI                     | Redis (Chat History + Data Cache) <br> Gemini 1.5/2.0 API |
-| **Notification Service** | `3008` | Node.js/Express + Socket.IO + Bull | Redis (Queue)                                  |
+| **Notification Service** | `3008` | Node.js/Express + Socket.IO + Bull | Redis (Queue)                                             |
 
 ---
 
@@ -44,21 +46,21 @@
 
 Frontend chỉ cần gọi tới `http://localhost:7000` (hoặc domain production). Gateway sẽ chuyển tiếp đúng service.
 
-| Gateway Path (Upstream)         | Service (Downstream)                              | Auth Required  |
-| ------------------------------- | ------------------------------------------------- | -------------- |
-| `/api/v1/auth/*`                | Auth Service (:3001)                              | ❌             |
-| `/api/v1/users/*`               | User Service (:3002)                              | ✅ JWT         |
-| `/api/v1/restaurants/*`         | Restaurant Service (:3003)                        | Tùy endpoint   |
-| `/api/v1/portfolio/*`           | Restaurant Service (:3003)                        | ✅ JWT         |
-| `/api/v1/bookings/*`            | Booking Service (:3004)                           | Tùy endpoint   |
-| `/api/v1/booking-restaurants/*` | Booking Service (:3004) `→ /api/v1/restaurants/*` | Tùy endpoint   |
-| `/api/v1/owner/*`               | Booking Service (:3004)                           | ✅ JWT         |
-| `/api/v1/payment/*`             | Payment Service (:3005)                           | Tùy endpoint   |
-| `/api/v1/admin/*`               | Admin Service (:3006)                             | ✅ JWT + ADMIN |
-| `/api/v1/ai/*`                  | AI Service (:3007) `→ /api/ai/*`                  | ✅ JWT         |
-| `/api/v1/notifications/*`       | Notification Service (:3008)                      | ❌             |
-| `/socket.io/*` (WebSocket)      | Booking Service (:3004)                           | Tùy event      |
-| `/notification.io/*` (WebSocket)| Notification Service (:3008)                      | Tùy event      |
+| Gateway Path (Upstream)          | Service (Downstream)                              | Auth Required  |
+| -------------------------------- | ------------------------------------------------- | -------------- |
+| `/api/v1/auth/*`                 | Auth Service (:3001)                              | ❌             |
+| `/api/v1/users/*`                | User Service (:3002)                              | ✅ JWT         |
+| `/api/v1/restaurants/*`          | Restaurant Service (:3003)                        | Tùy endpoint   |
+| `/api/v1/portfolio/*`            | Restaurant Service (:3003)                        | ✅ JWT         |
+| `/api/v1/bookings/*`             | Booking Service (:3004)                           | Tùy endpoint   |
+| `/api/v1/booking-restaurants/*`  | Booking Service (:3004) `→ /api/v1/restaurants/*` | Tùy endpoint   |
+| `/api/v1/owner/*`                | Booking Service (:3004)                           | ✅ JWT         |
+| `/api/v1/payment/*`              | Payment Service (:3005)                           | Tùy endpoint   |
+| `/api/v1/admin/*`                | Admin Service (:3006)                             | ✅ JWT + ADMIN |
+| `/api/v1/ai/*`                   | AI Service (:3007) `→ /api/ai/*`                  | ✅ JWT         |
+| `/api/v1/notifications/*`        | Notification Service (:3008)                      | ❌             |
+| `/socket.io/*` (WebSocket)       | Booking Service (:3004)                           | Tùy event      |
+| `/notification.io/*` (WebSocket) | Notification Service (:3008)                      | Tùy event      |
 
 > ⚠️ **Lưu ý:** Route `/api/v1/booking-restaurants/{everything}` trên Gateway sẽ được map xuống `/api/v1/restaurants/{everything}` trên Booking Service. Làm vậy để tránh conflict với Restaurant Service cùng path.
 
@@ -118,19 +120,19 @@ Dưới đây là chi tiết những hành động mà mỗi vai trò (Role) **c
 
 **Base path:** `/api/v1/auth`
 
-| Method | Endpoint                            | Mô tả                                        | Auth | Request Body                                  |
-| ------ | ----------------------------------- | -------------------------------------------- | ---- | --------------------------------------------- |
+| Method | Endpoint                            | Mô tả                                        | Auth | Request Body                                       |
+| ------ | ----------------------------------- | -------------------------------------------- | ---- | -------------------------------------------------- |
 | `POST` | `/register`                         | Đăng ký tài khoản                            | ❌   | `{ email, password, phone, fullName, otp, role? }` |
-| `POST` | `/login`                            | Đăng nhập                                    | ❌   | `{ email, password }`                         |
-| `POST` | `/logout`                           | Đăng xuất                                    | ❌   | `{ refreshToken }`                            |
-| `POST` | `/refresh-token`                    | Làm mới access token                         | ❌   | `{ refreshToken }`                            |
-| `POST` | `/send-otp`                         | Gửi mã OTP qua Email                         | ❌   | `{ email }`                                   |
-| `POST` | `/verify-otp`                       | Xác thực OTP (Email)                         | ❌   | `{ email, otp }`                              |
-| `POST` | `/forgot-password/request`          | Yêu cầu reset password (Gửi OTP qua Email)   | ❌   | `{ phone, email? }`                            |
-| `POST` | `/forgot-password/verify-and-reset` | Xác thực OTP (Phone) + tự tạo mật khẩu mới   | ❌   | `{ phone, otp }`                               |
-| `POST` | `/google-signin`                    | Đăng nhập bằng Google                        | ❌   | `{ idToken }`                                 |
-| `PUT`  | `/change-password`                  | Đổi mật khẩu                                 | ✅   | `{ oldPassword, newPassword, confirmPassword }` |
-| `POST` | `/partner-request`                  | Gửi yêu cầu trở thành đối tác (Be my member) | ❌   | `{ name, phone, email, documentUrl }`         |
+| `POST` | `/login`                            | Đăng nhập                                    | ❌   | `{ email, password }`                              |
+| `POST` | `/logout`                           | Đăng xuất                                    | ❌   | `{ refreshToken }`                                 |
+| `POST` | `/refresh-token`                    | Làm mới access token                         | ❌   | `{ refreshToken }`                                 |
+| `POST` | `/send-otp`                         | Gửi mã OTP qua Email                         | ❌   | `{ email }`                                        |
+| `POST` | `/verify-otp`                       | Xác thực OTP (Email)                         | ❌   | `{ email, otp }`                                   |
+| `POST` | `/forgot-password/request`          | Yêu cầu reset password (Gửi OTP qua Email)   | ❌   | `{ phone, email? }`                                |
+| `POST` | `/forgot-password/verify-and-reset` | Xác thực OTP (Phone) + tự tạo mật khẩu mới   | ❌   | `{ phone, otp }`                                   |
+| `POST` | `/google-signin`                    | Đăng nhập bằng Google                        | ❌   | `{ idToken }`                                      |
+| `PUT`  | `/change-password`                  | Đổi mật khẩu                                 | ✅   | `{ oldPassword, newPassword, confirmPassword }`    |
+| `POST` | `/partner-request`                  | Gửi yêu cầu trở thành đối tác (Be my member) | ❌   | `{ name, phone, email, documentUrl }`              |
 
 ### Response mẫu (Login, Register & Refresh Token):
 
@@ -211,12 +213,12 @@ Chỉ dành cho tài khoản có Role là **`CUSTOMER`**. Các tài khoản **`R
 
 ### 3.1 Restaurants (SQL)
 
-| Method   | Endpoint                          | Mô tả                      | Auth              | Role         |
-| -------- | --------------------------------- | -------------------------- | ----------------- | ------------ |
-| `GET`    | `/restaurants`                    | Tìm kiếm nhà hàng (bộ lọc) | ❌ (optional JWT) | –            |
-| `GET`    | `/restaurants/:id`                | Chi tiết nhà hàng          | ❌                | –            |
-| `GET`    | `/restaurants/:id/reviews`        | Lấy danh sách đánh giá     | ❌                | –            |
-| `GET`    | `/restaurants/:id/reviews/summary`| Lấy tóm tắt đánh giá       | ❌                | –            |
+| Method | Endpoint                           | Mô tả                      | Auth              | Role |
+| ------ | ---------------------------------- | -------------------------- | ----------------- | ---- |
+| `GET`  | `/restaurants`                     | Tìm kiếm nhà hàng (bộ lọc) | ❌ (optional JWT) | –    |
+| `GET`  | `/restaurants/:id`                 | Chi tiết nhà hàng          | ❌                | –    |
+| `GET`  | `/restaurants/:id/reviews`         | Lấy danh sách đánh giá     | ❌                | –    |
+| `GET`  | `/restaurants/:id/reviews/summary` | Lấy tóm tắt đánh giá       | ❌                | –    |
 
 > [!TIP]
 > **Lưu ý về `:id`**: Tại tất cả các Endpoint lấy thông tin theo nhà hàng (Detail, Menu, Reviews, Availability), bạn có thể truyền vào **ID (UUID)** hoặc **Slug** (ví dụ: `viet-pho-restaurant`) đều được hệ thống tự động nhận diện.
@@ -252,10 +254,11 @@ Chỉ dành cho tài khoản có Role là **`CUSTOMER`**. Các tài khoản **`R
   }
 }
 ```
-| `POST`   | `/restaurants`                    | Tạo nhà hàng mới           | ✅                | ADMIN, OWNER |
-| `PUT`    | `/restaurants/:id`                | Cập nhật thông tin         | ✅                | ADMIN, OWNER |
-| `PUT`    | `/restaurants/:id/deposit-policy` | Cập nhật chính sách cọc    | ✅                | ADMIN, OWNER |
-| `DELETE` | `/restaurants/:id`                | Xóa nhà hàng               | ✅                | ADMIN, OWNER |
+
+| `POST` | `/restaurants` | Tạo nhà hàng mới | ✅ | ADMIN, OWNER |
+| `PUT` | `/restaurants/:id` | Cập nhật thông tin | ✅ | ADMIN, OWNER |
+| `PUT` | `/restaurants/:id/deposit-policy` | Cập nhật chính sách cọc | ✅ | ADMIN, OWNER |
+| `DELETE` | `/restaurants/:id` | Xóa nhà hàng | ✅ | ADMIN, OWNER |
 
 #### 🥗 Danh sách Cuisine Type chuẩn:
 
@@ -287,21 +290,21 @@ Khi tạo/sửa nhà hàng (`cuisineTypes`) hoặc tìm kiếm (`cuisine`), vui 
 
 Hệ thống hỗ trợ lọc cực kỳ linh hoạt tại endpoint `GET /api/v1/restaurants`:
 
-| Param              | Type   | Mô tả                                                            |
-| ------------------ | ------ | ---------------------------------------------------------------- |
-| `q`                | string | Tìm kiếm tương đối (LIKE) theo tên nhà hàng hoặc địa chỉ         |
-| `cuisine`          | string | Lọc theo loại món ăn (phải khớp 1 giá trị trong danh sách chuẩn) |
-| `priceRange`       | number | Mức giá từ 1 đến 4 ($ - $$$$)                                    |
-| `lat`              | number | Vĩ độ hiện tại của người dùng (Bắt buộc nếu muốn tính khoảng cách) |
-| `lng`              | number | Kinh độ hiện tại của người dùng (Bắt buộc nếu muốn tính khoảng cách) |
-| `radiusKm`         | number | Bán kính tìm kiếm quanh vị trí `lat/lng` (Mặc định: 5km nếu truyền `lat/lng`) |
-| `minLat`, `maxLat` | number | Tọa độ giới hạn khung bản đồ (Bounding Box)                      |
-| `minLng`, `maxLng` | number | Tọa độ giới hạn khung bản đồ (Bounding Box)                      |
-| `sort`             | string | Tiêu chí: `rating` (mặc định), `newest`, `distance` (Yêu cầu `lat/lng`) |
-| `isPremium`        | boolean| Chỉ lấy các nhà hàng Premium (nếu `true`)                        |
-| `page`             | number | Số trang (Dành cho Admin APIs)                                   |
-| `limit`            | number | Số lượng kết quả mỗi trang (Mặc định 20)                         |
-| `offset`           | number | Vị trí bắt đầu lấy dữ liệu (Dành cho Restaurant APIs)            |
+| Param              | Type    | Mô tả                                                                         |
+| ------------------ | ------- | ----------------------------------------------------------------------------- |
+| `q`                | string  | Tìm kiếm tương đối (LIKE) theo tên nhà hàng hoặc địa chỉ                      |
+| `cuisine`          | string  | Lọc theo loại món ăn (phải khớp 1 giá trị trong danh sách chuẩn)              |
+| `priceRange`       | number  | Mức giá từ 1 đến 4 ($ - $$$$)                                                 |
+| `lat`              | number  | Vĩ độ hiện tại của người dùng (Bắt buộc nếu muốn tính khoảng cách)            |
+| `lng`              | number  | Kinh độ hiện tại của người dùng (Bắt buộc nếu muốn tính khoảng cách)          |
+| `radiusKm`         | number  | Bán kính tìm kiếm quanh vị trí `lat/lng` (Mặc định: 5km nếu truyền `lat/lng`) |
+| `minLat`, `maxLat` | number  | Tọa độ giới hạn khung bản đồ (Bounding Box)                                   |
+| `minLng`, `maxLng` | number  | Tọa độ giới hạn khung bản đồ (Bounding Box)                                   |
+| `sort`             | string  | Tiêu chí: `rating` (mặc định), `newest`, `distance` (Yêu cầu `lat/lng`)       |
+| `isPremium`        | boolean | Chỉ lấy các nhà hàng Premium (nếu `true`)                                     |
+| `page`             | number  | Số trang (Dành cho Admin APIs)                                                |
+| `limit`            | number  | Số lượng kết quả mỗi trang (Mặc định 20)                                      |
+| `offset`           | number  | Vị trí bắt đầu lấy dữ liệu (Dành cho Restaurant APIs)                         |
 
 > [!IMPORTANT]
 > **Trường `distanceKm`**: Khi bạn truyền `lat` và `lng`, mỗi đối tượng nhà hàng trong mảng `data` sẽ có thêm trường `distanceKm` (kiểu số, đơn vị Kilomet). Nếu không truyền tọa độ, trường này sẽ là `null`.
@@ -311,6 +314,7 @@ Hệ thống hỗ trợ lọc cực kỳ linh hoạt tại endpoint `GET /api/v1
 Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) đều đã được chuẩn hóa cấu trúc trả về để hỗ trợ phân trang chuyên nghiệp:
 
 **Cấu trúc Response chuẩn:**
+
 ```json
 {
   "data": [ ... ],       // Mảng dữ liệu thực tế
@@ -323,6 +327,7 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 ```
 
 **Sự khác biệt giữa các Service:**
+
 - **Restaurant Service (Public API):** Sử dụng `limit` & `offset`. Trả về cấu trúc `{ data, total, meta }`.
 - **Admin Service:** Sử dụng `page` & `limit`. Trả về cấu trúc `{ data, total, pagination: { page, limit } }`.
 
@@ -650,7 +655,7 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 | `PUT`  | `/bookings/:id/no-show`      | Không đến                          | ✅                | OWNER, ADMIN           |
 | `PUT`  | `/bookings/:id/cancel`       | Hủy booking (Customer/Owner/Admin) | ✅                | CUSTOMER, OWNER, ADMIN |
 | `PUT`  | `/bookings/:id/cancel/guest` | Hủy booking (Khách vãng lai)       | ❌ (optional JWT) | –                      |
-| `PUT`  | `/bookings/:id/modify`       | Chỉnh sửa / Đổi lịch đặt bàn     | ❌ (optional JWT) | Any                    |
+| `PUT`  | `/bookings/:id/modify`       | Chỉnh sửa / Đổi lịch đặt bàn       | ❌ (optional JWT) | Any                    |
 
 #### Body mẫu (Modify - Chỉnh sửa lịch):
 
@@ -659,11 +664,11 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
   "bookingDate": "2026-12-26",
   "bookingTime": "20:00",
   "numGuests": 3,
-  "guestPhone": "+84901234567" 
+  "guestPhone": "+84901234567"
 }
 ```
-*(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xác minh quyền sở hữu đơn).*
 
+_(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xác minh quyền sở hữu đơn)._
 
 #### Body mẫu (Cancel - Dành cho Customer / Owner / Admin):
 
@@ -706,11 +711,11 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 
 #### Query params cho Availability:
 
-| Param     | Type    | Mô tả                                                                                                   |
-| --------- | ------- | ------------------------------------------------------------------------------------------------------- |
-| `date`    | string  | Ngày đặt (YYYY-MM-DD)                                                                                   |
-| `time`    | string  | Giờ đặt (HH:mm)                                                                                         |
-| `guests`  | number  | Số lượng khách                                                                                          |
+| Param     | Type    | Mô tả                                                                                                 |
+| --------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| `date`    | string  | Ngày đặt (YYYY-MM-DD)                                                                                 |
+| `time`    | string  | Giờ đặt (HH:mm)                                                                                       |
+| `guests`  | number  | Số lượng khách                                                                                        |
 | `refresh` | boolean | `true` để ép buộc xóa cache Redis và truy vấn SQL mới nhất (Dùng cho đồng bộ dữ liệu nếu có sai lệch) |
 
 > ⚠️ **Quan trọng:** Endpoint này trên Booking Service sử dụng Redis Lock để loại trừ bàn đang bị "hold". Khi gọi qua Gateway, dùng: `/api/v1/booking-restaurants/:id/availability`
@@ -726,6 +731,7 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 | `GET`  | `/restaurants/:id/commissions/summary` | Tóm tắt hoa hồng        | ✅   | OWNER, ADMIN |
 | `POST` | `/restaurants/:id/commissions/settle`  | Chốt hoa hồng           | ✅   | OWNER, ADMIN |
 | `GET`  | `/owner/portfolio-summary`             | Tổng hợp Portfolio      | ✅   | OWNER, ADMIN |
+| `GET`  | `/owner/revenue-stats`                 | Doanh thu Portfolio     | ✅   | OWNER, ADMIN |
 | `GET`  | `/owner/stats/hourly`                  | Phân bổ giờ Portfolio   | ✅   | OWNER, ADMIN |
 
 #### Response mẫu (Stats Summary - 200 OK):
@@ -749,8 +755,8 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
     },
     "comparisons": {
       "revenueGrowth": 12.5, // % tăng trưởng doanh thu vs kỳ trước
-      "bookingsGrowth": 8.4,  // % tăng trưởng số đơn vs kỳ trước
-      "period": "MoM"         // Month-over-Month
+      "bookingsGrowth": 8.4, // % tăng trưởng số đơn vs kỳ trước
+      "period": "MoM" // Month-over-Month
     }
   }
 }
@@ -790,7 +796,6 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 }
 ```
 
-
 > Khi gọi qua Gateway, các route `/restaurants/*` dùng prefix: `/api/v1/booking-restaurants/...`
 > Các route `/owner/*` dùng prefix: `/api/v1/owner/...`
 
@@ -813,21 +818,24 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 
 #### Server → Client (on):
 
-| Event                | Payload                                                       | Mô tả                                                               |
-| -------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `availabilityChanged`| `{ restaurantId, bookingDate, bookingTime }`                  | **(Deprecated)** Có thay đổi về bàn (Nên dùng `tableStatusChanged`). |
-| `tableStatusChanged` | `{ restaurantId, tableId, bookingDate, bookingTime, status }` | **(New - Zero Latency)** Thông báo trạng thái chi tiết của một bàn.  |
-| `bookingChanged`     | `{ bookingId, status, ... }`                                  | Trạng thái booking thay đổi (Dành cho Owner/User).                  |
+| Event                 | Payload                                                       | Mô tả                                                                |
+| --------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `availabilityChanged` | `{ restaurantId, bookingDate, bookingTime }`                  | **(Deprecated)** Có thay đổi về bàn (Nên dùng `tableStatusChanged`). |
+| `tableStatusChanged`  | `{ restaurantId, tableId, bookingDate, bookingTime, status }` | **(New - Zero Latency)** Thông báo trạng thái chi tiết của một bàn.  |
+| `bookingChanged`      | `{ bookingId, status, ... }`                                  | Trạng thái booking thay đổi (Dành cho Owner/User).                   |
 
 #### 📍 Chi tiết sự kiện `tableStatusChanged`:
+
 Sự kiện này được phát ra ngay lập tức khi một bàn cụ thể có sự thay đổi về trạng thái, giúp Frontend cập nhật màu sắc bàn trên sơ đồ mà không cần gọi lại API.
 
 **Các trạng thái (`status`):**
+
 - `available`: Bàn trống hoàn toàn, có thể chọn (Màu xanh). Được kích hoạt khi hết hạn Hold (2p), Hủy đơn, hoặc Booking hoàn thành/No-Show.
 - `held`: Bàn đang được người dùng khác nhấn chọn - giữ chỗ tạm 2 phút (Màu cam).
 - `occupied`: Bàn đã được đặt thành công - Booking ở trạng thái `PENDING` hoặc `CONFIRMED` (Màu đỏ).
 
 **Dữ liệu mẫu:**
+
 ```json
 {
   "restaurantId": "BA3FB828-C52C-4FBE-83E7-4F326A9892A2",
@@ -855,25 +863,24 @@ Sự kiện này được phát ra ngay lập tức khi một bàn cụ thể c�
 Hệ thống thanh toán chịu trách nhiệm xử lý các giao dịch đặt cọc (Deposit) cho Booking và nạp tiền (Top-up) vào ví nhà hàng qua cổng Momo/VNPay.
 
 **Base path:** `/api/v1/payment`
-| Method | Endpoint               | Mô tả                       | Auth     |
+| Method | Endpoint | Mô tả | Auth |
 | ------ | ---------------------- | --------------------------- | -------- |
-| `POST` | `/deposit/generate-qr` | Tạo QR thanh toán cọc       | Tùy      |
-| `GET`  | `/transaction/:id`     | Xem chi tiết giao dịch      | Tùy      |
-| `POST` | `/wallet/topup/create` | Nạp tiền ví                 | Tùy      |
-| `GET`  | `/wallet/balance`      | Xem số dư ví                | Tùy      |
-| `GET`  | `/wallet/transactions` | Lịch sử giao dịch ví        | Tùy      |
-| `POST` | `/wallet/withdraw`     | Yêu cầu rút tiền (Internal) | Internal |
-
+| `POST` | `/deposit/generate-qr` | Tạo QR thanh toán cọc | Tùy |
+| `GET` | `/transaction/:id` | Xem chi tiết giao dịch | Tùy |
+| `POST` | `/wallet/topup/create` | Nạp tiền ví | Tùy |
+| `GET` | `/wallet/balance` | Xem số dư ví | Tùy |
+| `GET` | `/wallet/transactions` | Lịch sử giao dịch ví | Tùy |
+| `POST` | `/wallet/withdraw` | Yêu cầu rút tiền (Internal) | Internal |
 
 ### 💵 5.1 QR Code / Redirect Link Generation
 
 Sử dụng Endpoint này để lấy URL thanh toán. Frontend sẽ redirect người dùng sang cổng thanh toán tương ứng.
 
-| Method | Endpoint               | Mô tả                       | Auth          |
-| ------ | ---------------------- | --------------------------- | ------------- |
-| `POST` | `/deposit/generate-qr` | Tạo link thanh toán cọc     | ✅ (optional) |
-| `POST` | `/wallet/topup/create` | Tạo link nạp tiền vào ví    | ✅            |
-| `GET`  | `/transaction/:id`     | Tra cứu trạng thái giao dịch| ✅            |
+| Method | Endpoint               | Mô tả                        | Auth          |
+| ------ | ---------------------- | ---------------------------- | ------------- |
+| `POST` | `/deposit/generate-qr` | Tạo link thanh toán cọc      | ✅ (optional) |
+| `POST` | `/wallet/topup/create` | Tạo link nạp tiền vào ví     | ✅            |
+| `GET`  | `/transaction/:id`     | Tra cứu trạng thái giao dịch | ✅            |
 
 #### 📥 Request Body (Deposit):
 
@@ -896,7 +903,6 @@ Sử dụng Endpoint này để lấy URL thanh toán. Frontend sẽ redirect ng
 
 > [!TIP]
 > **Tính năng Ghi đè (Supersede):** Nếu Booking đã có một giao dịch đang chờ (`Pending`), hệ thống sẽ **KHÔNG** báo lỗi 409 nữa. Thay vào đó, Backend sẽ tự động hủy giao dịch cũ và tạo link thanh toán mới. Frontend có thể tự tin gọi lại API này khi khách bấm "Đổi phương thức thanh toán".
-
 
 #### 📤 Response Body mẫu (Momo):
 
@@ -935,6 +941,7 @@ sequenceDiagram
 ```
 
 #### 📍 Lưu ý cho Frontend:
+
 1.  **Chuyển hướng (Redirect)**: Ngay khi nhận được `paymentUrl`, Frontend cần thực hiện redirect người dùng.
 2.  **Trang kết quả (Return Page)**: Gateway sẽ proxy kết quả trả về từ cổng thanh toán tới URL đã cấu hình cho Frontend.
 3.  **Tra cứu (Polling)**: Nếu chưa nhận được tín hiệu từ Socket, FE có thể gọi API `GET /transaction/:id` để kiểm tra trạng thái giao dịch.
@@ -943,20 +950,20 @@ sequenceDiagram
 
 Các URL này do Cổng thanh toán gọi trực tiếp:
 
-| Method | Endpoint         | Mô tả                                   |
-| ------ | ---------------- | --------------------------------------- |
-| `POST` | `/webhook/momo`  | Momo Notify URL (Xử lý giao dịch ngầm)  |
-| `POST` | `/webhook/vnpay` | VNPay IPN URL (Xử lý giao dịch ngầm)     |
-| `GET`  | `/return/momo`   | Redirect trở lại UI sau khi trả tiền    |
-| `GET`  | `/return/vnpay`  | Redirect trở lại UI sau khi trả tiền    |
+| Method | Endpoint         | Mô tả                                  |
+| ------ | ---------------- | -------------------------------------- |
+| `POST` | `/webhook/momo`  | Momo Notify URL (Xử lý giao dịch ngầm) |
+| `POST` | `/webhook/vnpay` | VNPay IPN URL (Xử lý giao dịch ngầm)   |
+| `GET`  | `/return/momo`   | Redirect trở lại UI sau khi trả tiền   |
+| `GET`  | `/return/vnpay`  | Redirect trở lại UI sau khi trả tiền   |
 
 #### 💳 Wallet & Withdrawals (Chủ nhà hàng / Admin)
 
-| Method | Endpoint               | Mô tả                         | Auth     |
-| ------ | ---------------------- | --------------------------- | -------- |
-| `GET`  | `/wallet/balance`      | Kiểm tra số dư ví nhà hàng    | ✅       |
-| `GET`  | `/wallet/transactions` | Lịch sử giao dịch ví          | ✅       |
-| `POST` | `/wallet/withdraw`     | Yêu cầu rút tiền từ ví        | ✅       |
+| Method | Endpoint               | Mô tả                      | Auth |
+| ------ | ---------------------- | -------------------------- | ---- |
+| `GET`  | `/wallet/balance`      | Kiểm tra số dư ví nhà hàng | ✅   |
+| `GET`  | `/wallet/transactions` | Lịch sử giao dịch ví       | ✅   |
+| `POST` | `/wallet/withdraw`     | Yêu cầu rút tiền từ ví     | ✅   |
 
 ---
 
@@ -1073,8 +1080,8 @@ Hệ thống sử dụng các HTML Template chuyên nghiệp (Responsive) cho c�
 
 Các API này không yêu cầu Token, dành cho khách vãng lai hoặc trang chủ.
 
-| Method | Endpoint            | Mô tả                                                             |
-| ------ | ------------------- | ----------------------------------------------------------------- |
+| Method | Endpoint                      | Mô tả                                                             |
+| ------ | ----------------------------- | ----------------------------------------------------------------- |
 | `POST` | `/api/v1/ai/public/recommend` | Gợi ý nhà hàng dựa trên xu hướng (Trending) và mới nhất (Newest). |
 
 > [!TIP]
@@ -1090,8 +1097,8 @@ Các API này không yêu cầu Token, dành cho khách vãng lai hoặc trang c
 
 ### 7.2 Customer AI (Logged-in)
 
-| Method   | Endpoint                 | Mô tả                                        |
-| -------- | ------------------------ | -------------------------------------------- |
+| Method   | Endpoint                           | Mô tả                                        |
+| -------- | ---------------------------------- | -------------------------------------------- |
 | `POST`   | `/api/v1/ai/customer/recommend`    | Gợi ý nhà hàng (one-shot)                    |
 | `POST`   | `/api/v1/ai/customer/chat`         | Chat đa lượt (lưu history trên Redis 7 ngày) |
 | `DELETE` | `/api/v1/ai/customer/chat/history` | Xóa lịch sử chat                             |
@@ -1115,11 +1122,11 @@ Các API này không yêu cầu Token, dành cho khách vãng lai hoặc trang c
 
 ### 7.3 Admin AI (Analytics)
 
-| Method   | Endpoint                        | Mô tả                          |
-| -------- | ------------------------------- | ------------------------------ |
+| Method   | Endpoint                           | Mô tả                          |
+| -------- | ---------------------------------- | ------------------------------ |
 | `POST`   | `/api/v1/ai/admin/revenue-summary` | Phân tích doanh thu (one-shot) |
-| `POST`   | `/api/v1/ai/admin/chat`         | Chat phân tích kinh doanh      |
-| `DELETE` | `/api/v1/ai/admin/chat/history` | Xóa lịch sử chat               |
+| `POST`   | `/api/v1/ai/admin/chat`            | Chat phân tích kinh doanh      |
+| `DELETE` | `/api/v1/ai/admin/chat/history`    | Xóa lịch sử chat               |
 
 ---
 
@@ -1145,12 +1152,12 @@ Notification Service gửi push notification qua Socket.IO theo 2 cấp độ:
 
 #### Các sự kiện Frontend cần lắng nghe (on):
 
-| Event                  | Payload                                         | Đối tượng nhận | Mô tả                                                                     |
-| ---------------------- | ----------------------------------------------- | -------------- | ------------------------------------------------------------------------- |
-| `notification`         | `{ message, data }`                             | Any            | Sự kiện gửi notification chung cơ bản.                                    |
-| `withdrawal_requested` | `{ message, data: { restaurantName, amount } }` | `role:ADMIN`   | Kích hoạt ngay lập tức khi một Owner nộp đơn yêu cầu Rút tiền thành công. |
-| `partner_request_submitted` | `{ message, data: { ...requestData } }`   | `role:ADMIN`   | Kích hoạt khi partner hoàn tất form "Be my member" (Trở thành đối tác). |
-| `restaurant_created`   | `{ message, data: { restaurantId, name } }`     | `role:ADMIN`   | Kích hoạt khi Owner tạo nhà hàng mới và chờ duyệt. |
+| Event                       | Payload                                         | Đối tượng nhận | Mô tả                                                                     |
+| --------------------------- | ----------------------------------------------- | -------------- | ------------------------------------------------------------------------- |
+| `notification`              | `{ message, data }`                             | Any            | Sự kiện gửi notification chung cơ bản.                                    |
+| `withdrawal_requested`      | `{ message, data: { restaurantName, amount } }` | `role:ADMIN`   | Kích hoạt ngay lập tức khi một Owner nộp đơn yêu cầu Rút tiền thành công. |
+| `partner_request_submitted` | `{ message, data: { ...requestData } }`         | `role:ADMIN`   | Kích hoạt khi partner hoàn tất form "Be my member" (Trở thành đối tác).   |
+| `restaurant_created`        | `{ message, data: { restaurantId, name } }`     | `role:ADMIN`   | Kích hoạt khi Owner tạo nhà hàng mới và chờ duyệt.                        |
 
 ---
 
@@ -1273,19 +1280,23 @@ NEXT_PUBLIC_NOTIFICATION_WS=http://localhost:3008
 Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh thu và trợ lý ảo dựa trên Google Gemini.
 
 ### ⚡ Đặc điểm kỹ thuật
+
 - **Caching Layer (Redis):** Dữ liệu được cache giúp tốc độ phản hồi cực nhanh.
 - **Language Policy (STRICT):** Phản hồi theo đúng ngôn ngữ người dùng hỏi (Tiếng Việt <-> Tiếng Anh).
 
 ### 🌐 1. Public AI (Khách vãng lai)
+
 - **Endpoint:** `POST /api/v1/ai/public/recommend`
 - **Body:** `{ "message": "string" }`
 
 ### 👤 2. Customer AI (Khách hàng)
+
 - **Gợi ý nhanh:** `POST /api/v1/ai/customer/recommend`
 - **Chat:** `POST /api/v1/ai/customer/chat` (`{ "message": "string" }`)
 - **Xóa lịch sử:** `DELETE /api/v1/ai/customer/chat/history`
 
 ### 🛡️ 3. Admin AI (Quản trị viên)
+
 - **Phân tích doanh thu:** `POST /api/v1/ai/admin/revenue-summary`
 - **Chat phân tích:** `POST /api/v1/ai/admin/chat` (`{ "message": "string" }`)
 - **Xóa lịch sử:** `DELETE /api/v1/ai/admin/chat/history`
@@ -1298,31 +1309,31 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 
 | Chức năng               | Method | Endpoint (qua Gateway)         |
 | ----------------------- | ------ | ------------------------------ |
-| Gợi ý nhà hàng (AI)     | `POST` | `/api/v1/ai/public/recommend` |
+| Gợi ý nhà hàng (AI)     | `POST` | `/api/v1/ai/public/recommend`  |
 | Gửi yêu cầu làm Đối tác | `POST` | `/api/v1/auth/partner-request` |
 | Tìm kiếm nhà hàng       | `GET`  | `/api/v1/restaurants`          |
 | Xem chi tiết nhà hàng   | `GET`  | `/api/v1/restaurants/:id`      |
 
 ### 👤 Customer (Khách hàng)
 
-| Chức năng          | Method | Endpoint (qua Gateway) |
-| ------------------ | ------ | ---------------------- |
-| Đăng ký            | `POST` | `/api/v1/auth/register`                                                     |
-| Đăng nhập          | `POST` | `/api/v1/auth/login`                                                        |
-| Xem profile        | `GET`  | `/api/v1/users/me`                                                          |
-| Cập nhật profile   | `PUT`  | `/api/v1/users/me`                                                          |
-| Tìm nhà hàng       | `GET`  | `/api/v1/restaurants?keyword=...`                                           |
-| Chi tiết nhà hàng  | `GET`  | `/api/v1/restaurants/:id`                                                   |
-| Xem menu           | `GET`  | `/api/v1/restaurants/:id/menu`                                              |
-| Xem reviews        | `GET`  | `/api/v1/restaurants/:id/reviews`                                           |
-| Kiểm tra bàn trống | `GET`  | `/api/v1/booking-restaurants/:id/availability?date=...&time=...&guests=...` |
-| Tạo booking        | `POST` | `/api/v1/bookings`                                                          |
-| Lịch sử booking    | `GET`  | `/api/v1/bookings/my-bookings`                                              |
-| Hủy booking        | `PUT`  | `/api/v1/bookings/:id/cancel`                                               |
-| Gửi review         | `POST` | `/api/v1/restaurants/:id/reviews`                                           |
-| Xem loyalty points | `GET`  | `/api/v1/users/me/loyalty-points`                                           |
-| Chat AI            | `POST` | `/api/v1/ai/customer/chat`                                                  |
-| Xóa lịch sử chat AI| `DELETE` | `/api/v1/ai/customer/chat/history`                                          |
+| Chức năng           | Method   | Endpoint (qua Gateway)                                                      |
+| ------------------- | -------- | --------------------------------------------------------------------------- |
+| Đăng ký             | `POST`   | `/api/v1/auth/register`                                                     |
+| Đăng nhập           | `POST`   | `/api/v1/auth/login`                                                        |
+| Xem profile         | `GET`    | `/api/v1/users/me`                                                          |
+| Cập nhật profile    | `PUT`    | `/api/v1/users/me`                                                          |
+| Tìm nhà hàng        | `GET`    | `/api/v1/restaurants?keyword=...`                                           |
+| Chi tiết nhà hàng   | `GET`    | `/api/v1/restaurants/:id`                                                   |
+| Xem menu            | `GET`    | `/api/v1/restaurants/:id/menu`                                              |
+| Xem reviews         | `GET`    | `/api/v1/restaurants/:id/reviews`                                           |
+| Kiểm tra bàn trống  | `GET`    | `/api/v1/booking-restaurants/:id/availability?date=...&time=...&guests=...` |
+| Tạo booking         | `POST`   | `/api/v1/bookings`                                                          |
+| Lịch sử booking     | `GET`    | `/api/v1/bookings/my-bookings`                                              |
+| Hủy booking         | `PUT`    | `/api/v1/bookings/:id/cancel`                                               |
+| Gửi review          | `POST`   | `/api/v1/restaurants/:id/reviews`                                           |
+| Xem loyalty points  | `GET`    | `/api/v1/users/me/loyalty-points`                                           |
+| Chat AI             | `POST`   | `/api/v1/ai/customer/chat`                                                  |
+| Xóa lịch sử chat AI | `DELETE` | `/api/v1/ai/customer/chat/history`                                          |
 
 ### 🏪 Restaurant Owner (Chủ nhà hàng)
 
@@ -1343,33 +1354,34 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 
 ### 🛡️ Admin
 
-| Chức năng           | Method | Endpoint (qua Gateway)                     |
-| ------------------- | ------ | ------------------------------------------ |
-| Thống kê tổng quan  | `GET`  | `/api/v1/admin/dashboard/stats`            |
-| Duyệt nhà hàng      | `PUT`  | `/api/v1/admin/restaurants/:id/approve`    |
-| Tạm ngưng nhà hàng  | `PUT`  | `/api/v1/admin/restaurants/:id/suspend`    |
-| Tạo Owner           | `POST` | `/api/v1/admin/users/restaurant-owner`     |
-| DS người dùng       | `GET`  | `/api/v1/admin/users`                      |
-| DS giao dịch        | `GET`  | `/api/v1/admin/transactions`               |
-| Quản lý Đối tác     | `GET`  | `/api/v1/admin/partner-requests`           |
-| Duyệt đối tác       | `POST` | `/api/v1/admin/partner-requests/:id/approve` |
-| Từ chối đối tác     | `DELETE` | `/api/v1/admin/partner-requests/:id/reject` |
-| Đối soát hoa hồng   | `POST` | `/api/v1/admin/commissions/settle-quarter` |
-| Duyệt rút tiền      | `POST` | `/api/v1/admin/withdrawals/:id/approve`    |
-| Chat AI (Analytics) | `POST` | `/api/v1/ai/admin/chat`                    |
-| Xóa lịch sử AI Admin| `DELETE` | `/api/v1/ai/admin/chat/history`          |
-| Phân tích doanh thu | `POST` | `/api/v1/ai/admin/revenue-summary`         |
+| Chức năng            | Method   | Endpoint (qua Gateway)                       |
+| -------------------- | -------- | -------------------------------------------- |
+| Thống kê tổng quan   | `GET`    | `/api/v1/admin/dashboard/stats`              |
+| Duyệt nhà hàng       | `PUT`    | `/api/v1/admin/restaurants/:id/approve`      |
+| Tạm ngưng nhà hàng   | `PUT`    | `/api/v1/admin/restaurants/:id/suspend`      |
+| Tạo Owner            | `POST`   | `/api/v1/admin/users/restaurant-owner`       |
+| DS người dùng        | `GET`    | `/api/v1/admin/users`                        |
+| DS giao dịch         | `GET`    | `/api/v1/admin/transactions`                 |
+| Quản lý Đối tác      | `GET`    | `/api/v1/admin/partner-requests`             |
+| Duyệt đối tác        | `POST`   | `/api/v1/admin/partner-requests/:id/approve` |
+| Từ chối đối tác      | `DELETE` | `/api/v1/admin/partner-requests/:id/reject`  |
+| Đối soát hoa hồng    | `POST`   | `/api/v1/admin/commissions/settle-quarter`   |
+| Duyệt rút tiền       | `POST`   | `/api/v1/admin/withdrawals/:id/approve`      |
+| Chat AI (Analytics)  | `POST`   | `/api/v1/ai/admin/chat`                      |
+| Xóa lịch sử AI Admin | `DELETE` | `/api/v1/ai/admin/chat/history`              |
+| Phân tích doanh thu  | `POST`   | `/api/v1/ai/admin/revenue-summary`           |
 
 ### 💎 Loyalty Point Policy (Chính sách điểm thưởng)
 
 Hệ thống tích điểm tự động dành cho **Khách hàng đã đăng nhập** sau khi đơn đặt bàn đạt trạng thái **COMPLETED** (Hoàn thành):
 
-| Trường hợp | Cách tính điểm |
-| :--- | :--- |
+| Trường hợp               | Cách tính điểm                                                 |
+| :----------------------- | :------------------------------------------------------------- |
 | **Có đặt cọc (Deposit)** | **10.000 VNĐ = 1 điểm** (Tính trên số tiền cọc đã trả thực tế) |
-| **Không đặt cọc** | **1 khách = 1 điểm** |
+| **Không đặt cọc**        | **1 khách = 1 điểm**                                           |
 
 **Lưu ý quan trọng:**
+
 1. Điểm chỉ được cộng sau khi chủ nhà hàng xác nhận bạn đã đến và hoàn thành bữa ăn (`Status: COMPLETED`).
 2. Nếu đơn đặt bàn bị **Hủy (CANCELLED)** bởi bất kỳ ai (Khách hoặc Chủ quán), hoặc khách không đến (**NO_SHOW**), điểm sẽ **KHÔNG** được cộng.
 3. Chính sách này không áp dụng cho khách vãng lai (Guest) không có tài khoản.
@@ -1377,3 +1389,46 @@ Hệ thống tích điểm tự động dành cho **Khách hàng đã đăng nh�
 ---
 
 > 📝 **Ghi chú:** Tài liệu này được sinh tự động từ source code. Nếu có thay đổi endpoint, vui lòng cập nhật lại file này.
+
+---
+
+## 📊 Giải thích Thống kê (Statistics Overview)
+
+Hệ thống cung cấp các bộ chỉ số giúp người dùng theo dõi hiệu quả kinh doanh. Dưới đây là bảng phân loại các logic thống kê:
+
+### 1. Dành cho Chủ nhà hàng (Owner)
+
+| Hạng mục             | Logic                                                                        | API Endpoint                     |
+| :------------------- | :--------------------------------------------------------------------------- | :------------------------------- |
+| **KPI Summary**      | Tổng số đơn, doanh thu, tỷ lệ hủy và **Tăng trưởng MoM (Month-over-Month)**. | `/restaurants/:id/stats-summary` |
+| **Portfolio Global** | Thống kê gộp cho tất cả nhà hàng mà Owner đó sở hữu (Cả chuỗi).              | `/owner/portfolio-summary`       |
+| **Portfolio Timeline** | Doanh thu & Booking toàn chuỗi theo thời gian (Ngày/Tháng/Năm) để vẽ biểu đồ. | `/owner/revenue-stats`           |
+| **Revenue Tracking** | Doanh thu theo chuỗi thời gian (Ngày/Tuần/Tháng/Năm) của 1 quán cụ thể.      | `/restaurants/:id/revenue-stats` |
+| **Hourly Analysis**  | Phân bổ giờ đặt bàn (0h-23h) để tìm giờ cao điểm của quán.                   | `/restaurants/:id/stats/hourly`  |
+
+### 2. Dành cho Quản trị viên (Admin)
+
+Admin có quyền truy cập vào các chỉ số toàn cầu (Global) của toàn bộ nền tảng:
+
+| Hạng mục              | Mô tả                                                                    | API Endpoint             |
+| :-------------------- | :----------------------------------------------------------------------- | :----------------------- |
+| **Platform Overview** | Toàn bộ số lượng User, Nhà hàng, Booking và **Tổng số dư ví toàn sàn**.  | `/admin/dashboard/stats` |
+| **Platform Revenue**  | Tổng tiền cọc và **Tổng tiền hoa hồng (Commission)** hệ thống đã thu về. | `/admin/revenue-stats`   |
+
+#### Response mẫu (Admin Global Stats):
+
+```json
+{
+  "totalUsers": 1200,
+  "totalCustomers": 1150,
+  "totalOwners": 50,
+  "totalRestaurants": 45,
+  "activeRestaurants": 40,
+  "pendingRestaurants": 5,
+  "totalBookings": 5600,
+  "completedBookings": 4800,
+  "totalWalletBalance": 1250000000 // Tổng tiền (VND) của tất cả ví nhà hàng trên sàn
+}
+```
+
+---

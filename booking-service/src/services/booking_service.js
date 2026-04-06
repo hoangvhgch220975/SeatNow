@@ -934,6 +934,11 @@ async function getOwnerHourlyBookingStats(actor, { from, to } = {}) {
   return bookingSql.getOwnerHourlyBookingStats(actor.id, { from, to });
 }
 
+// Thống kê doanh thu Portfolio cho chủ chuỗi theo thời gian (Timeline)
+async function getOwnerRevenueStatistics(actor, { period, from, to } = {}) {
+  return bookingSql.getOwnerRevenueStatistics(actor.id, { period, from, to });
+}
+
 module.exports = {
   createBooking,
   guestLookup,
@@ -958,6 +963,7 @@ module.exports = {
   getOwnerPortfolioSummary,
   getRestaurantStatsSummary,
   getHourlyBookingStats,
-  getOwnerHourlyBookingStats
+  getOwnerHourlyBookingStats,
+  getOwnerRevenueStatistics
 };
 
