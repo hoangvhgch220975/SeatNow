@@ -633,7 +633,7 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
       SELECT 
         RIGHT('0' + CAST(h AS VARCHAR(2)), 2) + ':00' AS timePeriod,
         COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.depositAmount), 0) AS totalGrossRevenue, ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
         ISNULL(SUM(b.numGuests), 0) AS totalGuests
       FROM Hours
       LEFT JOIN dbo.Bookings b ON FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2) * 2 = Hours.h
@@ -655,7 +655,7 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
       SELECT 
         FORMAT(DateCTE.d, 'yyyy-MM-dd') AS timePeriod,
         COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.depositAmount), 0) AS totalGrossRevenue, ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
         ISNULL(SUM(b.numGuests), 0) AS totalGuests
       FROM DateCTE
       LEFT JOIN dbo.Bookings b ON CAST(b.bookingDate AS DATE) = DateCTE.d
@@ -673,7 +673,7 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
       SELECT 
         CONCAT('Week ', WeekCTE.w) AS timePeriod,
         COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.depositAmount), 0) AS totalGrossRevenue, ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
         ISNULL(SUM(b.numGuests), 0) AS totalGuests
       FROM WeekCTE
       LEFT JOIN dbo.Bookings b ON (DATEPART(day, b.bookingDate) - 1) / 7 + 1 = WeekCTE.w
@@ -689,7 +689,8 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
       SELECT
         ${periodExpr} AS timePeriod,
         COUNT(id) AS totalBookings,
-        ISNULL(SUM(depositAmount - ISNULL(commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(depositAmount), 0) AS totalGrossRevenue,
+        ISNULL(SUM(depositAmount), 0) AS totalGrossRevenue, ISNULL(SUM(depositAmount - ISNULL(commissionFee, 0)), 0) AS totalRevenue,
         ISNULL(SUM(numGuests), 0) AS totalGuests
       FROM dbo.Bookings
       WHERE ${where.join(' AND ')}
@@ -824,7 +825,7 @@ async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to }
       SELECT 
         RIGHT('0' + CAST(h AS VARCHAR(2)), 2) + ':00' AS timePeriod,
         COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.depositAmount), 0) AS totalGrossRevenue, ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
         ISNULL(SUM(b.numGuests), 0) AS totalGuests
       FROM Hours
       LEFT JOIN dbo.Bookings b ON FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2) * 2 = Hours.h
@@ -846,7 +847,7 @@ async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to }
       SELECT 
         FORMAT(DateCTE.d, 'yyyy-MM-dd') AS timePeriod,
         COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.depositAmount), 0) AS totalGrossRevenue, ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
         ISNULL(SUM(b.numGuests), 0) AS totalGuests
       FROM DateCTE
       LEFT JOIN dbo.Bookings b ON CAST(b.bookingDate AS DATE) = DateCTE.d
@@ -864,7 +865,7 @@ async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to }
       SELECT 
         CONCAT('Week ', WeekCTE.w) AS timePeriod,
         COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.depositAmount), 0) AS totalGrossRevenue, ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
         ISNULL(SUM(b.numGuests), 0) AS totalGuests
       FROM WeekCTE
       LEFT JOIN dbo.Bookings b ON (DATEPART(day, b.bookingDate) - 1) / 7 + 1 = WeekCTE.w
@@ -880,7 +881,7 @@ async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to }
       SELECT
         ${periodExpr} AS timePeriod,
         COUNT(b.id) AS totalBookings,
-        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.depositAmount), 0) AS totalGrossRevenue, ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
         ISNULL(SUM(b.numGuests), 0) AS totalGuests
       FROM dbo.Bookings b
       JOIN dbo.Restaurants r ON b.restaurantId = r.id

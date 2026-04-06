@@ -1422,15 +1422,16 @@ Hệ thống cung cấp các bộ chỉ số giúp người dùng theo dõi hi�
 1. **Gọi API:** Khi người dùng chọn bộ lọc thời gian trên UI (ví dụ: "7 ngày qua"), FE chỉ cần gửi `period=week` cùng với dải `from/to`.
 2. **Dữ liệu trục X (xAxis):** FE sử dụng trường `timePeriod` để hiển thị nhãn (Label) cho biểu đồ. Backend đã sắp xếp sẵn theo thứ tự thời gian tăng dần.
 3. **Dữ liệu trục Y (yAxis):**
-   - Vẽ doanh thu (Revenue): Sử dụng `totalRevenue`.
+   - Vẽ doanh thu tổng (Gross Revenue): Sử dụng `totalGrossRevenue`.
+   - Vẽ doanh thu thuần (Net Revenue): Sử dụng `totalRevenue`.
    - Vẽ đơn hàng (Bookings): Sử dụng `totalBookings`.
 4. **Không cần Fill Zero:** Backend đã sử dụng SQL CTE để lấp đầy các khoảng thời gian không có doanh thu bằng giá trị `0`. FE nhận mảng bao nhiêu phần tử thì vẽ bấy nhiêu điểm, không cần logic kiểm tra mảng trống.
 
 #### Cấu trúc mảng `data` thực tế:
 ```json
 "data": [
-  { "timePeriod": "00:00", "totalRevenue": 150000, "totalBookings": 2, "totalGuests": 4 },
-  { "timePeriod": "02:00", "totalRevenue": 0, "totalBookings": 0, "totalGuests": 0 },
+  { "timePeriod": "00:00", "totalGrossRevenue": 150000, "totalRevenue": 145000, "totalBookings": 2, "totalGuests": 4 },
+  { "timePeriod": "02:00", "totalGrossRevenue": 0, "totalRevenue": 0, "totalBookings": 0, "totalGuests": 0 },
   ... (đủ 12 điểm cho period=day)
 ]
 ```
