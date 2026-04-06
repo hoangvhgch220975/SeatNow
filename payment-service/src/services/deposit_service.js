@@ -32,11 +32,14 @@ async function generateDepositPayment({ bookingId, provider, req }) {
     if (booking.depositPaid) throw new Error('Deposit already paid');
 
     // Chan tao nhieu request thanh toan neu booking da co transaction dang pending
+    // Neu da co transaction dang pending, ta "vô hiệu hóa" no de cho phep tao cai moi (Supersede)
     const pending = await paymentModel.findPendingDepositByBookingId(bookingId);
     if (pending) {
-      const e = new Error('Deposit payment is pending for this booking');
-      e.status = 409;
-      throw e;
+      console.log(`[PAYMENT_AUDIT] Superseding pending transaction ${pending.referenceCode} for booking ${bookingId}`);
+      await paymentModel.failTransaction({
+        referenceCode: pending.referenceCode,
+        metadataJson: JSON.stringify({ reason: 'SUPERSEDED_BY_NEW_REQUEST', timestamp: new Date().toISOString() })
+      });
     }
 
     // Chan truong hop da co giao dich dat coc hoan tat truoc do

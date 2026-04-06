@@ -831,6 +831,10 @@ Sử dụng Endpoint này để lấy URL thanh toán. Frontend sẽ redirect ng
 }
 ```
 
+> [!TIP]
+> **Tính năng Ghi đè (Supersede):** Nếu Booking đã có một giao dịch đang chờ (`Pending`), hệ thống sẽ **KHÔNG** báo lỗi 409 nữa. Thay vào đó, Backend sẽ tự động hủy giao dịch cũ và tạo link thanh toán mới. Frontend có thể tự tin gọi lại API này khi khách bấm "Đổi phương thức thanh toán".
+
+
 #### 📤 Response Body mẫu (Momo):
 
 ```json
