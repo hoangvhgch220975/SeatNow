@@ -461,8 +461,9 @@ async function getOwnerPortfolioSummary(ownerId, { from, to } = {}) {
       SUM(CASE WHEN b.numGuests BETWEEN 4 AND 6 THEN 1 ELSE 0 END) AS countSmallGroup,
       SUM(CASE WHEN b.numGuests >= 8 THEN 1 ELSE 0 END) AS countParty,
       COUNT(DISTINCT r.id) AS totalRestaurants,
-      ISNULL(SUM(r.ratingCount), 0) AS portfolioTotalReviews,
-      ISNULL(SUM(r.ratingAvg * r.ratingCount) / NULLIF(SUM(r.ratingCount), 0), 0) AS portfolioRatingAvg
+      -- Sử dụng subquery để tính toán cho từng chủ sở hữu độc lập với phép JOIN Bookings
+      (SELECT ISNULL(SUM(r2.ratingCount), 0) FROM dbo.Restaurants r2 WHERE r2.ownerId = @ownerId) AS portfolioTotalReviews,
+      (SELECT ISNULL(SUM(r2.ratingAvg * r2.ratingCount) / NULLIF(SUM(r2.ratingCount), 0), 0) FROM dbo.Restaurants r2 WHERE r2.ownerId = @ownerId) AS portfolioRatingAvg
     FROM dbo.Restaurants r
     LEFT JOIN dbo.Bookings b ON r.id = b.restaurantId ${dateFilter}
     WHERE r.ownerId = @ownerId
