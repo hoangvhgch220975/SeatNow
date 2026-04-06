@@ -230,7 +230,13 @@ async function commissionSummary(restaurantId, actor, { from, to } = {}) {
 // Thống kê doanh thu theo nhà hàng
 async function getRevenueStatistics(restaurantId, actor, { period, from, to } = {}) {
   await ensureRestaurantAccess(restaurantId, actor);
-  return bookingSql.getRevenueStatistics(restaurantId, { period, from, to });
+  let sqlPeriod = period;
+  if (period === 'day') sqlPeriod = 'hour';
+  else if (period === 'week') sqlPeriod = 'day';
+  else if (period === 'month') sqlPeriod = 'week';
+  else if (period === 'year') sqlPeriod = 'month';
+
+  return bookingSql.getRevenueStatistics(restaurantId, { period: sqlPeriod, from, to });
 }
 
 // Chốt thu commission theo kỳ (đánh dấu commissionPaid=1)
@@ -936,7 +942,13 @@ async function getOwnerHourlyBookingStats(actor, { from, to } = {}) {
 
 // Thống kê doanh thu Portfolio cho chủ chuỗi theo thời gian (Timeline)
 async function getOwnerRevenueStatistics(actor, { period, from, to } = {}) {
-  return bookingSql.getOwnerRevenueStatistics(actor.id, { period, from, to });
+  let sqlPeriod = period;
+  if (period === 'day') sqlPeriod = 'hour';
+  else if (period === 'week') sqlPeriod = 'day';
+  else if (period === 'month') sqlPeriod = 'week';
+  else if (period === 'year') sqlPeriod = 'month';
+
+  return bookingSql.getOwnerRevenueStatistics(actor.id, { period: sqlPeriod, from, to });
 }
 
 module.exports = {

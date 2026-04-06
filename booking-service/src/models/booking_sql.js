@@ -591,9 +591,15 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
   const pool = await getPool();
   const req = pool.request().input('restaurantId', sql.UniqueIdentifier, restaurantId);
 
-  let periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')"; // day
-  if (period === 'week') {
-    periodExpr = "CONCAT(YEAR(bookingDate), '-W', RIGHT('0' + CAST(DATEPART(iso_week, bookingDate) AS VARCHAR(2)), 2))";
+  let periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')"; // default: day
+  if (period === 'hour') {
+    // Group 2-hour buckets: 00:00, 02:00, ..., 22:00
+    periodExpr = "RIGHT('0' + CAST(FLOOR(CAST(LEFT(bookingTime, 2) AS INT) / 2) * 2 AS VARCHAR(2)), 2) + ':00'";
+  } else if (period === 'day') {
+    periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')";
+  } else if (period === 'week') {
+    // Week of month (1, 2, 3, 4)
+    periodExpr = "CONCAT('Week ', (DATEPART(day, bookingDate) - 1) / 7 + 1)";
   } else if (period === 'month') {
     periodExpr = "FORMAT(bookingDate, 'yyyy-MM')";
   } else if (period === 'quarter') {
@@ -653,11 +659,11 @@ async function getHourlyBookingStats(restaurantId, { from, to } = {}) {
 
   const query = `
     SELECT
-      LEFT(bookingTime, 2) AS hour,
+      RIGHT('0' + CAST(FLOOR(CAST(LEFT(bookingTime, 2) AS INT) / 2) * 2 AS VARCHAR(2)), 2) + ':00' AS hour,
       COUNT(id) AS count
     FROM dbo.Bookings
     WHERE ${where.join(' AND ')}
-    GROUP BY LEFT(bookingTime, 2)
+    GROUP BY FLOOR(CAST(LEFT(bookingTime, 2) AS INT) / 2)
     ORDER BY hour ASC
   `;
 
@@ -685,12 +691,12 @@ async function getOwnerHourlyBookingStats(ownerId, { from, to } = {}) {
 
   const query = `
     SELECT
-      LEFT(b.bookingTime, 2) AS hour,
+      RIGHT('0' + CAST(FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2) * 2 AS VARCHAR(2)), 2) + ':00' AS hour,
       COUNT(b.id) AS count
     FROM dbo.Bookings b
     JOIN dbo.Restaurants r ON b.restaurantId = r.id
     WHERE ${where.join(' AND ')}
-    GROUP BY LEFT(b.bookingTime, 2)
+    GROUP BY FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2)
     ORDER BY hour ASC
   `;
 
@@ -703,9 +709,14 @@ async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to }
   const pool = await getPool();
   const req = pool.request().input('ownerId', sql.UniqueIdentifier, ownerId);
 
-  let periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')"; // day
-  if (period === 'week') {
-    periodExpr = "CONCAT(YEAR(bookingDate), '-W', RIGHT('0' + CAST(DATEPART(iso_week, bookingDate) AS VARCHAR(2)), 2))";
+  let periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')"; // default: day
+  if (period === 'hour') {
+    periodExpr = "RIGHT('0' + CAST(FLOOR(CAST(LEFT(bookingTime, 2) AS INT) / 2) * 2 AS VARCHAR(2)), 2) + ':00'";
+  } else if (period === 'day') {
+    periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')";
+  } else if (period === 'week') {
+    // Week of month (1, 2, 3, 4)
+    periodExpr = "CONCAT('Week ', (DATEPART(day, bookingDate) - 1) / 7 + 1)";
   } else if (period === 'month') {
     periodExpr = "FORMAT(bookingDate, 'yyyy-MM')";
   } else if (period === 'quarter') {

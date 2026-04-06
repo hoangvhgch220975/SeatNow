@@ -1404,7 +1404,25 @@ Hệ thống cung cấp các bộ chỉ số giúp người dùng theo dõi hi�
 | **Portfolio Global** | Thống kê gộp cho tất cả nhà hàng mà Owner đó sở hữu (Cả chuỗi).              | `/owner/portfolio-summary`       |
 | **Portfolio Timeline** | Doanh thu & Booking toàn chuỗi theo thời gian (Ngày/Tháng/Năm) để vẽ biểu đồ. | `/owner/revenue-stats`           |
 | **Revenue Tracking** | Doanh thu theo chuỗi thời gian (Ngày/Tuần/Tháng/Năm) của 1 quán cụ thể.      | `/restaurants/:id/revenue-stats` |
-| **Hourly Analysis**  | Phân bổ giờ đặt bàn (0h-23h) để tìm giờ cao điểm của quán.                   | `/restaurants/:id/stats/hourly`  |
+| **Hourly Analysis**  | Phân bổ giờ đặt bàn. Mặc định trả về **12 điểm** (00:00, 02:00, ..., 22:00). | `/restaurants/:id/stats/hourly`  |
+
+> [!NOTE]
+> **Quy tắc về số lượng điểm dữ liệu (Data Points) tối ưu cho FE:**
+> Để biểu đồ mượt mà và trực quan, Backend tự động gộp dữ liệu dựa trên bộ lọc:
+> - **Filter Ngày (Day):** Kết quả trả về **12 điểm** (mỗi 2 giờ là 1 cột/nút).
+> - **Filter Tuần (Week):** Kết quả trả về **7 điểm** (từng ngày trong tuần).
+> - **Filter Tháng (Month):** Kết quả trả về **4-5 điểm** (từng tuần trong tháng).
+> - **Filter Năm (Year):** Kết quả trả về **12 điểm** (từng tháng trong năm).
+
+#### Cấu trúc mảng `data` trả về cho Chart:
+```json
+"data": [
+  { "timePeriod": "00:00", "totalRevenue": 150000, "totalBookings": 2 },
+  { "timePeriod": "02:00", "totalRevenue": 0, "totalBookings": 0 },
+  ...
+]
+```
+*(Đối với BarChart Booking, trục X sẽ là `hour` thay vì `timePeriod`)*
 
 ### 2. Dành cho Quản trị viên (Admin)
 
