@@ -124,6 +124,19 @@ SELECT TOP (1000) [id]
 ,[currency]
 FROM [SeatNow].[dbo].[Transactions]
 
+## Bảng Notifications:
+
+SELECT TOP (1000) [id]
+,[ownerId]
+,[restaurantId]
+,[type]
+,[title]
+,[message]
+,[metadata]
+,[isRead]
+,[createdAt]
+FROM [SeatNow].[dbo].[Notifications]
+
 ## Collections MongoDB:
 
 ## reviews:
@@ -289,3 +302,4 @@ Wallets UQ_Wallets_UserOnly NONCLUSTERED userId
 - **Restaurants.status**: `'pending'`, `'active'`, `'suspended'`
 - **Users.role**: `'CUSTOMER'`, `'RESTAURANT_OWNER'`, `'ADMIN'`
 - **Bookings.status**: `'PENDING'`, `'CONFIRMED'`, `'ARRIVED'`, `'COMPLETED'`, `'CANCELLED'`, `'NO_SHOW'`
+- **Notifications.type**: `'BOOKING_NEW'`, `'BOOKING_CONFIRMED'`, `'BOOKING_CANCELLED'`, `'BOOKING_NO_SHOW'`, `'TRANSACTION_DEPOSIT'`, `'TRANSACTION_TOPUP'`, `'TRANSACTION_WITHDRAW_APPROVED'`, `'REVIEW_NEW'`, `'COMMISSION_SETTLED'`, `'ADMIN_BROADCAST'`

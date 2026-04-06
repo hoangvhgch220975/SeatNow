@@ -141,19 +141,37 @@ SeatNow/                                    # Root monorepo: chứa toàn bộ s
 │   │       └── utils/
 │   │           └── webhook.validator.js    # Validate payload + signature rules per provider
 │   │
-│   ├── notification-service/               # Notification worker: SMS/Email/Push (async jobs)
-│   │   ├── Dockerfile                      # Build image notification worker
-│   │   ├── package.json                    # Dependency senders + queue client
-│   │   ├── .env.example                    # Redis + API keys (SendGrid/Twilio...)
+│   ├── notification-service/               # Notification: gửi Email/Push/Socket + lưu Activity Feed vào DB
+│   │   ├── Dockerfile                      # Build image notification-service
+│   │   ├── package.json                    # Dependency: bull, nodemailer, firebase-admin, mssql, socket.io
+│   │   ├── .env                            # DB_SERVER, REDIS_URL, JWT_ACCESS_SECRET, Email, Firebase keys
 │   │   └── src/
 │   │       ├── config/
-│   │       │   └── redis.js                # Redis connection (Bull/queue)
-│   │       ├── index.js                    # Worker entrypoint: subscribe queue + process jobs
+│   │       │   ├── db.js                   # Kết nối SQL Server (dbo.Notifications) - cùng LocalDB với các service
+│   │       │   └── redis.js                # Redis connection (Bull queue)
+│   │       ├── index.js                    # Bootstrap: Express + Socket.IO + Bull worker + Activity routes
+│   │       ├── controllers/
+│   │       │   └── activity.controller.js  # HTTP handlers: lấy danh sách, đánh dấu đã đọc (Owner Activity)
+│   │       ├── middleware/
+│   │       │   └── auth.middleware.js      # Verify JWT, kiểm tra quyền OWNER/ADMIN
+│   │       ├── models/
+│   │       │   └── notification.model.js   # Raw SQL: saveNotification, getOwnerActivity, markAsRead
+│   │       ├── routes/
+│   │       │   └── activity.route.js       # GET|PUT /api/v1/owner/activity (phân trang, lọc, mark read)
 │   │       ├── services/
-│   │       │   ├── sms.service.js          # Provider adapter: Twilio/SMSAPI...
-│   │       │   └── email.service.js        # Provider adapter: SendGrid/Nodemailer...
-│   │       └── queues/
-│   │           └── notification.queue.js   # Queue definitions: job names, retries, backoff...
+│   │       │   ├── web-notification.service.js # Socket.IO emit (theo userId hoặc role)
+│   │       │   ├── email.service.js        # Gửi email (Nodemailer/SendGrid)
+│   │       │   └── firebase.service.js     # Push notification qua Firebase Admin SDK
+│   │       ├── workers/
+│   │       │   └── notification.worker.js  # Xử lý job từ Bull Queue: email/push/web + lưu DB tự động
+│   │       ├── queues/
+│   │       │   └── notification.queue.js   # Định nghĩa Bull Queue "notification"
+│   │       ├── utils/
+│   │       │   └── template_helper.js      # HTML Email templates (booking_confirmed, cancelled, promotion)
+│   │       └── scripts/
+│   │           ├── seed_notifications.sql  # Script chèn 10 bản ghi mẫu vào dbo.Notifications
+│   │           └── postman/
+│   │               └── SeatNow-Notification-Service.postman_collection.json # Postman tests
 │   │
 │   └── admin-service/                      # Admin: moderation + stats + approval flows
 │       ├── Dockerfile                      # Build image admin-service
