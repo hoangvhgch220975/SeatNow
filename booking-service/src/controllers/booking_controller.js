@@ -64,10 +64,11 @@ async function availability(req, res) {
     const bookingDate = req.query.date;
     const bookingTime = req.query.time;
     const numGuests = parseInt(req.query.guests || '1', 10);
+    const forceRefresh = req.query.refresh === 'true';
 
     if (!bookingDate || !bookingTime) return res.status(422).json({ message: 'date and time are required' });
 
-    const items = await availabilitySvc.getAvailableTables({ restaurantId, bookingDate, bookingTime, numGuests });
+    const items = await availabilitySvc.getAvailableTables({ restaurantId, bookingDate, bookingTime, numGuests, forceRefresh });
     return res.json({ items });
   } catch (e) {
     return res.status(400).json({ message: e.message });
@@ -187,6 +188,32 @@ async function cancel(req, res) {
     const result = await bookingSvc.cancel(req.params.id, req.user || null, reason);
     return res.json({ booking: result });
   } catch (e) { return res.status(e.status || 400).json({ message: e.message }); }
+}
+
+async function guestCancel(req, res) {
+  try {
+    const guestPhone = req.body && req.body.guestPhone ? req.body.guestPhone : null;
+    if (!guestPhone) {
+      return res.status(400).json({ message: 'Guest phone number is required for verification' });
+    }
+    const reason = req.body && req.body.cancellationReason ? req.body.cancellationReason : null;
+    const result = await bookingSvc.guestCancel(req.params.id, guestPhone, reason);
+    return res.json({ booking: result });
+  } catch (e) { return res.status(e.status || 400).json({ message: e.message }); }
+}
+
+async function modify(req, res) {
+  try {
+    const id = req.params.id;
+    const result = await bookingSvc.modifyBooking({
+      id,
+      actor: req.user || null,
+      body: req.body
+    });
+    return res.json(result);
+  } catch (e) {
+    return res.status(e.status || 400).json({ message: e.message });
+  }
 }
 
 async function noShow(req, res) {
@@ -395,6 +422,8 @@ module.exports = {
   arrived,
   complete,
   cancel,
+  guestCancel,
+  modify,
   noShow,
   paymentStatus,
   commissionSummary,

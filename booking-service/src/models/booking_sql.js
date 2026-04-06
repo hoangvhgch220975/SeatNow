@@ -132,18 +132,22 @@ async function insertBookingTx(payload) {
       .input('specialRequests', sql.NVarChar(sql.MAX), payload.specialRequests || null)
       .input('depositRequired', sql.Bit, payload.depositRequired ? 1 : 0)
       .input('depositAmount', sql.Float, payload.depositRequired ? payload.depositAmount : null)
+      .input('depositPaid', sql.Bit, payload.depositPaid ? 1 : 0)
+      .input('depositPaidAt', sql.DateTime2, payload.depositPaidAt || null)
       .input('commissionFee', sql.Float, payload.commissionFee ?? null)
       .query(`
         INSERT INTO dbo.Bookings (
           bookingCode, customerId, guestName, guestPhone, guestEmail,
           restaurantId, tableId, bookingDate, bookingTime, numGuests,
-          status, specialRequests, depositRequired, depositAmount, commissionFee
+          status, specialRequests, depositRequired, depositAmount,
+          depositPaid, depositPaidAt, commissionFee
         )
         OUTPUT INSERTED.*
         VALUES (
           @bookingCode, @customerId, @guestName, @guestPhone, @guestEmail,
           @restaurantId, @tableId, @bookingDate, @bookingTime, @numGuests,
-          @status, @specialRequests, @depositRequired, @depositAmount, @commissionFee
+          @status, @specialRequests, @depositRequired, @depositAmount,
+          @depositPaid, @depositPaidAt, @commissionFee
         )
       `);
 

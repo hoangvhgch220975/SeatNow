@@ -10,12 +10,15 @@ function cacheKey(restaurantId, date, time, guests) {
 }
 
 // Hàm lấy danh sách bàn trống theo tiêu chí
-async function getAvailableTables({ restaurantId, bookingDate, bookingTime, numGuests }) {
+async function getAvailableTables({ restaurantId, bookingDate, bookingTime, numGuests, forceRefresh = false }) {
   const redis = await getRedis();
   const formattedDate = typeof bookingDate === 'string' ? bookingDate : new Date(bookingDate).toISOString().split('T')[0];
   const key = cacheKey(restaurantId, formattedDate, bookingTime, numGuests);
-  const cached = await redis.get(key);
-  if (cached) return JSON.parse(cached);
+  
+  if (!forceRefresh) {
+    const cached = await redis.get(key);
+    if (cached) return JSON.parse(cached);
+  }
 
   const pool = await getPool();
   const req = pool.request()

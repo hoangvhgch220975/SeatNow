@@ -1,10 +1,9 @@
 /**
- * bookingExpire.job.js - scheduled job to expire old pending bookings (placeholder)
+ * bookingExpire.job.js - scheduled job to expire old pending bookings
  */
 const cron = require('node-cron');
 const { sql, getPool } = require('../config/db');
 const availability = require('../services/availability_service');
-const bookingSql = require('../models/booking_sql');
 const bookingSvc = require('../services/booking_service');
 
 // Job để hủy các booking ở trạng thái PENDING quá hạn
@@ -12,7 +11,7 @@ async function expirePending() {
   const pool = await getPool();
   const min = parseInt(process.env.PENDING_EXPIRE_MIN || '15', 10);
 
-  // find pending bookings older than threshold and cancel them via bookingSql.cancelBooking
+  // Tìm các booking PENDING quá hạn
   const toExpire = await pool.request()
     .input('min', sql.Int, min)
     .query(`
@@ -24,9 +23,14 @@ async function expirePending() {
 
   for (const r of toExpire.recordset) {
     try {
-      const updated = await bookingSql.cancelBooking(r.id, ['PENDING'], null, '[AUTO_EXPIRED]');
+      // Sử dụng service thay vì SQL trực tiếp để kích hoạt Socket events (Zero-Latency)
+      const updated = await bookingSvc.cancel(r.id, null, '[AUTO_EXPIRED]');
       if (updated) {
-        await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
+        await availability.invalidateAvailability({ 
+          restaurantId: updated.restaurantId, 
+          bookingDate: updated.bookingDate, 
+          bookingTime: updated.bookingTime 
+        });
       }
     } catch (e) {
       console.warn('[job] expirePending cancel error', e.message || e);
@@ -39,7 +43,7 @@ async function markNoShow() {
   const pool = await getPool();
   const grace = parseInt(process.env.NO_SHOW_GRACE_MIN || '30', 10);
 
-  // find confirmed bookings past grace period and mark them NO_SHOW (use cancelBooking to set reason)
+  // Tìm các booking CONFIRMED đã quá giờ chờ
   const toNoShow = await pool.request()
     .input('grace', sql.Int, grace)
     .query(`
@@ -53,14 +57,14 @@ async function markNoShow() {
 
   for (const r of toNoShow.recordset) {
     try {
-      // use cancelBooking to set cancellationReason; keep NO_SHOW status by using updateStatus then set reason
-      const updated = await bookingSql.updateStatus(r.id, ['CONFIRMED'], 'NO_SHOW', 'cancelledAt');
+      // Sử dụng service thay vì SQL trực tiếp để kích hoạt Socket events (Zero-Latency)
+      const updated = await bookingSvc.noShow(r.id);
       if (updated) {
-        // set cancellationReason and cancelledBy (null)
-        const final = await bookingSql.cancelBooking(updated.id, ['NO_SHOW'], null, '[AUTO_NO_SHOW]');
-        if (final) {
-          await availability.invalidateAvailability({ restaurantId: final.restaurantId, bookingDate: final.bookingDate, bookingTime: final.bookingTime });
-        }
+        await availability.invalidateAvailability({ 
+          restaurantId: updated.restaurantId, 
+          bookingDate: updated.bookingDate, 
+          bookingTime: updated.bookingTime 
+        });
       }
     } catch (e) {
       console.warn('[job] markNoShow cancel error', e.message || e);
@@ -75,12 +79,12 @@ function startBookingJobs() {
     try { await markNoShow(); } catch (e) { console.warn('[job] markNoShow', e.message); }
   });
 
-  // Job chốt commission theo lịch (mặc định chạy mỗi ngày 01:30 UTC)
+  // Job chốt commission theo lịch
   const commissionCron = process.env.COMMISSION_SETTLE_CRON || '30 1 * * *';
   cron.schedule(commissionCron, async () => {
     try {
       const result = await bookingSvc.autoSettleCommissions();
-      if (result.length) {
+      if (result && result.length) {
         console.log('[job] autoSettleCommissions settled:', result.length, 'restaurants');
       }
     } catch (e) {

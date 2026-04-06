@@ -521,6 +521,23 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 | `GET`  | `/bookings/:id/qr`             | Lấy mã QR check-in               | ✅                | OWNER, ADMIN   |
 | `GET`  | `/bookings/:id/payment-status` | Kiểm tra trạng thái cọc          | ✅                | OWNER, ADMIN   |
 
+> [!NOTE]  
+> **QR Code (`GET /bookings/:id/qr`):** Trả về tệp tin hình ảnh trực tiếp (Content-Type: `image/png`). Frontend sử dụng thẻ `<img src=".../qr" />` để hiển thị.
+
+#### Response mẫu (Payment Status - 200 OK):
+
+```json
+{
+  "bookingId": "uuid",
+  "bookingCode": "BK...",
+  "depositRequired": true,
+  "depositAmount": 200000.0,
+  "depositPaid": 1,
+  "depositPaidAt": "2026-04-06T...",
+  "depositRefunded": 0
+}
+```
+
 #### Body mẫu (Create Booking – Guest):
 
 ```json
@@ -548,12 +565,67 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 }
 ```
 
+#### Response mẫu (Tạo mới thành công - 201 Created):
+
+```json
+{
+  "booking": {
+    "id": "7f0a1b2c-...",
+    "bookingCode": "BK20261225ABCD",
+    "customerId": "uuid | null",
+    "guestName": "Nguyen Van A",
+    "guestPhone": "+84901234567",
+    "restaurantId": "uuid",
+    "tableId": "uuid",
+    "bookingDate": "2026-12-25",
+    "bookingTime": "19:00",
+    "numGuests": 4,
+    "status": "PENDING",
+    "depositRequired": true,
+    "depositAmount": 200000.0,
+    "depositPaid": 0,
+    "checkinUrl": "http://.../checkin?bookingId=...",
+    "createdAt": "2026-04-06T...",
+    "updatedAt": "2026-04-06T..."
+  },
+  "depositRequired": true,
+  "depositAmount": 200000.0
+}
+```
+
 #### Query params cho Guest Lookup:
 
 | Param         | Type   | Mô tả               |
 | ------------- | ------ | ------------------- |
 | `bookingCode` | string | Mã booking          |
 | `guestPhone`  | string | Số điện thoại khách |
+
+#### Response mẫu (Chi tiết Booking - 200 OK):
+
+```json
+{
+  "id": "uuid",
+  "bookingCode": "BK...",
+  "status": "CONFIRMED",
+  "bookingDate": "2026-12-25",
+  "bookingTime": "19:00",
+  "numGuests": 4,
+  "depositPaid": 1,
+  "depositPaidAt": "2026-04-06T...",
+  "restaurantId": "uuid",
+  "createdAt": "...",
+  "updatedAt": "..."
+}
+```
+
+#### Response mẫu (Danh sách My Bookings - 200 OK):
+
+```json
+[
+  { "id": "uuid1", "bookingCode": "BK1", "status": "COMPLETED", "...": "..." },
+  { "id": "uuid2", "bookingCode": "BK2", "status": "PENDING", "...": "..." }
+]
+```
 
 ### 4.2 Quy tắc tính tiền cọc (Deposit Amount)
 
@@ -578,12 +650,51 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 | `PUT`  | `/bookings/:id/no-show`      | Không đến                          | ✅                | OWNER, ADMIN           |
 | `PUT`  | `/bookings/:id/cancel`       | Hủy booking (Customer/Owner/Admin) | ✅                | CUSTOMER, OWNER, ADMIN |
 | `PUT`  | `/bookings/:id/cancel/guest` | Hủy booking (Khách vãng lai)       | ❌ (optional JWT) | –                      |
+| `PUT`  | `/bookings/:id/modify`       | Chỉnh sửa / Đổi lịch đặt bàn     | ❌ (optional JWT) | Any                    |
 
-#### Body mẫu (Cancel):
+#### Body mẫu (Modify - Chỉnh sửa lịch):
+
+```json
+{
+  "bookingDate": "2026-12-26",
+  "bookingTime": "20:00",
+  "numGuests": 3,
+  "guestPhone": "+84901234567" 
+}
+```
+*(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xác minh quyền sở hữu đơn).*
+
+
+#### Body mẫu (Cancel - Dành cho Customer / Owner / Admin):
 
 ```json
 {
   "cancellationReason": "Ly do huy don"
+}
+```
+
+#### Body mẫu (Cancel - Dành riêng cho Khách vãng lai / Guest):
+
+```json
+{
+  "guestPhone": "+84901234567",
+  "cancellationReason": "Ly do huy don"
+}
+```
+
+> Đối với phương thức Hủy qua API `/bookings/:id/cancel/guest`, trường `guestPhone` là **RẤT QUAN TRỌNG VÀ BẮT BUỘC** nhằm xác minh quyền sở hữu booking dựa vào phiên đặt gốc. Nếu không truyền lên hoặc số điện thoại bị sai lệch, Server sẽ từ chối và trả về HTTP Status `403 Forbidden`.
+
+#### Response mẫu (Sau khi Hủy/Cập nhật trạng thái - 200 OK):
+
+```json
+{
+  "id": "uuid",
+  "bookingCode": "BK...",
+  "status": "CANCELLED",
+  "cancellationReason": "Ly do huy don",
+  "cancelledBy": "GUEST",
+  "depositRefunded": 1,
+  "updatedAt": "2026-04-06T..."
 }
 ```
 
@@ -592,6 +703,15 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 | Method | Endpoint                        | Mô tả                        | Auth |
 | ------ | ------------------------------- | ---------------------------- | ---- |
 | `GET`  | `/restaurants/:id/availability` | Kiểm tra bàn trống (slot 2h) | ❌   |
+
+#### Query params cho Availability:
+
+| Param     | Type    | Mô tả                                                                                                   |
+| --------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `date`    | string  | Ngày đặt (YYYY-MM-DD)                                                                                   |
+| `time`    | string  | Giờ đặt (HH:mm)                                                                                         |
+| `guests`  | number  | Số lượng khách                                                                                          |
+| `refresh` | boolean | `true` để ép buộc xóa cache Redis và truy vấn SQL mới nhất (Dùng cho đồng bộ dữ liệu nếu có sai lệch) |
 
 > ⚠️ **Quan trọng:** Endpoint này trên Booking Service sử dụng Redis Lock để loại trừ bàn đang bị "hold". Khi gọi qua Gateway, dùng: `/api/v1/booking-restaurants/:id/availability`
 
@@ -640,7 +760,7 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 Sự kiện này được phát ra ngay lập tức khi một bàn cụ thể có sự thay đổi về trạng thái, giúp Frontend cập nhật màu sắc bàn trên sơ đồ mà không cần gọi lại API.
 
 **Các trạng thái (`status`):**
-- `available`: Bàn trống hoàn toàn, có thể chọn (Màu xanh).
+- `available`: Bàn trống hoàn toàn, có thể chọn (Màu xanh). Được kích hoạt khi hết hạn Hold (2p), Hủy đơn, hoặc Booking hoàn thành/No-Show.
 - `held`: Bàn đang được người dùng khác nhấn chọn - giữ chỗ tạm 2 phút (Màu cam).
 - `occupied`: Bàn đã được đặt thành công - Booking ở trạng thái `PENDING` hoặc `CONFIRMED` (Màu đỏ).
 
@@ -669,8 +789,9 @@ Sự kiện này được phát ra ngay lập tức khi một bàn cụ thể c�
 
 ## 5️⃣ Payment Service (Port 3005)
 
-**Base path:** `/api/v1/payment`
+Hệ thống thanh toán chịu trách nhiệm xử lý các giao dịch đặt cọc (Deposit) cho Booking và nạp tiền (Top-up) vào ví nhà hàng qua cổng Momo/VNPay.
 
+**Base path:** `/api/v1/payment`
 | Method | Endpoint               | Mô tả                       | Auth     |
 | ------ | ---------------------- | --------------------------- | -------- |
 | `POST` | `/deposit/generate-qr` | Tạo QR thanh toán cọc       | Tùy      |
@@ -680,14 +801,95 @@ Sự kiện này được phát ra ngay lập tức khi một bàn cụ thể c�
 | `GET`  | `/wallet/transactions` | Lịch sử giao dịch ví        | Tùy      |
 | `POST` | `/wallet/withdraw`     | Yêu cầu rút tiền (Internal) | Internal |
 
-### Webhook/Return URLs (Public – không qua Gateway):
 
-| Method | Endpoint         | Mô tả                         |
-| ------ | ---------------- | ----------------------------- |
-| `POST` | `/webhook/momo`  | Momo IPN callback             |
-| `POST` | `/webhook/vnpay` | VNPay IPN callback            |
-| `GET`  | `/return/momo`   | Momo redirect sau thanh toán  |
-| `GET`  | `/return/vnpay`  | VNPay redirect sau thanh toán |
+### 💵 5.1 QR Code / Redirect Link Generation
+
+Sử dụng Endpoint này để lấy URL thanh toán. Frontend sẽ redirect người dùng sang cổng thanh toán tương ứng.
+
+| Method | Endpoint               | Mô tả                       | Auth          |
+| ------ | ---------------------- | --------------------------- | ------------- |
+| `POST` | `/deposit/generate-qr` | Tạo link thanh toán cọc     | ✅ (optional) |
+| `POST` | `/wallet/topup/create` | Tạo link nạp tiền vào ví    | ✅            |
+| `GET`  | `/transaction/:id`     | Tra cứu trạng thái giao dịch| ✅            |
+
+#### 📥 Request Body (Deposit):
+
+```json
+{
+  "bookingId": "4A3B2C1D-E5F6-4A7B-8C9D-0E1A2B3D4F5E",
+  "provider": "MOMO" // Hoặc "VNPAY"
+}
+```
+
+#### 📥 Request Body (Wallet Top-up):
+
+```json
+{
+  "restaurantId": "CBB0BE6F-D2DB-4A17-8951-EB6E53A44EFD",
+  "provider": "MOMO", // Hoặc "VNPAY"
+  "amount": 500000
+}
+```
+
+#### 📤 Response Body mẫu (Momo):
+
+```json
+{
+  "success": true,
+  "data": {
+    "transactionId": "TXN_123456",
+    "referenceCode": "DEP-240405-ABCD",
+    "provider": "MOMO",
+    "amount": 500000,
+    "currency": "VND",
+    "paymentUrl": "https://test-payment.momo.vn/...", // Web redirect
+    "deeplink": "momo://app?action=...", // App-to-App
+    "qrCodeUrl": "https://static.momo.vn/..." // Static QR Image
+  }
+}
+```
+
+### 🔁 5.2 Quy trình Thanh toán (Lifecycle)
+
+Hệ thống xử lý thanh toán theo mô hình Redirect & Webhook (IPN).
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend (Web/App)
+    participant BE as Payment Service
+    participant PV as Provider (Momo/VNPay)
+
+    FE->>BE: POST /deposit/generate-qr (provider)
+    BE-->>FE: Return paymentUrl / deeplink
+    FE->>PV: Redirect người dùng sang URL thanh toán
+    PV->>FE: Sau khi trả tiền, Redirect về returnUrl (UI)
+    PV->>BE: Gửi Webhook ngầm (IPN) xác nhận thành công
+    BE->>BE: Cập nhật trạng thái Booking/Wallet
+```
+
+#### 📍 Lưu ý cho Frontend:
+1.  **Chuyển hướng (Redirect)**: Ngay khi nhận được `paymentUrl`, Frontend cần thực hiện redirect người dùng.
+2.  **Trang kết quả (Return Page)**: Gateway sẽ proxy kết quả trả về từ cổng thanh toán tới URL đã cấu hình cho Frontend.
+3.  **Tra cứu (Polling)**: Nếu chưa nhận được tín hiệu từ Socket, FE có thể gọi API `GET /transaction/:id` để kiểm tra trạng thái giao dịch.
+
+### 🌐 5.3 Webhook & Return URLs (Public)
+
+Các URL này do Cổng thanh toán gọi trực tiếp:
+
+| Method | Endpoint         | Mô tả                                   |
+| ------ | ---------------- | --------------------------------------- |
+| `POST` | `/webhook/momo`  | Momo Notify URL (Xử lý giao dịch ngầm)  |
+| `POST` | `/webhook/vnpay` | VNPay IPN URL (Xử lý giao dịch ngầm)     |
+| `GET`  | `/return/momo`   | Redirect trở lại UI sau khi trả tiền    |
+| `GET`  | `/return/vnpay`  | Redirect trở lại UI sau khi trả tiền    |
+
+#### 💳 Wallet & Withdrawals (Chủ nhà hàng / Admin)
+
+| Method | Endpoint               | Mô tả                         | Auth     |
+| ------ | ---------------------- | --------------------------- | -------- |
+| `GET`  | `/wallet/balance`      | Kiểm tra số dư ví nhà hàng    | ✅       |
+| `GET`  | `/wallet/transactions` | Lịch sử giao dịch ví          | ✅       |
+| `POST` | `/wallet/withdraw`     | Yêu cầu rút tiền từ ví        | ✅       |
 
 ---
 

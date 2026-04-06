@@ -22,8 +22,8 @@ r.get('/bookings/guest/lookup', c.guestLookup);
 // Kiểm tra bàn trống (public)
 r.get('/restaurants/:id/availability', rateLimit({ limit: 60, windowSec: 60, key: 'availability' }), c.availability);
 
-// Khách vãng lai hủy booking (không yêu cầu xác thực khách hàng)
-r.put('/bookings/:id/cancel/guest', optionalAuth, rateLimit({ limit: 10, windowSec: 60, key: 'guest_cancel' }), c.cancel);
+// Khách vãng lai hủy booking (Bắt buộc đính kèm trường guestPhone trong JSON Body để xác thực)
+r.put('/bookings/:id/cancel/guest', optionalAuth, rateLimit({ limit: 10, windowSec: 60, key: 'guest_cancel' }), c.guestCancel);
 
 // Kiểm tra tình trạng đặt cọc (khách vãng lai/khách hàng/chủ nhà hàng)
 r.get('/bookings/:id/payment-status', jwt.requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), c.paymentStatus);
@@ -38,6 +38,9 @@ r.get('/bookings/:id', jwt.requireAuth, c.getBooking);
 
 // Hủy booking (Khách hàng tự hủy, hoặc Chủ nhà hàng/Admin hủy)
 r.put('/bookings/:id/cancel', jwt.requireAuth, requireRole('CUSTOMER', 'RESTAURANT_OWNER', 'ADMIN'), c.cancel);
+
+// Chỉnh sửa / Đổi lịch đặt bàn (Modify/Reschedule) - Hỗ trợ cả Guest và Customer
+r.put('/bookings/:id/modify', optionalAuth, c.modify);
 
 // --- Chủ nhà hàng / Admin (Owner / Admin) ---------------------------------
 // Danh sách booking của một nhà hàng (dành cho chủ nhà hàng/admin)

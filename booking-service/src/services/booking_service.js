@@ -141,14 +141,16 @@ async function createBooking({ actor, body }) {
       specialRequests: body.specialRequests || null,
 
       depositRequired,
-      depositAmount,
+      depositAmount: body.depositPaid ? (body.depositAmount || depositAmount) : depositAmount,
+      depositPaid: body.depositPaid ? 1 : 0,
+      depositPaidAt: body.depositPaid ? (body.depositPaidAt || new Date()) : null,
       commissionFee
     });
 
     // Emit realtime events: booking created and availability changed
     try {
       socket.emitBookingChanged({ restaurantId: body.restaurantId, customerId: actor?.id, payload: { type: 'created', booking: row } });
-      socket.emitAvailabilityChanged(body.restaurantId, { bookingDate: body.bookingDate, bookingTime: body.bookingTime });
+      await availability.invalidateAvailability({ restaurantId: body.restaurantId, bookingDate: body.bookingDate, bookingTime: body.bookingTime });
       
       // Notify Restaurant Owner via Web Socket (Dashboard)
       notificationQueue.add({
@@ -422,7 +424,104 @@ async function complete(idOrCode) {
   return updated;
 }
 
-// PENDING/CONFIRMED -> CANCELLED
+// ============================================
+// HỦY BOOKING DÀNH RIÊNG CHO KHÁCH VÃNG LAI (BẢO MẬT SDT)
+// ============================================
+async function guestCancel(idOrCode, guestPhone, cancellationReason = null) {
+  let id = idOrCode;
+  if (!bookingSql.isValidGuid(idOrCode)) {
+    const b = await bookingSql.findByCode(idOrCode);
+    if (!b) { const e = new Error('Booking not found'); e.status = 404; throw e; }
+    id = b.id;
+  }
+  const booking = await bookingSql.findById(id);
+  if (!booking) { const e = new Error('Booking not found'); e.status = 404; throw e; }
+
+  // Kiểm tra tính hợp lệ của số điện thoại: Chỉ cho Hủy khi số truyền vào khớp với SDT đã chốt lúc đặt 
+  const _norm = (p) => String(p || '').replace(/\s+/g, '').replace(/^\+/, '');
+  const originalPhone = _norm(booking.guestPhone);
+  const inputPhone = _norm(guestPhone);
+
+  if (!inputPhone || originalPhone !== inputPhone) {
+    const e = new Error('Forbidden: You cannot cancel this booking without verifying the correct guest phone number');
+    e.status = 403;
+    throw e;
+  }
+
+  // Khách vãng lai tự hủy: Hiển thị GUEST trên Sổ cái
+  const cancelledBy = 'GUEST';
+
+  // Điều kiện hoàn tiền tự động: Nếu cách giờ vào bàn quá 3 tiếng -> Hoàn cọc (Nguồn logic mượn từ cơ chế Customer cũ)
+  let shouldRefund = false;
+  try {
+    const bDate = new Date(booking.bookingDate);
+    const year = bDate.getUTCFullYear();
+    const month = bDate.getUTCMonth();
+    const day = bDate.getUTCDate();
+
+    let hours = 0, minutes = 0;
+    if (booking.bookingTime instanceof Date) {
+      hours = booking.bookingTime.getUTCHours();
+      minutes = booking.bookingTime.getUTCMinutes();
+    } else if (typeof booking.bookingTime === 'string') {
+      const parts = booking.bookingTime.split(':');
+      hours = parseInt(parts[0], 10);
+      minutes = parseInt(parts[1], 10);
+    }
+    
+    // Gộp thành giờ hệ thống để so sánh với thời gian thực
+    const startTime = new Date(year, month, day, hours, minutes, 0, 0);
+    const now = new Date();
+    const diffMs = startTime.getTime() - now.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    if (diffHours >= 3) {
+      shouldRefund = true;
+    }
+  } catch (e) {
+    console.error('[GuestCancel] Error calculating refund window:', e);
+  }
+
+  const updated = await bookingSql.cancelBooking(id, ['PENDING','CONFIRMED'], cancelledBy, cancellationReason, shouldRefund);
+  if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
+  
+  await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
+  
+  // Trả bàn về màu xanh (available)
+  try {
+    socket.emitTableStatusChanged({
+      restaurantId: updated.restaurantId,
+      tableId: updated.tableId,
+      bookingDate: formatDate(updated.bookingDate),
+      bookingTime: formatTime(updated.bookingTime),
+      status: 'available'
+    });
+  } catch (e) {}
+
+  // Đánh API thông báo
+  try { 
+    socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: null, payload: { type: 'cancelled', booking: updated } }); 
+    
+    const r = await bookingSql.getRestaurant(updated.restaurantId);
+    if (r && r.ownerId) {
+      // Nhắc nhở Chủ nhà hàng qua Dashboard
+      notificationQueue.add({
+        type: 'web',
+        payload: {
+          userId: r.ownerId,
+          event: 'booking_cancelled',
+          message: updated.depositRefunded 
+              ? `Guest cancelled: ${updated.bookingCode}. REFUND REQUIRED: ${updated.depositAmount} ${updated.currency || 'VND'}`
+              : `Guest cancelled: ${updated.bookingCode}`,
+          data: { booking: updated }
+        }
+      });
+    }
+  } catch (e) {}
+  return updated;
+}
+
+// PENDING/CONFIRMED -> CANCELLED (LUỒNG CŨ CHO CUSTOMER / ADMIN)
 async function cancel(idOrCode, actor = null, cancellationReason = null) {
   let id = idOrCode;
   if (!bookingSql.isValidGuid(idOrCode)) {
@@ -522,7 +621,9 @@ async function cancel(idOrCode, actor = null, cancellationReason = null) {
           payload: {
             userId: r.ownerId,
             event: 'booking_cancelled',
-            message: `Customer cancelled: ${updated.bookingCode}`,
+            message: updated.depositRefunded 
+              ? `Customer cancelled: ${updated.bookingCode}. REFUND REQUIRED: ${updated.depositAmount} ${updated.currency || 'VND'}`
+              : `Customer cancelled: ${updated.bookingCode}`,
             data: { booking: updated }
           }
         });
@@ -583,6 +684,78 @@ async function noShow(idOrCode) {
 
   try { socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'no_show', booking: updated } }); } catch (e) {}
   return updated;
+}
+
+// ============================================
+// CHỈNH SỬA / ĐỔI LỊCH (MODIFY / RESCHEDULE)
+// ============================================
+async function modifyBooking({ id, actor, body }) {
+  const original = await bookingSql.findById(id);
+  if (!original) { const e = new Error('Original booking not found'); e.status = 404; throw e; }
+
+  // 1. Kiểm tra Quyền làm chủ (Bảo mật như luồng Cancel)
+  if (actor) {
+    if (original.customerId && String(original.customerId) !== String(actor.id)) {
+      const e = new Error('Forbidden: You can only modify your own booking'); e.status = 403; throw e;
+    }
+  } else {
+    // Đối với Guest: SDT trong body mới phải khớp với SDT trong bản ghi cũ
+    const _norm = (p) => String(p || '').replace(/\s+/g, '').replace(/^\+/, '');
+    if (!body.guestPhone || _norm(body.guestPhone) !== _norm(original.guestPhone)) {
+      const e = new Error('Forbidden: Guest phone verification failed for modification'); e.status = 403; throw e;
+    }
+  }
+
+  // 2. Chỉ cho sửa những đơn chưa quá hạn hoặc đã tới nơi
+  if (!['PENDING', 'CONFIRMED'].includes(original.status)) {
+    const e = new Error('Status not eligible for modification'); e.status = 409; throw e;
+  }
+
+  // 3. Kiểm tra điều kiện hoàn cọc (3 tiếng) để quyết định có được "Carry over" tiền cọc không
+  let canCarryDeposit = false;
+  try {
+    const bDate = new Date(original.bookingDate);
+    const year = bDate.getUTCFullYear();
+    const month = bDate.getUTCMonth();
+    const day = bDate.getUTCDate();
+    let hours = 0, minutes = 0;
+    if (original.bookingTime instanceof Date) {
+      hours = original.bookingTime.getUTCHours();
+      minutes = original.bookingTime.getUTCMinutes();
+    } else if (typeof original.bookingTime === 'string') {
+      const parts = original.bookingTime.split(':');
+      hours = parseInt(parts[0], 10);
+      minutes = parseInt(parts[1], 10);
+    }
+    const startTime = new Date(year, month, day, hours, minutes, 0, 0);
+    const now = new Date();
+    const diffHours = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    // Nếu đơn cũ đã cọc VÀ sửa đổi trước 3 tiếng
+    if (original.depositPaid && diffHours >= 3) {
+      canCarryDeposit = true;
+    }
+  } catch (e) {
+    console.error('[ModifyBooking] Refund calculation error:', e);
+  }
+
+  // 4. Hủy đơn cũ (Sử dụng hàm cancel đã có để thông báo tới Nhà hàng)
+  const reason = `Rescheduled to new booking. Original: ${original.bookingCode}`;
+  await cancel(id, actor, reason);
+
+  // 5. Tạo đơn mới (Để Pending theo yêu cầu)
+  const createPayload = {
+    ...body,
+    restaurantId: original.restaurantId, // Giữ nguyên nhà hàng
+    depositPaid: canCarryDeposit ? 1 : 0,
+    depositPaidAt: canCarryDeposit ? original.depositPaidAt : null,
+    depositAmount: canCarryDeposit ? original.depositAmount : null // Giữ nguyên số tiền đã cọc (Carry over)
+  };
+
+  const result = await createBooking({ actor, body: createPayload });
+  console.log(`[ModifyBooking] Successfully moved ${original.bookingCode} -> ${result.booking.bookingCode}. Carry-over: ${canCarryDeposit}`);
+
+  return result;
 }
 
 // Lấy chi tiết booking kèm thông tin restaurant (dùng cho access control và trả về dữ liệu)
@@ -721,6 +894,8 @@ module.exports = {
   arrived,
   complete,
   cancel,
+  guestCancel,
+  modifyBooking,
   noShow,
   getPaymentStatus,
   paymentSuccess,

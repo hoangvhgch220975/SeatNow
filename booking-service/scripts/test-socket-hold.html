@@ -268,6 +268,7 @@
           <option value="Rooftop">Rooftop</option>
         </select>
         <button onclick="checkAvailability()" class="secondary">Refresh Map</button>
+        <button onclick="checkAvailability(true)" class="danger">Sync Map (Bypass Cache)</button>
       </div>
       
       <div id="countdown" class="countdown" style="display:none;">
@@ -446,7 +447,7 @@
       }
     }
 
-    async function checkAvailability() {
+    async function checkAvailability(forceRefresh = false) {
       const restaurantId = document.getElementById('restaurantId').value;
       const date = document.getElementById('bookingDate').value;
       const time = document.getElementById('bookingTime').value;
@@ -462,9 +463,12 @@
         let tablesUrl = `${serverUrl}/api/v1/restaurants/${restaurantId}/tables`;
         if (location) tablesUrl += `?location=${encodeURIComponent(location)}`;
 
+        let availUrl = `${serverUrl}/api/v1/booking-restaurants/${restaurantId}/availability?date=${date}&time=${time}&guests=1`;
+        if (forceRefresh) availUrl += '&refresh=true';
+
         const [resAll, resAvail] = await Promise.all([
           fetch(tablesUrl, { headers }),
-          fetch(`${serverUrl}/api/v1/booking-restaurants/${restaurantId}/availability?date=${date}&time=${time}&guests=1`)
+          fetch(availUrl)
         ]);
 
         const dataAll = await resAll.json();
@@ -568,6 +572,14 @@
         opt.value = opt.textContent = time;
         select.appendChild(opt);
       }
+      
+      // Tự động làm mới dữ liệu sau mỗi 30 giây (Self-healing fallback)
+      setInterval(() => {
+        if (socket && socket.connected) {
+          log('🔄 Auto-syncing map from server (force refresh)...', 'info');
+          checkAvailability(true);
+        }
+      }, 30000);
     });
   </script>
 </body>
