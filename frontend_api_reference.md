@@ -772,6 +772,8 @@ _(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xá
       "totalBookings": 450,
       "totalRevenue": 135000000,
       "totalGrossRevenue": 150000000,
+      "portfolioTotalReviews": 1200,
+      "portfolioRatingAvg": 4.85,
       "guestSizeCounts": {
         "couple": 240,
         "percentCouple": 53.33,

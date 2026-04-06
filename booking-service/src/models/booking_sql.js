@@ -460,7 +460,9 @@ async function getOwnerPortfolioSummary(ownerId, { from, to } = {}) {
       SUM(CASE WHEN b.numGuests = 2 THEN 1 ELSE 0 END) AS countCouple,
       SUM(CASE WHEN b.numGuests BETWEEN 4 AND 6 THEN 1 ELSE 0 END) AS countSmallGroup,
       SUM(CASE WHEN b.numGuests >= 8 THEN 1 ELSE 0 END) AS countParty,
-      COUNT(DISTINCT r.id) AS totalRestaurants
+      COUNT(DISTINCT r.id) AS totalRestaurants,
+      ISNULL(SUM(r.ratingCount), 0) AS portfolioTotalReviews,
+      ISNULL(SUM(r.ratingAvg * r.ratingCount) / NULLIF(SUM(r.ratingCount), 0), 0) AS portfolioRatingAvg
     FROM dbo.Restaurants r
     LEFT JOIN dbo.Bookings b ON r.id = b.restaurantId ${dateFilter}
     WHERE r.ownerId = @ownerId
@@ -529,6 +531,8 @@ async function getOwnerPortfolioSummary(ownerId, { from, to } = {}) {
       totalCancelled,
       totalNoShow,
       cancellationRate: parseFloat(globalCancellationRate.toFixed(4)),
+      portfolioTotalReviews: Number(globalStats.portfolioTotalReviews || 0),
+      portfolioRatingAvg: parseFloat(Number(globalStats.portfolioRatingAvg || 0).toFixed(2)),
       guestSizeCounts: {
         couple: Number(globalStats.countCouple || 0),
         smallGroup: Number(globalStats.countSmallGroup || 0),
