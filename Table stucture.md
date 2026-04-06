@@ -231,6 +231,8 @@ Wallets CK_Wallets_Currency CHECK
 Wallets CK_Wallets_Status CHECK
 Wallets CK_Wallets_Owner CHECK
 Wallets FK_Wallets_restaurant FOREIGN KEY
+Notifications PK_Notifications PRIMARY KEY
+Notifications CK_Notifications_type CHECK
 
 ## Detail:
 
@@ -289,6 +291,7 @@ Users UQ**Users**AB6E6164CCA1F461 NONCLUSTERED email
 Users UQ**Users**B43B145FB44FBB8D NONCLUSTERED phone
 Wallets UQ_Wallets_RestaurantId NONCLUSTERED restaurantId
 Wallets UQ_Wallets_UserOnly NONCLUSTERED userId
+Notifications IX_Notifications_ownerId NONCLUSTERED ownerId
 
 ## Contraints Values:
 
