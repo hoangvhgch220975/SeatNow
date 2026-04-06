@@ -422,7 +422,7 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
       "comment": "Ngon quá!",
       "customerName": "Nguyen Van A",
       "customerAvatar": "https://...",
-      "createdAt": "2024-03-14T..."
+      "createdAt": "2026-03-14T..."
     }
   ],
   "total": 15,
@@ -742,6 +742,7 @@ _(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xá
     "restaurantId": "uuid",
     "totalBookings": 150,
     "totalRevenue": 45000000,
+    "totalGrossRevenue": 50000000,
     "totalCancelled": 12,
     "totalNoShow": 5,
     "cancellationRate": 0.1133,
@@ -770,6 +771,7 @@ _(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xá
     "summary": {
       "totalBookings": 450,
       "totalRevenue": 135000000,
+      "totalGrossRevenue": 150000000,
       "guestSizeCounts": {
         "couple": 240,
         "percentCouple": 53.33,
@@ -789,6 +791,7 @@ _(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xá
         "name": "Restaurant A",
         "totalBookings": 200,
         "totalRevenue": 60000000,
+        "totalGrossRevenue": 65000000,
         "guestSizeCounts": { "couple": 100, "smallGroup": 70, "party": 30 }
       }
     ]
