@@ -623,17 +623,80 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
     req.input('to', sql.Date, to);
   }
 
-  const query = `
-    SELECT
-      ${periodExpr} AS timePeriod,
-      COUNT(id) AS totalBookings,
-      ISNULL(SUM(depositAmount - ISNULL(commissionFee, 0)), 0) AS totalRevenue,
-      ISNULL(SUM(numGuests), 0) AS totalGuests
-    FROM dbo.Bookings
-    WHERE ${where.join(' AND ')}
-    GROUP BY ${periodExpr}
-    ORDER BY ${periodExpr} ASC
-  `;
+  let query = '';
+
+  if (period === 'hour') {
+    query = `
+      WITH Hours AS (
+        SELECT 0 AS h UNION ALL SELECT h + 2 FROM Hours WHERE h < 22
+      )
+      SELECT 
+        RIGHT('0' + CAST(h AS VARCHAR(2)), 2) + ':00' AS timePeriod,
+        COUNT(b.id) AS totalBookings,
+        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+      FROM Hours
+      LEFT JOIN dbo.Bookings b ON FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2) * 2 = Hours.h
+        AND b.restaurantId = @restaurantId
+        AND b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0
+        ${from ? 'AND b.bookingDate >= @from' : ''}
+        ${to ? 'AND b.bookingDate <= @to' : ''}
+      GROUP BY h
+      ORDER BY h ASC
+    `;
+  } else if (period === 'day') {
+    // Generate 7 days for the week view
+    query = `
+      WITH DateCTE AS (
+        SELECT CAST(@from AS DATE) AS d
+        UNION ALL
+        SELECT DATEADD(day, 1, d) FROM DateCTE WHERE d < CAST(@to AS DATE)
+      )
+      SELECT 
+        FORMAT(DateCTE.d, 'yyyy-MM-dd') AS timePeriod,
+        COUNT(b.id) AS totalBookings,
+        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+      FROM DateCTE
+      LEFT JOIN dbo.Bookings b ON CAST(b.bookingDate AS DATE) = DateCTE.d
+        AND b.restaurantId = @restaurantId
+        AND b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0
+      GROUP BY DateCTE.d
+      ORDER BY DateCTE.d ASC
+    `;
+  } else if (period === 'week') {
+    // Generate 5 weeks for the month view
+    query = `
+      WITH WeekCTE AS (
+        SELECT 1 AS w UNION ALL SELECT w + 1 FROM WeekCTE WHERE w < 5
+      )
+      SELECT 
+        CONCAT('Week ', WeekCTE.w) AS timePeriod,
+        COUNT(b.id) AS totalBookings,
+        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+      FROM WeekCTE
+      LEFT JOIN dbo.Bookings b ON (DATEPART(day, b.bookingDate) - 1) / 7 + 1 = WeekCTE.w
+        AND b.restaurantId = @restaurantId
+        AND b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0
+        ${from ? 'AND b.bookingDate >= @from' : ''}
+        ${to ? 'AND b.bookingDate <= @to' : ''}
+      GROUP BY WeekCTE.w
+      ORDER BY WeekCTE.w ASC
+    `;
+  } else {
+    query = `
+      SELECT
+        ${periodExpr} AS timePeriod,
+        COUNT(id) AS totalBookings,
+        ISNULL(SUM(depositAmount - ISNULL(commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(numGuests), 0) AS totalGuests
+      FROM dbo.Bookings
+      WHERE ${where.join(' AND ')}
+      GROUP BY ${periodExpr}
+      ORDER BY timePeriod ASC
+    `;
+  }
 
   const rs = await req.query(query);
   return rs.recordset || [];
@@ -658,13 +721,19 @@ async function getHourlyBookingStats(restaurantId, { from, to } = {}) {
   }
 
   const query = `
-    SELECT
-      RIGHT('0' + CAST(FLOOR(CAST(LEFT(bookingTime, 2) AS INT) / 2) * 2 AS VARCHAR(2)), 2) + ':00' AS hour,
-      COUNT(id) AS count
-    FROM dbo.Bookings
-    WHERE ${where.join(' AND ')}
-    GROUP BY FLOOR(CAST(LEFT(bookingTime, 2) AS INT) / 2)
-    ORDER BY hour ASC
+    WITH Hours AS (
+      SELECT 0 AS h UNION ALL SELECT h + 2 FROM Hours WHERE h < 22
+    )
+    SELECT 
+      RIGHT('0' + CAST(h AS VARCHAR(2)), 2) + ':00' AS hour,
+      COUNT(b.id) AS count
+    FROM Hours
+    LEFT JOIN dbo.Bookings b ON FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2) * 2 = Hours.h
+      AND b.restaurantId = @restaurantId
+      ${from ? 'AND b.bookingDate >= @from' : ''}
+      ${to ? 'AND b.bookingDate <= @to' : ''}
+    GROUP BY h
+    ORDER BY h ASC
   `;
 
   const rs = await req.query(query);
@@ -690,14 +759,19 @@ async function getOwnerHourlyBookingStats(ownerId, { from, to } = {}) {
   }
 
   const query = `
-    SELECT
-      RIGHT('0' + CAST(FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2) * 2 AS VARCHAR(2)), 2) + ':00' AS hour,
+    WITH Hours AS (
+      SELECT 0 AS h UNION ALL SELECT h + 2 FROM Hours WHERE h < 22
+    )
+    SELECT 
+      RIGHT('0' + CAST(h AS VARCHAR(2)), 2) + ':00' AS hour,
       COUNT(b.id) AS count
-    FROM dbo.Bookings b
-    JOIN dbo.Restaurants r ON b.restaurantId = r.id
-    WHERE ${where.join(' AND ')}
-    GROUP BY FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2)
-    ORDER BY hour ASC
+    FROM Hours
+    LEFT JOIN dbo.Bookings b ON FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2) * 2 = Hours.h
+      INNER JOIN dbo.Restaurants r ON b.restaurantId = r.id AND r.ownerId = @ownerId
+      ${from ? 'AND b.bookingDate >= @from' : ''}
+      ${to ? 'AND b.bookingDate <= @to' : ''}
+    GROUP BY h
+    ORDER BY h ASC
   `;
 
   const rs = await req.query(query);
@@ -740,18 +814,81 @@ async function getOwnerRevenueStatistics(ownerId, { period = 'month', from, to }
     req.input('to', sql.Date, to);
   }
 
-  const query = `
-    SELECT
-      ${periodExpr} AS timePeriod,
-      COUNT(b.id) AS totalBookings,
-      ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
-      ISNULL(SUM(b.numGuests), 0) AS totalGuests
-    FROM dbo.Bookings b
-    JOIN dbo.Restaurants r ON b.restaurantId = r.id
-    WHERE ${where.join(' AND ')}
-    GROUP BY ${periodExpr}
-    ORDER BY ${periodExpr} ASC
-  `;
+  let query = '';
+
+  if (period === 'hour') {
+    query = `
+      WITH Hours AS (
+        SELECT 0 AS h UNION ALL SELECT h + 2 FROM Hours WHERE h < 22
+      )
+      SELECT 
+        RIGHT('0' + CAST(h AS VARCHAR(2)), 2) + ':00' AS timePeriod,
+        COUNT(b.id) AS totalBookings,
+        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+      FROM Hours
+      LEFT JOIN dbo.Bookings b ON FLOOR(CAST(LEFT(b.bookingTime, 2) AS INT) / 2) * 2 = Hours.h
+        INNER JOIN dbo.Restaurants r ON b.restaurantId = r.id AND r.ownerId = @ownerId
+        AND b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0
+        ${from ? 'AND b.bookingDate >= @from' : ''}
+        ${to ? 'AND b.bookingDate <= @to' : ''}
+      GROUP BY h
+      ORDER BY h ASC
+    `;
+  } else if (period === 'day') {
+    // Generate 7 days for the portfolio week view
+    query = `
+      WITH DateCTE AS (
+        SELECT CAST(@from AS DATE) AS d
+        UNION ALL
+        SELECT DATEADD(day, 1, d) FROM DateCTE WHERE d < CAST(@to AS DATE)
+      )
+      SELECT 
+        FORMAT(DateCTE.d, 'yyyy-MM-dd') AS timePeriod,
+        COUNT(b.id) AS totalBookings,
+        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+      FROM DateCTE
+      LEFT JOIN dbo.Bookings b ON CAST(b.bookingDate AS DATE) = DateCTE.d
+        AND b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0
+        INNER JOIN dbo.Restaurants r ON b.restaurantId = r.id AND r.ownerId = @ownerId
+      GROUP BY DateCTE.d
+      ORDER BY DateCTE.d ASC
+    `;
+  } else if (period === 'week') {
+    // Generate 5 weeks for the portfolio month view
+    query = `
+      WITH WeekCTE AS (
+        SELECT 1 AS w UNION ALL SELECT w + 1 FROM WeekCTE WHERE w < 5
+      )
+      SELECT 
+        CONCAT('Week ', WeekCTE.w) AS timePeriod,
+        COUNT(b.id) AS totalBookings,
+        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+      FROM WeekCTE
+      LEFT JOIN dbo.Bookings b ON (DATEPART(day, b.bookingDate) - 1) / 7 + 1 = WeekCTE.w
+        INNER JOIN dbo.Restaurants r ON b.restaurantId = r.id AND r.ownerId = @ownerId
+        AND b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0
+        ${from ? 'AND b.bookingDate >= @from' : ''}
+        ${to ? 'AND b.bookingDate <= @to' : ''}
+      GROUP BY WeekCTE.w
+      ORDER BY WeekCTE.w ASC
+    `;
+  } else {
+    query = `
+      SELECT
+        ${periodExpr} AS timePeriod,
+        COUNT(b.id) AS totalBookings,
+        ISNULL(SUM(b.depositAmount - ISNULL(b.commissionFee, 0)), 0) AS totalRevenue,
+        ISNULL(SUM(b.numGuests), 0) AS totalGuests
+      FROM dbo.Bookings b
+      JOIN dbo.Restaurants r ON b.restaurantId = r.id
+      WHERE ${where.join(' AND ')}
+      GROUP BY ${periodExpr}
+      ORDER BY timePeriod ASC
+    `;
+  }
 
   const rs = await req.query(query);
   return rs.recordset || [];
