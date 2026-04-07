@@ -332,7 +332,7 @@
           }
         },
         {
-          "name": "Get Owner Portfolio Summary",
+          "name": "Get Owner Portfolio Summary (MoM)",
           "event": [
             {
               "listen": "test",
@@ -342,9 +342,10 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "const res = pm.response.json();",
-                  "pm.test('Has summary with guestSizeCounts', function () {",
-                  "    pm.expect(res.data.summary).to.have.property('guestSizeCounts');",
-                  "    pm.expect(res.data.summary.guestSizeCounts).to.have.property('couple');",
+                  "pm.test('Has summary and comparisons', function () {",
+                  "    pm.expect(res.data.summary).to.have.property('totalRevenue');",
+                  "    pm.expect(res.data).to.have.property('comparisons');",
+                  "    pm.expect(res.data.comparisons).to.have.property('revenueGrowth');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -355,18 +356,14 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
-              "raw": "{{baseUrl}}/owner/portfolio-summary?from=2026-01-01&to=2026-12-31",
+              "raw": "{{baseUrl}}/owner/portfolio-summary",
               "host": ["{{baseUrl}}"],
-              "path": ["owner", "portfolio-summary"],
-              "query": [
-                { "key": "from", "value": "2026-01-01" },
-                { "key": "to", "value": "2026-12-31" }
-              ]
+              "path": ["owner", "portfolio-summary"]
             }
           }
         },
         {
-          "name": "Get Individual Restaurant Stats Summary",
+          "name": "Get Owner Portfolio Revenue Stats (Timeline)",
           "event": [
             {
               "listen": "test",
@@ -376,9 +373,8 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "const res = pm.response.json();",
-                  "pm.test('Has guestSizeCounts', function () {",
-                  "    pm.expect(res.data).to.have.property('guestSizeCounts');",
-                  "    pm.expect(res.data.guestSizeCounts).to.have.property('smallGroup');",
+                  "pm.test('Response is array', function () {",
+                  "    pm.expect(res.data).to.be.an('array');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -389,13 +385,41 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
-              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/stats-summary?from=2026-01-01&to=2026-12-31",
+              "raw": "{{baseUrl}}/owner/revenue-stats?period=month",
               "host": ["{{baseUrl}}"],
-              "path": ["restaurants", "{{restaurantId}}", "stats-summary"],
-              "query": [
-                { "key": "from", "value": "2026-01-01" },
-                { "key": "to", "value": "2026-12-31" }
-              ]
+              "path": ["owner", "revenue-stats"],
+              "query": [{ "key": "period", "value": "month" }]
+            }
+          }
+        },
+        {
+          "name": "Get Restaurant Stats Summary (MoM)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Has KPI and comparisons', function () {",
+                  "    pm.expect(res.data).to.have.property('totalRevenue');",
+                  "    pm.expect(res.data).to.have.property('comparisons');",
+                  "    pm.expect(res.data.comparisons).to.have.property('bookingsGrowth');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/stats-summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["restaurants", "{{restaurantId}}", "stats-summary"]
             }
           }
         },
