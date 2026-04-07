@@ -63,8 +63,11 @@ router.delete('/restaurants/:id', requireAuth, requireRole('RESTAURANT_OWNER', '
 router.get('/restaurants/:id/availability', restaurantCtl.availability);
 
 // ==================================================
-// STATISTICS (Global & Single)
+// STATISTICS (Global & Single) & PORTFOLIO
 // ==================================================
+// Lấy danh sách tất cả nhà hàng của Owner - GET /api/v1/portfolio/restaurants
+router.get('/portfolio/restaurants', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), restaurantCtl.getPortfolioRestaurants);
+
 // Lấy thông tin Portfolio tổng hợp (cho chủ chuỗi) - GET /api/v1/portfolio/summary
 router.get('/portfolio/summary', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), restaurantCtl.portfolioSummary);
 // Lấy thông tin Summary cho duy nhất một nhà hàng - GET /api/v1/restaurants/:id/stats-summary

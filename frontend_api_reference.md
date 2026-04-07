@@ -730,7 +730,8 @@ _(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xá
 | `GET`  | `/restaurants/:id/stats/hourly`        | Phân bổ giờ đặt bàn     | ✅   | OWNER, ADMIN |
 | `GET`  | `/restaurants/:id/commissions/summary` | Tóm tắt hoa hồng        | ✅   | OWNER, ADMIN |
 | `POST` | `/restaurants/:id/commissions/settle`  | Chốt hoa hồng           | ✅   | OWNER, ADMIN |
-| `GET`  | `/owner/portfolio-summary`             | Tổng hợp Portfolio      | ✅   | OWNER, ADMIN |
+| `GET`  | `/portfolio/restaurants`               | DS nhà hàng Portfolio   | ✅   | OWNER, ADMIN |
+| `GET`  | `/portfolio/summary`                   | Tổng hợp Portfolio      | ✅   | OWNER, ADMIN |
 | `GET`  | `/owner/revenue-stats`                 | Doanh thu Portfolio     | ✅   | OWNER, ADMIN |
 | `GET`  | `/owner/stats/hourly`                  | Phân bổ giờ Portfolio   | ✅   | OWNER, ADMIN |
 
@@ -1148,11 +1149,14 @@ Các API này không yêu cầu Token, dành cho khách vãng lai hoặc trang c
 
 API cung cấp dữ liệu bền vững (persistent) cho bảng "Recent Global Activity" trên Dashboard của chủ sở hữu. Khác với Socket.IO (chỉ nhận khi đang online), API này lưu trữ lịch sử vào Database để Owner có thể xem lại khi refresh trang.
 
-| Method | Endpoint                          | Mô tả                                   | Auth | Role         |
-| ------ | --------------------------------- | --------------------------------------- | ---- | ------------ |
-| `GET`  | `/api/v1/owner/activity`          | Lấy danh sách hoạt động gần đây         | ✅   | OWNER, ADMIN |
-| `PUT`  | `/api/v1/owner/activity/:id/read` | Đánh dấu một thông báo là đã đọc        | ✅   | OWNER, ADMIN |
-| `PUT`  | `/api/v1/owner/activity/read-all` | Đánh dấu tất cả thông báo là đã đọc     | ✅   | OWNER, ADMIN |
+> [!IMPORTANT]
+> **Gateway Routing:** Endpoint này được xử lý bởi **Notification Service (port 3008)** nhưng đi qua **Gateway (port 7000)** với prefix giữ nguyên. Gateway có cấu hình route đặc thù `/api/v1/owner/activity/{everything}` → port 3008 được đặt **trước** route chung `/api/v1/owner/{everything}` → port 3004 để tránh bị match nhầm sang Booking Service.
+
+| Method | Endpoint (qua Gateway)                        | Mô tả                                   | Auth | Role         |
+| ------ | --------------------------------------------- | --------------------------------------- | ---- | ------------ |
+| `GET`  | `/api/v1/owner/activity`                      | Lấy danh sách hoạt động gần đây         | ✅   | OWNER, ADMIN |
+| `PUT`  | `/api/v1/owner/activity/:id/read`             | Đánh dấu một thông báo là đã đọc        | ✅   | OWNER, ADMIN |
+| `PUT`  | `/api/v1/owner/activity/read-all`             | Đánh dấu tất cả thông báo là đã đọc     | ✅   | OWNER, ADMIN |
 
 #### Query Params (GET /api/v1/owner/activity):
 
@@ -1162,7 +1166,7 @@ API cung cấp dữ liệu bền vững (persistent) cho bảng "Recent Global A
 | `offset` | number | Vị trí bắt đầu (dùng để phân trang)                      | 0        |
 | `type`   | string | Lọc theo loại hoạt động (xem bảng Activity Types bên dưới) | (tất cả) |
 
-#### Các loại hoạt động (`type`):
+#### Các loại hoạt động (`type`) — được ràng buộc bởi `CHECK CONSTRAINT` trong SQL Server:
 
 | Loại (`type`)                  | Mô tả                                                |
 | ------------------------------ | ---------------------------------------------------- |
@@ -1219,6 +1223,7 @@ API cung cấp dữ liệu bền vững (persistent) cho bảng "Recent Global A
 > 2. **Real-time:** Lắng nghe socket event `notification` để đẩy thêm mục mới lên đầu danh sách mà không cần reload.
 > 3. **Phân trang:** Khi người dùng cuộn xuống, gọi lại API với `offset` tăng dần.
 
+### 8.2 Socket.IO – Web Notifications
 
 **Kết nối:** `io("http://localhost:3008", { query: { userId: "<uuid>", role: "<ROLE>" } })`
 

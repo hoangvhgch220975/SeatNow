@@ -179,6 +179,36 @@ async function getRestaurantStatsSummary(req, res) {
   }
 }
 
+// Hàm lấy tất cả các nhà hàng thuộc sở hữu của Owner hiện tại
+async function getPortfolioRestaurants(req, res) {
+  try {
+    const ownerId = req.user?.sub || req.user?.id;
+    if (!ownerId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
+    // Gọi tìm theo ownerId, hỗ trợ params paging
+    const query = {
+      ...req.query,
+      ownerId,
+      status: req.query.status || 'all',
+      limit: req.query.limit || 50
+    };
+    
+    const { rows, total } = await restaurantSvc.listRestaurants(query);
+    res.json({
+      data: rows,
+      total,
+      meta: {
+        limit: parseInt(query.limit, 10),
+        offset: parseInt(query.offset || 0, 10)
+      }
+    });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
 module.exports = {
   list,
   detail,
@@ -189,5 +219,6 @@ module.exports = {
   availability,
   revenueStats,
   portfolioSummary,
-  getRestaurantStatsSummary
+  getRestaurantStatsSummary,
+  getPortfolioRestaurants
 };

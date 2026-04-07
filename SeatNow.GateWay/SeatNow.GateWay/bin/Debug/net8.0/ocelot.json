@@ -64,6 +64,18 @@
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ]
     },
     {
+      "DownstreamPathTemplate": "/api/v1/owner/activity/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 3008 }
+      ],
+      "UpstreamPathTemplate": "/api/v1/owner/activity/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT", "OPTIONS" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "GatewayJwt"
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v1/owner/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

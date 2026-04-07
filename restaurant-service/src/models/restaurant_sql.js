@@ -74,7 +74,8 @@ async function findMany({
   limit = 20,
   offset = 0,
   bbox,
-  sort = 'rating'
+  sort = 'rating',
+  ownerId
 }) {
   const pool = await getPool();
   const req = pool.request();
@@ -95,6 +96,11 @@ async function findMany({
   if (q) {
     where.push('(r.name LIKE @q OR r.address LIKE @q)');
     req.input('q', sql.NVarChar(200), `%${q}%`);
+  }
+
+  if (ownerId) {
+    where.push('r.ownerId = @ownerId');
+    req.input('ownerId', sql.UniqueIdentifier, ownerId);
   }
 
   // Use addWhere helper safely for priceRange
