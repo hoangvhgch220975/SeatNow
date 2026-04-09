@@ -60,8 +60,10 @@
 
             log(`Connecting as ${userId || '(no id)'} (Role: ${role})...`);
 
-            // Connect to notification service at port 3008
+            // Connect to notification service at port 3008 with specific path
+            log(`Connecting to http://localhost:3008 with path /notification.io...`);
             socket = io('http://localhost:3008', {
+                path: '/notification.io',
                 query: { userId, role }
             });
 
@@ -77,9 +79,12 @@
                 log('Disconnected from server');
             });
 
-            // Listen for generic notification event
+            // Listen for generic notification event (but avoid duplicates if already handled specifically)
             socket.on('notification', (data) => {
-                addNotification('Notification', data);
+                const specificEvents = ['booking_created', 'booking_cancelled', 'withdrawal_requested', 'partner_request_submitted', 'restaurant_created'];
+                if (!specificEvents.includes(data.event)) {
+                    addNotification('Notification', data);
+                }
             });
 
             // Listen for specific booking event

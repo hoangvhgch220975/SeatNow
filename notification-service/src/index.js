@@ -18,9 +18,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
   path: '/notification.io',
   cors: {
-    origin: 'http://localhost:5173',
-    methods: ['GET', 'POST'],
-    credentials: true
+    origin: '*',
+    methods: ['GET', 'POST']
   }
 });
 
