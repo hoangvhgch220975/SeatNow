@@ -249,13 +249,34 @@ async function commissionSummary(req, res) {
 // Thống kê doanh thu theo nhà hàng
 async function revenueStatistics(req, res) {
   try {
+    let { from, to, period } = req.query;
+    
+    // Chuẩn hóa: Nếu là chuỗi rỗng thì coi như undefined
+    if (from === '') from = undefined;
+    if (to === '') to = undefined;
+
+    if (period && !from && !to) {
+      const now = new Date();
+      if (period === 'week') {
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        from = `${now.getFullYear()}-${month}-01`;
+        
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        to = `${now.getFullYear()}-${month}-${lastDay}`;
+      } else if (period === 'month') {
+        from = `${now.getFullYear()}-01-01`;
+      }
+    }
+
+    console.log(`[RevenueStats Controller] period=${period}, from=${from}, to=${to}`);
+
     const restaurantId = req.params.id;
     const data = await bookingSvc.getRevenueStatistics(restaurantId, req.user, {
-      period: req.query.period,
-      from: req.query.from,
-      to: req.query.to
+      period,
+      from,
+      to
     });
-    return res.json({ restaurantId, data });
+    return res.json({ restaurantId, from, to, data });
   } catch (e) {
     return res.status(e.status || 400).json({ message: e.message });
   }
@@ -287,10 +308,22 @@ async function portfolioSummary(req, res) {
 // Thống kê Doanh thu và Đơn đặt bàn Portfolio cho chủ (Timeline)
 async function portfolioRevenueStatistics(req, res) {
   try {
+    let { from, to, period } = req.query;
+
+    if (period && !from && !to) {
+      const now = new Date();
+      if (period === 'week') {
+        from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      } else if (period === 'month') {
+        from = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+      }
+    }
+
     const data = await bookingSvc.getOwnerRevenueStatistics(req.user, {
-      period: req.query.period,
-      from: req.query.from,
-      to: req.query.to
+      period,
+      from,
+      to
     });
     return res.json({ data });
   } catch (e) {

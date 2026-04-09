@@ -609,10 +609,8 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
   } else if (period === 'day') {
     periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')";
   } else if (period === 'week') {
-    // Nhóm theo Tuần trong tháng (1, 2, 3, 4, 5) kèm theo tên tháng để tránh bị gộp dữ liệu giữa các tháng khác nhau
-    periodExpr = "CONCAT(FORMAT(bookingDate, 'MMM d', 'vi-VN'), ' - ', FORMAT(DATEADD(day, 6, DATEADD(day, -(DATEPART(day, bookingDate) - 1) % 7, bookingDate)), 'MMM d', 'vi-VN'))";
-    // Đơn giản hơn: "Tháng X Tuần Y"
-    periodExpr = "FORMAT(bookingDate, 'MMMM', 'vi-VN') + ' - Tuần ' + CAST((DATEPART(day, bookingDate) - 1) / 7 + 1 AS VARCHAR)";
+    // English format: "Apr W1", "May W2" etc.
+    periodExpr = "FORMAT(bookingDate, 'MMM', 'en-US') + ' W' + CAST((DATEPART(day, bookingDate) - 1) / 7 + 1 AS VARCHAR)";
   } else if (period === 'month') {
     periodExpr = "FORMAT(bookingDate, 'yyyy-MM')";
   } else if (period === 'quarter') {
@@ -714,7 +712,10 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
              ELSE ISNULL(SUM(CASE WHEN depositPaid = 1 AND ISNULL(depositRefunded, 0) = 0 THEN ISNULL(depositAmount, 0) - ISNULL(commissionFee, 0) END), 0) END AS totalRevenue,
         ISNULL(SUM(CASE WHEN status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'NO_SHOW') THEN numGuests END), 0) AS totalGuests
       FROM dbo.Bookings
-      WHERE restaurantId = @restaurantId AND status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED', 'NO_SHOW')
+      WHERE restaurantId = @restaurantId 
+        AND status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED', 'NO_SHOW')
+        ${from ? 'AND bookingDate >= @from' : ''}
+        ${to ? 'AND bookingDate <= @to' : ''}
       GROUP BY ${periodExpr}
       ORDER BY timePeriod ASC
     `;
