@@ -269,6 +269,86 @@ def get_admin_overview_context() -> dict:
     return data
 
 
+# ────────────────── Owner context ──────────────────
+
+def get_owner_restaurants(owner_id: str) -> list[dict]:
+    """
+    Get the list of restaurants owned by the owner.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT id, name, address, cuisineTypeJson, ratingAvg, status
+        FROM dbo.Restaurants
+        WHERE ownerId = ?
+        """,
+        (owner_id,)
+    )
+    rows = cursor.fetchall()
+    columns = [col[0] for col in cursor.description]
+    results = []
+    for row in rows:
+        item = dict(zip(columns, row))
+        item["cuisineTypes"] = _safe_json(item.get("cuisineTypeJson"), [])
+        del item["cuisineTypeJson"]
+        results.append(item)
+    cursor.close()
+    conn.close()
+    return results
+
+
+def get_owner_monthly_revenue_summary(owner_id: str, months: int = 12) -> list[dict]:
+    """
+    Get the monthly revenue summary for all restaurants owned by the owner.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            FORMAT(b.bookingDate, 'yyyy-MM') AS month,
+            COUNT(1)                                                           AS totalBookings,
+            SUM(CASE WHEN b.status = 'COMPLETED' THEN 1 ELSE 0 END)           AS completed,
+            SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END)           AS cancelled,
+            SUM(CASE WHEN b.status = 'ARRIVED'   THEN 1 ELSE 0 END)           AS arrived,
+            ISNULL(SUM(b.commissionFee), 0)                                   AS totalCommission,
+            ISNULL(SUM(CASE WHEN b.depositPaid = 1 THEN b.depositAmount ELSE 0 END), 0) AS totalDeposit
+        FROM dbo.Bookings b
+        JOIN dbo.Restaurants r ON r.id = b.restaurantId
+        WHERE r.ownerId = ?
+          AND b.bookingDate >= DATEADD(MONTH, -?, CAST(GETDATE() AS DATE))
+        GROUP BY FORMAT(b.bookingDate, 'yyyy-MM')
+        ORDER BY month DESC
+        """,
+        (owner_id, months)
+    )
+    rows = cursor.fetchall()
+    columns = [col[0] for col in cursor.description]
+    cursor.close()
+    conn.close()
+    return [dict(zip(columns, row)) for row in rows]
+
+
+def get_owner_overview_context(owner_id: str) -> dict:
+    """
+    Get the data context for the owner (with caching).
+    """
+    cache_key = f"ai:cache:owner_overview:{owner_id}"
+    cached_data = redis_client.get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
+    data = {
+        "my_restaurants": get_owner_restaurants(owner_id),
+        "monthly_revenue": get_owner_monthly_revenue_summary(owner_id, 12),
+    }
+
+    # Cache trong 1 giờ (dữ liệu owner thường biến động nhanh hơn admin)
+    redis_client.set_cache(cache_key, data, 3600)
+    return data
+
+
 # ────────────────── Utilities ──────────────────
 
 def _safe_json(value, default):

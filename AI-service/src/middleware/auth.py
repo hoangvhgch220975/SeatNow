@@ -78,3 +78,19 @@ def get_current_admin(request: Request) -> dict:
             detail="Admins only"
         )
     return payload
+
+
+def get_current_owner(request: Request) -> dict:
+    """
+    Dependency: Only allows role == 'restaurant_owner'.
+    Sử dụng để xác thực Chủ nhà hàng.
+    """
+    payload = verify_token(request)
+    role = str(payload.get("role", "")).lower()
+    if role != "restaurant_owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Restaurant owners only"
+        )
+    return payload
+

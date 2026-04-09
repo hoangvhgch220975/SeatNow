@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routers import customer, admin, public
+from routers import customer, admin, public, owner
 
 load_dotenv()
 
@@ -26,6 +26,7 @@ app = FastAPI(
         "AI service for SeatNow:\n"
         "- **Customer**: restaurant recommendations based on booking history\n"
         "- **Admin**: revenue analytics + near-future business suggestions\n"
+        "- **Owner**: restaurant business consulting + revenue analytics\n"
         "- **Chat history**: Redis, TTL 7 days"
     ),
     version="1.0.0"
@@ -43,6 +44,7 @@ app.add_middleware(
 
 app.include_router(customer.router)
 app.include_router(admin.router)
+app.include_router(owner.router)
 app.include_router(public.router)
 
 # ─────────────────────── Health check ───────────────────────

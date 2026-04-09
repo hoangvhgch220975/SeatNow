@@ -155,6 +155,7 @@ async function restaurantBookings(req, res) {
       from: req.query.from,
       to: req.query.to,
       status: req.query.status,
+      sort: req.query.sort,
       ...paging
     });
 

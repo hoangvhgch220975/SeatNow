@@ -611,7 +611,115 @@
 			]
 		},
 		{
-			"name": "4. Error Cases",
+			"name": "4. Owner AI",
+			"item": [
+				{
+					"name": "Revenue Summary (One-shot)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Response has summary field', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res).to.have.property('summary');",
+									"    console.log('Owner Revenue Summary:', res.summary.substring(0, 300) + '...');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{ownerToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/owner/revenue-summary",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "owner", "revenue-summary"]
+						},
+						"description": "One-shot analysis of the owner's businesses. (Note: ownerToken should have role=restaurant_owner)."
+					},
+					"response": []
+				},
+				{
+					"name": "Owner Chat - First Message",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Response has reply and session_key', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res).to.have.property('reply');",
+									"    pm.expect(res).to.have.property('session_key');",
+									"    console.log('Session handle:', res.session_key);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{ownerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"How are my restaurants performing this month compared to last month?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/owner/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "owner", "chat"]
+						},
+						"description": "Multi-turn chat for owner consulting."
+					},
+					"response": []
+				},
+				{
+					"name": "Clear Owner Chat History",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{ownerToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/owner/chat/history",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "owner", "chat", "history"]
+						},
+						"description": "Clear Redis history for the owner."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Error Cases",
 			"item": [
 				{
 					"name": "No Token → 401 Unauthorized",

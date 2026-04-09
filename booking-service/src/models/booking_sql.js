@@ -75,8 +75,9 @@ async function listByCustomer(customerId, { limit = 20, offset = 0 } = {}) {
     .input('limit', sql.Int, limit)
     .input('offset', sql.Int, offset)
     .query(`
-      SELECT *
-      FROM dbo.Bookings
+      SELECT b.*, u.name AS customerName
+    FROM dbo.Bookings b
+    LEFT JOIN dbo.Users u ON b.customerId = u.id
       WHERE customerId=@customerId
       ORDER BY createdAt DESC
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
@@ -85,23 +86,26 @@ async function listByCustomer(customerId, { limit = 20, offset = 0 } = {}) {
 }
 
 // Hàm liệt kê booking theo nhà hàng với các bộ lọc
-async function listByRestaurant(restaurantId, { from, to, status, limit = 50, offset = 0 } = {}) {
+async function listByRestaurant(restaurantId, { from, to, status, limit = 50, offset = 0, sort = 'DESC' } = {}) {
   const pool = await getPool();
   const req = pool.request()
     .input('restaurantId', sql.UniqueIdentifier, restaurantId)
     .input('limit', sql.Int, limit)
     .input('offset', sql.Int, offset);
 
-  const where = ['restaurantId=@restaurantId'];
-  if (from) { where.push('bookingDate >= @from'); req.input('from', sql.Date, from); }
-  if (to) { where.push('bookingDate <= @to'); req.input('to', sql.Date, to); }
-  if (status) { where.push('status=@status'); req.input('status', sql.NVarChar(30), status); }
+  const where = ['b.restaurantId=@restaurantId'];
+  if (from) { where.push('b.bookingDate >= @from'); req.input('from', sql.Date, from); }
+  if (to) { where.push('b.bookingDate <= @to'); req.input('to', sql.Date, to); }
+  if (status) { where.push('b.status=@status'); req.input('status', sql.NVarChar(30), status); }
+
+  const sortDirection = sort.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
   const rs = await req.query(`
-    SELECT *
-    FROM dbo.Bookings
+    SELECT b.*, u.name AS customerName
+    FROM dbo.Bookings b
+    LEFT JOIN dbo.Users u ON b.customerId = u.id
     WHERE ${where.join(' AND ')}
-    ORDER BY bookingDate DESC, bookingTime DESC, createdAt DESC
+    ORDER BY b.bookingDate ${sortDirection}, b.bookingTime ${sortDirection}, b.createdAt DESC
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
   `);
 

@@ -1,7 +1,7 @@
 # 📘 SeatNow – Frontend API Reference & Integration Guide
 
 > **Mục đích:** Tài liệu này cung cấp toàn bộ danh sách endpoints, Socket.IO events, và hướng dẫn kết nối frontend cho dự án SeatNow.
-> **Cập nhật lần cuối:** 2026-04-05
+> **Cập nhật lần cuối:** 2026-04-10
 
 ---
 
@@ -501,13 +501,16 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 | `GET`  | `/restaurants/:id/revenue-stats` | Biểu đồ doanh thu                               | ✅   | OWNER, ADMIN |
 | `GET`  | `/portfolio/summary`             | Tổng hợp Portfolio (toàn bộ nhà hàng của Owner) | ✅   | OWNER, ADMIN |
 
-#### Query params:
+| Param    | Type   | Mô tả                                                                                                        |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------- |
+| `from`   | string | Ngày bắt đầu (YYYY-MM-DD)                                                                                     |
+| `to`     | string | Ngày kết thúc (YYYY-MM-DD)                                                                                    |
+| `period` | string | `hour`, `day`, `week`, `month`, `quarter`, `year`                                                             |
 
-| Param    | Type   | Mô tả                          |
-| -------- | ------ | ------------------------------ |
-| `from`   | string | Ngày bắt đầu (YYYY-MM-DD)      |
-| `to`     | string | Ngày kết thúc (YYYY-MM-DD)     |
-| `period` | string | `day`, `week`, `month`, `year` |
+> [!NOTE]
+> **Logic mặc định (Auto-fill):** Nếu bạn truyền `period` nhưng không truyền `from/to`, hệ thống sẽ tự động tính toán khoảng ngày mặc định:
+> - `period=week`: Mặc định lấy từ đầu tháng đến cuối tháng hiện tại.
+> - `period=month`: Mặc định lấy từ đầu năm đến cuối năm hiện tại.
 
 ---
 
@@ -722,18 +725,37 @@ _(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xá
 
 ### 4.4 Owner/Admin Statistics
 
-| Method | Endpoint                               | Mô tả                   | Auth | Role         |
-| ------ | -------------------------------------- | ----------------------- | ---- | ------------ |
-| `GET`  | `/restaurants/:id/bookings`            | DS booking của nhà hàng | ✅   | OWNER, ADMIN |
-| `GET`  | `/restaurants/:id/revenue-stats`       | Thống kê doanh thu      | ✅   | OWNER, ADMIN |
-| `GET`  | `/restaurants/:id/stats-summary`       | Summary KPI             | ✅   | OWNER, ADMIN |
-| `GET`  | `/restaurants/:id/stats/hourly`        | Phân bổ giờ đặt bàn     | ✅   | OWNER, ADMIN |
-| `GET`  | `/restaurants/:id/commissions/summary` | Tóm tắt hoa hồng        | ✅   | OWNER, ADMIN |
-| `POST` | `/restaurants/:id/commissions/settle`  | Chốt hoa hồng           | ✅   | OWNER, ADMIN |
-| `GET`  | `/portfolio/restaurants`               | DS nhà hàng Portfolio   | ✅   | OWNER, ADMIN |
-| `GET`  | `/portfolio/summary`                   | Tổng hợp Portfolio      | ✅   | OWNER, ADMIN |
-| `GET`  | `/owner/revenue-stats`                 | Doanh thu Portfolio     | ✅   | OWNER, ADMIN |
-| `GET`  | `/owner/stats/hourly`                  | Phân bổ giờ Portfolio   | ✅   | OWNER, ADMIN |
+| Method | Endpoint                               | Mô tả                                                                 | Auth | Role         |
+| ------ | -------------------------------------- | --------------------------------------------------------------------- | ---- | ------------ |
+| `GET`  | `/restaurants/:id/bookings`            | DS booking của nhà hàng                                               | ✅   | OWNER, ADMIN |
+| `GET`  | `/restaurants/:id/revenue-stats`       | Biển đồ doanh thu (Hỗ trợ lấp đầy 0 - Gap filling)                    | ✅   | OWNER, ADMIN |
+| `GET`  | `/restaurants/:id/stats-summary`       | Summary KPI (Bao gồm cả trạng thái `NO_SHOW`)                         | ✅   | OWNER, ADMIN |
+| `GET`  | `/restaurants/:id/stats/hourly`        | Phân bổ giờ đặt bàn                                                   | ✅   | OWNER, ADMIN |
+| `GET`  | `/restaurants/:id/commissions/summary` | Tóm tắt hoa hồng                                                      | ✅   | OWNER, ADMIN |
+| `POST` | `/restaurants/:id/commissions/settle`  | Chốt hoa hồng                                                         | ✅   | OWNER, ADMIN |
+| `GET`  | `/portfolio/restaurants`               | DS nhà hàng Portfolio                                                 | ✅   | OWNER, ADMIN |
+| `GET`  | `/portfolio/summary`                   | Tổng hợp Portfolio                                                    | ✅   | OWNER, ADMIN |
+| `GET`  | `/owner/revenue-stats`                 | Doanh thu Portfolio (Hỗ trợ lấp đầy 0 - Gap filling)                  | ✅   | OWNER, ADMIN |
+| `GET`  | `/owner/stats/hourly`                  | Phân bổ giờ Portfolio                                                 | ✅   | OWNER, ADMIN |
+
+#### Query params hỗ trợ cho `GET /restaurants/:id/bookings`:
+
+| Param    | Type   | Mô tả                                                                                                        |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------- |
+| `limit`  | number | Số lượng kết quả (Mặc định: 50)                                                                                |
+| `offset` | number | Phân trang (vị trí bắt đầu)                                                                                                    |
+| `from`   | string | Lọc ngày bắt đầu (YYYY-MM-DD). Cần truyền vào tham số này nếu muốn lấy lịch đặt tương lai.                    |
+| `to`     | string | Lọc ngày kết thúc (YYYY-MM-DD)                                                                                |
+| `status` | string | Trạng thái (VD: `CONFIRMED`, `PENDING`)                                                                    |
+| `sort`   | string | Sắp xếp mốc thời gian booking. Mặc định là `DESC` (giảm dần/mới nhất). Chuyển thành `ASC` nếu lấy "Sắp tới" (Upcoming) |
+
+> 🧩 **Trường Dữ liệu mới:** Bắt đầu từ 2026-04-10, Endpoint `GET /restaurants/:id/bookings` đã được tích hợp liên kết SQL (`LEFT JOIN Users`). JSON trả về ở mỗi Request sẽ có thêm biến **`customerName`** đại diện cho tên thật của khách đăng nhập bên cạnh biến `guestName` gốc.
+
+> [!TIP]
+> **Nhãn thời gian tiếng Anh (Labels):** 
+> - Đối với `period=week`, nhãn sẽ có dạng shorthand: `Apr W1`, `Apr W2`, `May W1`,...
+> - Đối với `period=hour`, nhãn sẽ có dạng: `00:00`, `02:00`,... (bucket 2 giờ).
+> - **Lấp đầy dữ liệu (Gap-filling):** Hệ thống luôn trả về đầy đủ các mốc thời gian trong khoảng lọc. Nếu không có dữ liệu, các giá trị sẽ được trả về là `0` thay vì bị bỏ qua.
 
 #### Response mẫu (Stats Summary - 200 OK):
 
@@ -1126,7 +1148,21 @@ Các API này không yêu cầu Token, dành cho khách vãng lai hoặc trang c
 }
 ```
 
-### 7.3 Admin AI (Analytics)
+### 7.3 Owner AI (Restaurant Business Consultant)
+
+Dành cho Role `RESTAURANT_OWNER`. AI sẽ phân tích dữ liệu kinh doanh của các nhà hàng mà chủ sở hữu quản lý.
+
+| Method   | Endpoint                         | Mô tả                                          |
+| -------- | -------------------------------- | ---------------------------------------------- |
+| `POST`   | `/api/v1/ai/owner/revenue-summary` | Phân tích doanh thu & gợi ý chiến lược (One-shot) |
+| `POST`   | `/api/v1/ai/owner/chat`            | Trò chuyện tư vấn kinh doanh (Đa lượt)         |
+| `DELETE` | `/api/v1/ai/owner/chat/history`    | Xóa lịch sử trò chuyện                         |
+
+#### 📊 Đặc điểm ngữ cảnh:
+- **Dữ liệu:** Tự động lấy danh sách nhà hàng và doanh thu 12 tháng gần nhất của chính Owner đó.
+- **Tư vấn:** Tập trung vào tối ưu hóa vận hành, tăng tỷ lệ lấp đầy bàn và giảm tỷ lệ hủy.
+
+### 7.4 Admin AI (Analytics)
 
 | Method   | Endpoint                           | Mô tả                          |
 | -------- | ---------------------------------- | ------------------------------ |
@@ -1385,6 +1421,12 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 - **Chat phân tích:** `POST /api/v1/ai/admin/chat` (`{ "message": "string" }`)
 - **Xóa lịch sử:** `DELETE /api/v1/ai/admin/chat/history`
 
+### 🏪 4. Owner AI (Chủ nhà hàng)
+
+- **Phân tích kinh doanh:** `POST /api/v1/ai/owner/revenue-summary`
+- **Tư vấn đa lượt:** `POST /api/v1/ai/owner/chat` (`{ "message": "string" }`)
+- **Xóa lịch sử:** `DELETE /api/v1/ai/owner/chat/history`
+
 ---
 
 ## 📌 Tóm tắt các API thường dùng theo Role
@@ -1435,6 +1477,8 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 | Thống kê giờ           | `GET`                 | `/api/v1/booking-restaurants/:id/stats/hourly?period=week`   |
 | Portfolio Summary      | `GET`                 | `/api/v1/owner/portfolio-summary?from=...&to=...`            |
 | Số dư ví               | `GET`                 | `/api/v1/payment/wallet/balance`                             |
+| **AI Advisor (Chat)**  | `POST`                | `/api/v1/ai/owner/chat`                                      |
+| **AI Summary (One-shot)** | `POST`             | `/api/v1/ai/owner/revenue-summary`                           |
 
 ### 🛡️ Admin
 
