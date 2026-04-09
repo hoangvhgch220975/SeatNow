@@ -30,6 +30,9 @@ module.exports = async function processNotification(job) {
         } else if (templateType === 'promotion') {
           html = templates.getPromotionTemplate(data);
           subject = subject || `[SeatNow] Special Offer from ${data.restaurantName}`;
+        } else if (templateType === 'restaurant_activated') {
+          html = templates.getRestaurantActivatedTemplate(data);
+          subject = subject || `[SeatNow] Your restaurant "${data.restaurantName}" is now active!`;
         }
 
         return await emailService.sendEmailNotification(to, subject, html);

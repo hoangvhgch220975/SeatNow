@@ -184,6 +184,33 @@ async function approveRestaurant(restaurantId) {
   await adminModel.approveRestaurant(restaurantId);
   const wallet = await adminModel.ensureRestaurantWallet(restaurantId, restaurant.ownerId);
 
+  // Lấy thông tin email và tên của chủ nhà hàng để gửi thông báo
+  try {
+    const owner = await adminModel.getUserAuthById(restaurant.ownerId);
+    if (owner && owner.email) {
+      const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+      
+      // Gửi email thông báo kích hoạt nhà hàng thành công
+      await fetch(`${notificationUrl}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'email',
+          payload: {
+            to: owner.email,
+            templateType: 'restaurant_activated',
+            data: {
+              ownerName: owner.fullName || owner.name || 'Owner',
+              restaurantName: restaurant.name
+            }
+          }
+        })
+      }).catch(err => console.error('Failed to notify owner of restaurant activation:', err.message));
+    }
+  } catch (notifyErr) {
+    console.warn('Non-blocking error during owner notification:', notifyErr.message);
+  }
+
   return {
     restaurantId,
     status: 'active',

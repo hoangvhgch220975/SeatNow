@@ -74,7 +74,7 @@ Dưới đây là chi tiết những hành động mà mỗi vai trò (Role) **c
 
 - **Có thể làm gì?**
   - **Quản lý toàn bộ dữ liệu:** Xem toàn bộ danh sách người dùng, giao dịch, và booking trên cả hệ thống.
-  - **Duyệt/Khoá nhà hàng:** (Quan trọng) Mọi nhà hàng mới do Owner tạo ra ban đầu đều ở trạng thái `pending`. Chỉ Admin mới có quyền gọi API `/restaurants/:id/approve` để kích hoạt (`active`) và tự động cấp Ví (Wallet) cho nhà hàng đó.
+  - **Duyệt/Khoá nhà hàng:** (Quan trọng) Mọi nhà hàng mới do Owner tạo ra ban đầu đều ở trạng thái `pending`. Chỉ Admin mới có quyền gọi API `/restaurants/:id/approve` để kích hoạt (`active`) và tự động cấp Ví (Wallet) cho nhà hàng đó. Sau khi được duyệt, chủ nhà hàng sẽ nhận được một Email thông báo kích hoạt thành công.
   - **Tài chính & Hoa hồng:** Thu phí dịch vụ/hoa hồng từ ví nhà hàng chuyển sang ví tổng của Admin (`settle-quarter`).
   - **Rút tiền:** Phê duyệt hoặc từ chối yêu cầu rút tiền của Owner.
   - **Tạo Owner:** Có thể tạo tài khoản Owner và reset mật khẩu cho Owner nếu họ mất quyền truy cập.
