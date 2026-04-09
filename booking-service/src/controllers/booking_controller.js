@@ -255,20 +255,26 @@ async function revenueStatistics(req, res) {
     if (from === '') from = undefined;
     if (to === '') to = undefined;
 
-    if (period && !from && !to) {
+    // Auto-fill from/to if missing but period is provided
+    if (period && (!from || !to)) {
       const now = new Date();
-      if (period === 'week') {
-        const month = (now.getMonth() + 1).toString().padStart(2, '0');
-        from = `${now.getFullYear()}-${month}-01`;
-        
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        to = `${now.getFullYear()}-${month}-${lastDay}`;
-      } else if (period === 'month') {
-        from = `${now.getFullYear()}-01-01`;
+      if (!from && !to) {
+        if (period === 'week') {
+          const month = (now.getMonth() + 1).toString().padStart(2, '0');
+          from = `${now.getFullYear()}-${month}-01`;
+          const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+          to = `${now.getFullYear()}-${month}-${lastDay}`;
+        } else if (period === 'month') {
+          from = `${now.getFullYear()}-01-01`;
+          to = `${now.getFullYear()}-12-31`;
+        }
+      } else if (!to) {
+        to = now.toISOString().split('T')[0];
+      } else if (!from) {
+        from = '2000-01-01';
       }
     }
 
-    console.log(`[RevenueStats Controller] period=${period}, from=${from}, to=${to}`);
 
     const restaurantId = req.params.id;
     const data = await bookingSvc.getRevenueStatistics(restaurantId, req.user, {

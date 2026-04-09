@@ -625,14 +625,12 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
     'ISNULL(depositRefunded, 0) = 0'
   ];
 
-  if (from) {
-    where.push('bookingDate >= @from');
-    req.input('from', sql.Date, from);
-  }
-  if (to) {
-    where.push('bookingDate <= @to');
-    req.input('to', sql.Date, to);
-  }
+  // Always declare @from and @to to avoid SQL errors in CTE blocks
+  req.input('from', sql.Date, from || '2000-01-01');
+  req.input('to', sql.Date, to || new Date().toISOString().split('T')[0]);
+
+  if (from) where.push('bookingDate >= @from');
+  if (to) where.push('bookingDate <= @to');
 
   let query = '';
 
@@ -685,21 +683,28 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
     `;
   } else if (period === 'week') {
     query = `
+      WITH DateCTE AS (
+        SELECT CAST(@from AS DATE) AS d
+        UNION ALL
+        SELECT DATEADD(day, 1, d) FROM DateCTE WHERE d < CAST(@to AS DATE)
+      )
       SELECT 
-        ${periodExpr} AS timePeriod,
-        COUNT(CASE WHEN status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'NO_SHOW') THEN id END) AS totalBookings,
-        COUNT(CASE WHEN status = 'CANCELLED' THEN id END) AS totalCancelled,
-        ISNULL(SUM(CASE WHEN depositPaid = 1 AND ISNULL(depositRefunded, 0) = 0 THEN ISNULL(depositAmount, 0) END), 0) AS totalGrossRevenue,
-        CASE WHEN ISNULL(SUM(CASE WHEN depositPaid = 1 AND ISNULL(depositRefunded, 0) = 0 THEN ISNULL(depositAmount, 0) - ISNULL(commissionFee, 0) END), 0) < 0 THEN 0 
-             ELSE ISNULL(SUM(CASE WHEN depositPaid = 1 AND ISNULL(depositRefunded, 0) = 0 THEN ISNULL(depositAmount, 0) - ISNULL(commissionFee, 0) END), 0) END AS totalRevenue,
-        ISNULL(SUM(CASE WHEN status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'NO_SHOW') THEN numGuests END), 0) AS totalGuests
-      FROM dbo.Bookings
-      WHERE restaurantId = @restaurantId 
-        AND status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED', 'NO_SHOW')
-        ${from ? 'AND bookingDate >= @from' : ''}
-        ${to ? 'AND bookingDate <= @to' : ''}
-      GROUP BY ${periodExpr}
-      ORDER BY timePeriod ASC
+        FORMAT(DateCTE.d, 'MMM', 'en-US') + ' W' + CAST((DATEPART(day, DateCTE.d) - 1) / 7 + 1 AS VARCHAR) AS timePeriod,
+        COUNT(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'NO_SHOW') THEN b.id END) AS totalBookings,
+        COUNT(CASE WHEN b.status = 'CANCELLED' THEN b.id END) AS totalCancelled,
+        ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) END), 0) AS totalGrossRevenue,
+        CASE WHEN ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) < 0 THEN 0 
+             ELSE ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0) END), 0) END AS totalRevenue,
+        ISNULL(SUM(CASE WHEN b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'NO_SHOW') THEN b.numGuests END), 0) AS totalGuests
+      FROM DateCTE
+      LEFT JOIN (
+        SELECT b.* FROM dbo.Bookings b
+        WHERE b.restaurantId = @restaurantId
+          AND b.status IN ('COMPLETED', 'ARRIVED', 'CONFIRMED', 'CANCELLED', 'NO_SHOW')
+      ) b ON CAST(b.bookingDate AS DATE) = DateCTE.d
+      GROUP BY FORMAT(DateCTE.d, 'MMM', 'en-US') + ' W' + CAST((DATEPART(day, DateCTE.d) - 1) / 7 + 1 AS VARCHAR), YEAR(DateCTE.d), MONTH(DateCTE.d)
+      ORDER BY YEAR(DateCTE.d) ASC, MONTH(DateCTE.d) ASC, timePeriod ASC
+      OPTION (MAXRECURSION 0)
     `;
   } else {
     query = `
