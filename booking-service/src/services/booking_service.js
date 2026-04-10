@@ -96,7 +96,7 @@ function computeDeposit(restaurant, numGuests) {
   // Nếu chính sách ghi rõ không yêu cầu (required = false)
   if (policy.required === false) return { depositRequired: false, depositAmount: 0 };
 
-  // Lấy số lượng khách tối thiểu để áp dụng đặt cọc (ưu tiên key 'minGuest')
+  // Lấy số khách tối thiểu (ưu tiên key 'minGuest')
   const minGuest = Number(
     policy.minGuest ?? policy.minGuests ?? policy.min_guests ?? 0
   );
@@ -104,17 +104,11 @@ function computeDeposit(restaurant, numGuests) {
   // Nếu số khách đặt ít hơn mức tối thiểu thì không cần đặt cọc
   if (numGuests < minGuest) return { depositRequired: false, depositAmount: 0 };
 
-  // Xác định loại hình đặt cọc (theo người hay theo đơn)
-  const rawType = String(policy.type ?? policy.depositType ?? '').toLowerCase();
-  const isPerPerson = rawType === 'per_person' || rawType === 'perperson' || rawType === 'per-person';
-
-  // Lấy số tiền cơ bản (ưu tiên key 'minAmount')
+  // Lấy số tiền đặt cọc cố định (ưu tiên key 'minAmount')
   const baseAmount = Number(policy.minAmount ?? policy.monAmount ?? 0);
 
-  // Tính toán tổng số tiền dựa trên loại hình
-  let amount = isPerPerson
-    ? baseAmount * Number(numGuests || 0)
-    : baseAmount;
+  // Mặc định phí đặt cọc là một khoản cố định cho cả đơn đặt chỗ
+  let amount = baseAmount;
 
   // Đảm bảo số tiền hợp lệ
   if (!Number.isFinite(amount) || amount < 0) amount = 0;

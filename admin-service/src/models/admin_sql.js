@@ -375,7 +375,7 @@ async function getAdminRevenueStats({ period = 'month', from, to } = {}) {
   }
 
   const where = [
-    "status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED')",
+    "(status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED', 'NO_SHOW') OR (status = 'CANCELLED' AND ISNULL(depositRefunded, 0) = 0))",
     "ISNULL(commissionFee, 0) > 0"
   ];
 

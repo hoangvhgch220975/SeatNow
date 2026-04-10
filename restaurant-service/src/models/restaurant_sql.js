@@ -94,8 +94,9 @@ async function findMany({
   }
 
   if (q) {
-    where.push('(r.name LIKE @q OR r.address LIKE @q)');
-    req.input('q', sql.NVarChar(200), `%${q}%`);
+    // Force case-insensitive search by using LOWER() on both column and parameter
+    where.push('(LOWER(r.name) LIKE @q OR LOWER(r.address) LIKE @q)');
+    req.input('q', sql.NVarChar(200), `%${q.toLowerCase()}%`);
   }
 
   if (ownerId) {

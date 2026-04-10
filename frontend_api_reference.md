@@ -250,7 +250,6 @@ Chỉ dành cho tài khoản có Role là **`CUSTOMER`**. Các tài khoản **`R
   "depositPolicy": {
     "required": true,
     "minGuest": 2,
-    "type": "per_person",
     "minAmount": 50000,
     "note": "Please complete your deposit within 15 minutes to secure your reservation."
   }
@@ -645,8 +644,7 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 - **Nếu `numGuests` < `depositPolicy.minGuest`**: Không yêu cầu đặt cọc cho đơn này.
 - **Lưu ý về `note`**: Chính sách có kèm theo trường `note` (tiếng Anh trang trọng) để hiển thị cho khách hàng về thời hạn thanh toán.
 - **Cách tính `depositAmount`**:
-  - Nếu `type` là `per_person`: `depositAmount = minAmount * numGuests`.
-  - Nếu `type` là `fixed`: `depositAmount = minAmount`.
+  - `depositAmount = minAmount` (Khoản phí cố định cho cả đơn đặt chỗ).
 
 > [!TIP]
 > **Lưu ý:** Khi gửi request `POST /bookings`, bạn không cần gửi kèm `depositAmount`. Server sẽ tự tính toán lại dựa trên Policy hiện tại để đảm bảo tính chính xác và an toàn.
