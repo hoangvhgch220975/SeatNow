@@ -15,6 +15,8 @@ async function bootstrap() {
   await getRedis();
 
   const app = express();
+  const cronService = require('./services/cron_service');
+
   app.use(helmet());
   app.use(cors({
     origin: 'http://localhost:5173',
@@ -43,6 +45,8 @@ async function bootstrap() {
     console.log(`payment-service listening on ${process.env.PORT || 3005}`);
     console.log("http://localhost:" + (process.env.PORT || 3005));
     
+    // Khoi chay cron jobs (Start cron jobs)
+    cronService.initCronJobs();
   });
 }
 

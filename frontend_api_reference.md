@@ -91,7 +91,8 @@ Dưới đây là chi tiết những hành động mà mỗi vai trò (Role) **c
   - **Quản lý vận hành thao tác (tại nhà hàng của mình):** Tạo/chỉnh sửa menu món ăn, thêm/xóa/sửa trạng thái sơ đồ bàn, chỉnh sủa các thông tin cơ bản của nhà hàng, cấu hình các phòng/tầng, thay đổi chính sách thu tiền cọc (bật/tắt cọc).
   - **Quản lý booking:** Nhận thông báo đặt bàn Realtime, thao tác chu kỳ đặt bàn bao gồm: Xác nhận (Confirm), Quét QR Check-in (Arrived), báo vắng mặt (No-show), hoặc từ chối/hủy booking. (Lưu ý: Nếu Owner hủy đơn, hệ thống luôn quy ước là khách được hoàn cọc).
   - **Xem thống kê & AI:** Xem biểu đồ lịch sử doanh thu, báo cáo lưu lượng khách, thống kê bàn chật chỗ ở tầng nào, và cả báo cáo chuỗi Portfolio (nếu sở hữu đa chi nhánh). Tích hợp Chat cùng AI để nhận gợi ý kinh doanh.
-  - **Tài chính:** Gửi yêu cầu Rút tiền từ Ví (Wallet) của quán về tài khoản ngân hàng (Yêu cầu này sẽ gửi cho Admin duyệt).
+  - **Tài chính:** Gửi yêu cầu Rút tiền từ Ví (Wallet) của quán về tài khoản ngân hàng (Yêu cầu này sẽ gửi cho Admin duyệt). 
+    - _Lưu ý về số dư:_ Số dư khả dụng (`balance`) là số tiền thực nhận (Net Revenue) sau khi đã "tạm ứng" phí hoa hồng vào `lockedAmount`. Nhà hàng chỉ có thể rút tiền từ `balance`.
 - **Không thể làm gì?**
   - **KHÔNG THỂ tự kích hoạt nhà hàng (Approve):** Không tự đưa nhà hàng lên hiển thị (Published) ra trang chủ, mọi thẩm định an toàn nội dung phải do Admin làm.
   - **KHÔNG THỂ thay đổi phần trăm hoa hồng (Commission Rate) hoặc gói Premium:** Các chỉ số tài chính tính phí định kỳ là dữ liệu nhạy cảm do Admin quyết định và thu tiền.
@@ -972,7 +973,7 @@ sequenceDiagram
     
     BE_BK->>BE_BK: Trạng thái Booking chuyển sang ARRIVED / COMPLETED / NOSHOW
     BE_BK->>BE_PY: POST /internal/wallet/settle-booking (Trigger giải ngân)
-    BE_PY->>BE_PY: Cộng tiền vào ví & Tạo Settlement Transaction
+    BE_PY->>BE_PY: Tách tiền: Balance += Net Revenue, LockedAmount += Commission Fee
 ```
 
 #### 📍 Lưu ý quan trọng cho Frontend:
@@ -982,7 +983,10 @@ sequenceDiagram
     *   Khách đến (`ARRIVED`) hoặc Hoàn thành (`COMPLETED`).
     *   Khách không đến (`NO_SHOW`).
     *   Khách hủy muộn (Late Cancel) mà không được hoàn tiền.
-3.  **Tra cứu (Polling)**: Nếu chưa nhận được tín hiệu từ Socket, FE có thể gọi API `GET /transaction/:id` để kiểm tra trạng thái giao dịch.
+3.  **Phân tách số dư khi giải ngân (Partition)**: Khi giải ngân, tiền cọc (`depositAmount`) được tách thành 2 phần:
+    *   `balance += depositAmount - commissionFee` → **Doanh thu thuần** (Nhà hàng có thể rút).
+    *   `lockedAmount += commissionFee` → **Phí hoa hồng bị khóa** (Chờ Admin thu).
+4.  **Tra cứu (Polling)**: Nếu chưa nhận được tín hiệu từ Socket, FE có thể gọi API `GET /transaction/:id` để kiểm tra trạng thái giao dịch.
 
 ### 🌐 5.3 Webhook & Return URLs (Public)
 
@@ -997,11 +1001,11 @@ Các URL này do Cổng thanh toán gọi trực tiếp:
 
 #### 💳 Wallet & Withdrawals (Chủ nhà hàng / Admin)
 
-| Method | Endpoint               | Mô tả                      | Auth |
-| ------ | ---------------------- | -------------------------- | ---- |
-| `GET`  | `/wallet/balance`      | Kiểm tra số dư ví nhà hàng | ✅   |
-| `GET`  | `/wallet/transactions` | Lịch sử giao dịch ví       | ✅   |
-| `POST` | `/wallet/withdraw`     | Yêu cầu rút tiền từ ví     | ✅   |
+| Method | Endpoint               | Mô tả                                              | Auth |
+| ------ | ---------------------- | -------------------------------------------------- | ---- |
+| `GET`  | `/wallet/balance`      | Kiểm tra số dư ví (trả về `balance` + `lockedAmount`) | ✅   |
+| `GET`  | `/wallet/transactions` | Lịch sử giao dịch ví                                | ✅   |
+| `POST` | `/wallet/withdraw`     | Yêu cầu rút tiền từ ví (chỉ rút từ `balance`)       | ✅   |
 
 ### 🛡️ 5.4 Internal Operations (Chỉ dành cho Services)
 
@@ -1009,7 +1013,7 @@ Các API này yêu cầu Header `x-internal-token` và không được tiếp c�
 
 | Method | Endpoint | Mô tả |
 | :--- | :--- | :--- |
-| `POST` | `/internal/wallet/settle-booking` | Giải ngân tiền cọc của một Booking vào ví nhà hàng. |
+| `POST` | `/internal/wallet/settle-booking` | Giải ngân tiền cọc: `balance += netRevenue`, `lockedAmount += commissionFee`. |
 
 #### Body mẫu (Settle):
 ```json
@@ -1065,14 +1069,38 @@ Các API này yêu cầu Header `x-internal-token` và không được tiếp c�
 | `POST` | `/withdrawals/:id/approve`    | Duyệt lệnh rút tiền        |
 | `POST` | `/withdrawals/:id/reject`     | Từ chối lệnh rút tiền      |
 
-#### 💸 Quy trình Đối soát Hoa hồng (Settlement Process):
+### 6.5 Cấu hình hệ thống (System Config)
 
-Hệ thống sử dụng cơ chế **Idempotency** để đảm bảo không thu phí trùng lặp.
+**Base path:** `/api/v1/admin/configs`
 
-1.  **Candidate Lookup:** Tìm tất cả booking ở trạng thái `COMPLETED` hoặc `ARRIVED` trong quý chưa được tính phí.
-2.  **Grouping:** Nhóm theo từng nhà hàng và tính tổng hoa hồng theo `commissionRate` lúc đặt bàn.
-3.  **Charge & Mark:** Trừ tiền từ ví nhà hàng chuyển sang ví Admin và đánh dấu booking là `paid`.
-4.  **Dry-Run Mode:** Cho phép Admin chạy thử để xem tổng số tiền sẽ thu trước khi thực hiện giao dịch thật.
+| Method | Endpoint      | Mô tả                                      | Auth | Request Body                                 |
+| ------ | ------------- | ------------------------------------------ | ---- | -------------------------------------------- |
+| `GET`  | `/commission` | Lấy cấu hình thu phí hoa hồng tự động      | ✅   | ❌                                           |
+| `POST` | `/commission` | Cập nhật cấu hình thu phí hoa hồng tự động  | ✅   | `{ autoEnabled: boolean, interval: string }` |
+
+- **`autoEnabled`**: Bật/Tắt tính năng quét nợ tự động.
+- **`interval`**: `DAY` (Hàng ngày), `WEEK` (Thứ 2 hàng tuần), `MONTH` (Mùng 1 hàng tháng), `QUARTER` (Đầu quý), `YEAR` (Đầu năm).
+
+#### Response mẫu (GET /commission):
+```json
+{
+  "success": true,
+  "data": {
+    "autoEnabled": true,
+    "interval": "MONTH",
+    "updatedAt": "2026-04-10T14:00:00.000Z"
+  }
+}
+```
+
+#### 💸 Quy trình Đối soát Hoa hồng (Commission Settlement):
+
+Hệ thống sử dụng cơ chế **Cumulative Locked Amount** để bảo vệ dòng tiền hoa hồng cho Admin.
+
+1.  **Tích lũy (Accumulation):** Mỗi khi đơn hàng được giải ngân (`Settle`), phí hoa hồng được tự động trích từ tiền cọc và đưa vào `lockedAmount` của ví nhà hàng. Nhà hàng chỉ nhận được phần Doanh thu thuần (Net Revenue) vào `balance`.
+2.  **Thu phí (Collection):** Admin có thể thu phí thủ công hoặc bật tính năng **Tự động thu phí (Auto-Collection)** theo chu kỳ (Ngày/Tuần/Tháng/Quý/Năm).
+3.  **Khấu trừ (Charge):** Khi thu phí, tiền được trừ trực tiếp từ `lockedAmount` của nhà hàng sang ví Admin.
+4.  **Minh bạch:** Mỗi lần thu phí đều tạo 2 bản ghi giao dịch (Transaction) loại `COMMISSION` cho cả nhà hàng và Admin để đối soát.
 
 ---
 

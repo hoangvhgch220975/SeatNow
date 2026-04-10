@@ -29,7 +29,10 @@ app.get('/health', async (_req, res) => {
 	}
 });
 
+const configRoute = require('./routes/config_route');
+
 app.use('/api/v1/admin', adminRoute);
+app.use('/api/v1/admin/configs', configRoute);
 app.use(errorMiddleware);
 
 async function bootstrap() {

@@ -404,6 +404,30 @@ async function getAdminRevenueStats({ period = 'month', from, to } = {}) {
   return rs.recordset || [];
 }
 
+// Lay cau hinh he thong theo key
+async function getSystemConfig(key) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('key', sql.NVarChar(50), key)
+    .query('SELECT configKey, configValue, description, updatedAt FROM dbo.SystemConfigs WHERE configKey = @key');
+  return rs.recordset[0] || null;
+}
+
+// Cap nhat cau hinh he thong
+async function updateSystemConfig(key, value) {
+  const pool = await getPool();
+  await pool.request()
+    .input('key', sql.NVarChar(50), key)
+    .input('value', sql.NVarChar(sql.MAX), value)
+    .query(`
+      UPDATE dbo.SystemConfigs 
+      SET configValue = @value, 
+          updatedAt = SYSUTCDATETIME() 
+      WHERE configKey = @key
+    `);
+  return { success: true };
+}
+
 module.exports = {
   getDashboardStats,
   getPendingRestaurants,
@@ -415,5 +439,7 @@ module.exports = {
   getUsers,
   getBookings,
   getTransactions,
-  getAdminRevenueStats
+  getAdminRevenueStats,
+  getSystemConfig,
+  updateSystemConfig
 };

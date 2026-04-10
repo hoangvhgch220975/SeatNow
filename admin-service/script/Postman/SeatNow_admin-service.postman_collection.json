@@ -434,6 +434,127 @@
           }
         }
       ]
+    },
+    {
+      "name": "6. Commission Config",
+      "description": "Cấu hình bật/tắt và chu kỳ thu phí hoa hồng tự động. Base path: /api/v1/admin/configs",
+      "item": [
+        {
+          "name": "Get Commission Config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const res = pm.response.json();",
+                  "pm.test('Has autoEnabled and interval', function () {",
+                  "    const data = res.data || res;",
+                  "    pm.expect(data).to.have.property('autoEnabled');",
+                  "    pm.expect(data).to.have.property('interval');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "http://localhost:3006/api/v1/admin/configs/commission",
+            "description": "Lấy cấu hình thu phí hoa hồng tự động hiện tại (autoEnabled, interval, updatedAt)."
+          }
+        },
+        {
+          "name": "Enable Auto Commission (MONTH)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Success is true', function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"autoEnabled\": true,\n  \"interval\": \"MONTH\"\n}"
+            },
+            "url": "http://localhost:3006/api/v1/admin/configs/commission",
+            "description": "Bật tính năng thu phí tự động theo chu kỳ MONTH (Mùng 1 hàng tháng). Các giá trị interval hợp lệ: DAY, WEEK, MONTH, QUARTER, YEAR."
+          }
+        },
+        {
+          "name": "Disable Auto Commission",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"autoEnabled\": false\n}"
+            },
+            "url": "http://localhost:3006/api/v1/admin/configs/commission",
+            "description": "Tắt tính năng thu phí tự động. Khi tắt, phí hoa hồng sẽ tích lũy trong lockedAmount cho đến khi Admin thu thủ công."
+          }
+        },
+        {
+          "name": "Set Interval to DAY",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"interval\": \"DAY\"\n}"
+            },
+            "url": "http://localhost:3006/api/v1/admin/configs/commission",
+            "description": "Đổi chu kỳ thu phí sang hàng ngày (00:00 mỗi ngày)."
+          }
+        }
+      ]
     }
   ]
 }

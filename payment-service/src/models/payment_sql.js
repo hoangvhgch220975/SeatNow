@@ -317,21 +317,23 @@ async function chargeCommissionFromRestaurantToAdmin({
     if (!restaurantWallet) throw new Error('Restaurant wallet not found');
     if (!adminWallet) throw new Error('Admin wallet not found');
 
-    const restaurantBefore = Number(restaurantWallet.balance);
-    if (restaurantBefore < Number(amount)) {
-      throw new Error('Insufficient wallet balance');
+    const restaurantBalance = Number(restaurantWallet.balance); // Doanh thu thuan - khong doi
+    const lockedBefore = Number(restaurantWallet.lockedAmount || 0);
+    
+    if (lockedBefore < Number(amount)) {
+      throw new Error('Insufficient locked balance for commission');
     }
 
     const adminBefore = Number(adminWallet.balance);
-    const restaurantAfter = restaurantBefore - Number(amount);
+    const lockedAfter = lockedBefore - Number(amount);
     const adminAfter = adminBefore + Number(amount);
 
     await req
       .input('restaurantWalletId2', sql.UniqueIdentifier, restaurantWallet.id)
-      .input('restaurantAfter', sql.Decimal(18, 2), restaurantAfter)
+      .input('lockedAfter', sql.Decimal(18, 2), lockedAfter)
       .query(`
         UPDATE dbo.Wallets
-        SET balance = @restaurantAfter,
+        SET lockedAmount = @lockedAfter,
             updatedAt = SYSUTCDATETIME()
         WHERE id = @restaurantWalletId2
       `);
@@ -352,9 +354,9 @@ async function chargeCommissionFromRestaurantToAdmin({
       .input('currency1', sql.NVarChar(10), currency)
       .input('ref1', sql.NVarChar(100), `${referenceCode}-D`)
       .input('idempotencyKey1', sql.NVarChar(100), idempotencyKey || null)
-      .input('desc1', sql.NVarChar(sql.MAX), description || 'Commission charged from restaurant wallet')
-      .input('rbf', sql.Decimal(18, 2), restaurantBefore)
-      .input('raf', sql.Decimal(18, 2), restaurantAfter)
+      .input('desc1', sql.NVarChar(sql.MAX), `${description || 'Commission charged from restaurant wallet'} (Deducted from LockedAmount)`)
+      .input('rbf', sql.Decimal(18, 2), restaurantBalance)
+      .input('raf', sql.Decimal(18, 2), restaurantBalance)
       .query(`
         INSERT INTO dbo.Transactions (
           walletId, type, amount, currency, balanceBefore, balanceAfter,
@@ -391,11 +393,13 @@ async function chargeCommissionFromRestaurantToAdmin({
     await tx.commit();
     return {
       success: true,
-      restaurantBalanceAfter: restaurantAfter,
+      restaurantLockedAfter: lockedAfter,
       adminBalanceAfter: adminAfter
     };
   } catch (err) {
-    await tx.rollback();
+    if (tx && !tx._aborted && !tx._rolledBack) {
+      try { await tx.rollback(); } catch (e) { /* ignore */ }
+    }
     throw err;
   }
 }
@@ -549,16 +553,30 @@ async function settleDepositToWallet(bookingId) {
     const wallet = walletRes.recordset[0];
     if (!wallet) throw new Error('Restaurant wallet not found');
 
-    const amount = Number(origTx.amount);
+    const depositAmount = Number(origTx.amount);
+    const commissionFee = Number(booking.commissionFee || 0);
+
     const balanceBefore = Number(wallet.balance);
-    const balanceAfter = balanceBefore + amount;
+    const lockedBefore = Number(wallet.lockedAmount || 0);
+
+    // Phần tiền nhà hàng nhận được (Net Revenue)
+    const netAmount = depositAmount - commissionFee;
+    const balanceAfter = balanceBefore + netAmount;
+    
+    // Phần tiền phí hoa hồng "giữ hộ" Admin
+    const lockedAfter = lockedBefore + commissionFee;
 
     // 4. Cap nhat vi
     await req
       .input('walletId', sql.UniqueIdentifier, wallet.id)
       .input('balanceAfter', sql.Decimal(18, 2), balanceAfter)
+      .input('lockedAfter', sql.Decimal(18, 2), lockedAfter)
       .query(`
-        UPDATE dbo.Wallets SET balance = @balanceAfter, updatedAt = SYSUTCDATETIME() WHERE id = @walletId
+        UPDATE dbo.Wallets 
+        SET balance = @balanceAfter, 
+            lockedAmount = @lockedAfter,
+            updatedAt = SYSUTCDATETIME() 
+        WHERE id = @walletId
       `);
 
     // 5. Tao transaction SETTLEMENT ghi nhận việc giải ngân tiền cọc
@@ -566,7 +584,7 @@ async function settleDepositToWallet(bookingId) {
     await req
       .input('wId', sql.UniqueIdentifier, wallet.id)
       .input('bId', sql.UniqueIdentifier, bookingId)
-      .input('amt', sql.Decimal(18, 2), amount)
+      .input('amt', sql.Decimal(18, 2), depositAmount)
       .input('cur', sql.NVarChar(10), booking.currency || 'VND')
       .input('desc', sql.NVarChar(sql.MAX), `Settlement of deposit for booking ${booking.bookingCode}`)
       .input('ref', sql.NVarChar(100), refCode)

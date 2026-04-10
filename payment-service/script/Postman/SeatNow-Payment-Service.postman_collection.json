@@ -224,8 +224,9 @@
 					"response": []
 				},
 				{
-					"name": "Charge Commission (Internal)",
+					"name": "Charge Commission from LockedAmount (Internal)",
 					"request": {
+						"description": "Trừ phí hoa hồng từ lockedAmount của ví nhà hàng sang ví Admin. Không ảnh hưởng balance (doanh thu thuần).",
 						"method": "POST",
 						"header": [
 							{
@@ -236,7 +237,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"restaurantId\": \"<restaurant-uuid>\",\n    \"adminUserId\": \"<admin-uuid>\",\n    \"amount\": 50000,\n    \"description\": \"Quarterly commission\",\n    \"idempotencyKey\": \"Q1-2026\"\n}",
+							"raw": "{\n    \"restaurantId\": \"4A3B2C1D-E5F6-4A7B-8C9D-0E1A2B3D4F5E\",\n    \"adminUserId\": \"49D42587-056D-4697-853C-52E69EC9A7A9\",\n    \"amount\": 400000,\n    \"description\": \"Auto commission collection (MONTH)\",\n    \"idempotencyKey\": \"AUTO-COMM-2026-04\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
