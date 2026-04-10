@@ -29,6 +29,42 @@ function formatTime(t) {
   } catch (e) { return String(t); }
 }
 
+// Trigger settlement in payment-service
+async function triggerSettlementInternal(bookingId) {
+  try {
+    const paymentBase = process.env.PAYMENT_SERVICE_URL || 'http://localhost:3005/api/v1/payment';
+    const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+    const headers = { 
+      'Content-Type': 'application/json',
+      ...(internalToken && { 'x-internal-token': internalToken })
+    };
+
+    console.log(`[Settlement] Triggering settlement for booking: ${bookingId}`);
+    
+    // Non-blocking call or small timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    fetch(`${paymentBase}/internal/wallet/settle-booking`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ bookingId }),
+      signal: controller.signal
+    })
+    .then(r => r.json())
+    .then(data => {
+      clearTimeout(timeoutId);
+      console.log(`[Settlement] Result for ${bookingId}:`, data);
+    })
+    .catch(err => {
+      clearTimeout(timeoutId);
+      console.error(`[Settlement] Failed for ${bookingId}:`, err.message);
+    });
+  } catch (err) {
+    console.error(`[Settlement] Trigger Error:`, err.message);
+  }
+}
+
 // Hàm sinh mã booking
 function genCode() {
   const d = new Date();
@@ -378,6 +414,12 @@ async function arrived(idOrCode) {
   if (!updated) { const e = new Error('Invalid transition'); e.status = 409; throw e; }
   await availability.invalidateAvailability({ restaurantId: updated.restaurantId, bookingDate: updated.bookingDate, bookingTime: updated.bookingTime });
   try { socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'arrived', booking: updated } }); } catch (e) {}
+  
+  // Giải ngân tiền cọc cho nhà hàng khi khách đã đến
+  if (updated.depositPaid && !updated.isSettledToWallet) {
+    triggerSettlementInternal(updated.id);
+  }
+
   return updated;
 }
 
@@ -427,6 +469,12 @@ async function complete(idOrCode) {
   }
 
   try { socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'completed', booking: updated } }); } catch (e) {}
+  
+  // Giải ngân tiền cọc nếu chưa giải ngân ở bước Arrived
+  if (updated.depositPaid && !updated.isSettledToWallet) {
+    triggerSettlementInternal(updated.id);
+  }
+
   return updated;
 }
 
@@ -524,6 +572,12 @@ async function guestCancel(idOrCode, guestPhone, cancellationReason = null) {
       });
     }
   } catch (e) {}
+
+  // Giải ngân tiền cọc nếu hủy sai quy định (không hoàn tiền)
+  if (updated.depositPaid && !updated.depositRefunded && !updated.isSettledToWallet) {
+    triggerSettlementInternal(updated.id);
+  }
+
   return updated;
 }
 
@@ -660,6 +714,12 @@ async function cancel(idOrCode, actor = null, cancellationReason = null) {
       }
     }
   } catch (e) {}
+
+  // Giải ngân tiền cọc nếu hủy sai quy định (không hoàn tiền)
+  if (updated.depositPaid && !updated.depositRefunded && !updated.isSettledToWallet) {
+    triggerSettlementInternal(updated.id);
+  }
+
   return updated;
 }
 
@@ -689,6 +749,12 @@ async function noShow(idOrCode) {
   }
 
   try { socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'no_show', booking: updated } }); } catch (e) {}
+  
+  // Giải ngân tiền cọc khi khách không đến
+  if (updated.depositPaid && !updated.isSettledToWallet) {
+    triggerSettlementInternal(updated.id);
+  }
+
   return updated;
 }
 

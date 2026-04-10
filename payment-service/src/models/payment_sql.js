@@ -469,45 +469,15 @@ async function completeDepositTransaction({ referenceCode, providerTxnId, metada
     const booking = bookingRes.recordset[0];
     if (!booking) throw new Error('Booking not found');
 
-    // Lấy ví của nhà hàng để cộng tiền cọc
-    const walletRes = await req
-      .input('restaurantId', sql.UniqueIdentifier, booking.restaurantId)
-      .query(`
-        SELECT TOP 1 *
-        FROM dbo.Wallets WITH (UPDLOCK, ROWLOCK)
-        WHERE restaurantId = @restaurantId
-      `);
-      
-    const wallet = walletRes.recordset[0];
-    if (!wallet) throw new Error('Restaurant wallet not found');
-
-    const balanceBefore = Number(wallet.balance);
-    const balanceAfter = balanceBefore + Number(row.amount); // Cộng tiền cọc vào ví
-
-    // Cập nhật số dư ví
-    await req
-      .input('walletId2', sql.UniqueIdentifier, wallet.id)
-      .input('balanceAfter', sql.Decimal(18, 2), balanceAfter)
-      .query(`
-        UPDATE dbo.Wallets
-        SET balance = @balanceAfter,
-            updatedAt = SYSUTCDATETIME()
-        WHERE id = @walletId2
-      `);
-
+    // Chinh sua: Khong cong tien vao vi ngay lap tuc. 
+    // Chi cap nhat trang thai transaction va booking.
     await req
       .input('txId', sql.UniqueIdentifier, row.id)
       .input('providerTxnId', sql.NVarChar(100), providerTxnId || null)
       .input('metadataJson', sql.NVarChar(sql.MAX), metadataJson || null)
-      .input('walletIdTx', sql.UniqueIdentifier, wallet.id)
-      .input('balanceBeforeTx', sql.Decimal(18, 2), balanceBefore)
-      .input('balanceAfterTx', sql.Decimal(18, 2), balanceAfter)
       .query(`
         UPDATE dbo.Transactions
         SET status = 'completed',
-            walletId = @walletIdTx,
-            balanceBefore = @balanceBeforeTx,
-            balanceAfter = @balanceAfterTx,
             providerTxnId = @providerTxnId,
             metadataJson = @metadataJson,
             completedAt = SYSUTCDATETIME()
@@ -518,16 +488,107 @@ async function completeDepositTransaction({ referenceCode, providerTxnId, metada
       .query(`
         UPDATE dbo.Bookings
         SET depositPaid = 1,
-        depositPaidAt = SYSUTCDATETIME(),
-        updatedAt = SYSUTCDATETIME()
+            depositPaidAt = SYSUTCDATETIME(),
+            updatedAt = SYSUTCDATETIME()
         WHERE id = @bookingId
-       AND status = 'PENDING'
+          AND status = 'PENDING'
       `);
 
     await tx.commit();
     return { success: true, bookingId: row.bookingId };
   } catch (err) {
     await tx.rollback();
+    throw err;
+  }
+}
+
+// Giai ngan tien coc vao vi nha hang (chi chay khi don hang thanh cong hoac khach huy sai quy dinh)
+async function settleDepositToWallet(bookingId) {
+  const pool = await getPool();
+  const tx = new sql.Transaction(pool);
+
+  try {
+    await tx.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+    const req = new sql.Request(tx);
+
+    // 1. Kiem tra booking
+    const bRes = await req
+      .input('bookingId', sql.UniqueIdentifier, bookingId)
+      .query(`
+        SELECT TOP 1 * 
+        FROM dbo.Bookings WITH (UPDLOCK, ROWLOCK)
+        WHERE id = @bookingId
+      `);
+    const booking = bRes.recordset[0];
+    if (!booking) throw new Error('Booking not found');
+    if (!booking.depositPaid) throw new Error('Deposit not paid yet');
+    if (booking.isSettledToWallet) {
+      await tx.commit();
+      return { alreadySettled: true };
+    }
+
+    // 2. Lay transaction deposit tuong ung
+    const txRes = await req
+      .input('bookingId2', sql.UniqueIdentifier, bookingId)
+      .query(`
+        SELECT TOP 1 * 
+        FROM dbo.Transactions 
+        WHERE bookingId = @bookingId2 AND type = 'DEPOSIT_PAYMENT' AND status = 'completed'
+      `);
+    const origTx = txRes.recordset[0];
+    if (!origTx) throw new Error('Deposit transaction not found');
+
+    // 3. Lay vi nha hang
+    const walletRes = await req
+      .input('restaurantId', sql.UniqueIdentifier, booking.restaurantId)
+      .query(`
+        SELECT TOP 1 * 
+        FROM dbo.Wallets WITH (UPDLOCK, ROWLOCK)
+        WHERE restaurantId = @restaurantId
+      `);
+    const wallet = walletRes.recordset[0];
+    if (!wallet) throw new Error('Restaurant wallet not found');
+
+    const amount = Number(origTx.amount);
+    const balanceBefore = Number(wallet.balance);
+    const balanceAfter = balanceBefore + amount;
+
+    // 4. Cap nhat vi
+    await req
+      .input('walletId', sql.UniqueIdentifier, wallet.id)
+      .input('balanceAfter', sql.Decimal(18, 2), balanceAfter)
+      .query(`
+        UPDATE dbo.Wallets SET balance = @balanceAfter, updatedAt = SYSUTCDATETIME() WHERE id = @walletId
+      `);
+
+    // 5. Tao transaction SETTLEMENT ghi nhận việc giải ngân tiền cọc
+    const refCode = `SETTLE-${booking.bookingCode}`;
+    await req
+      .input('wId', sql.UniqueIdentifier, wallet.id)
+      .input('bId', sql.UniqueIdentifier, bookingId)
+      .input('amt', sql.Decimal(18, 2), amount)
+      .input('cur', sql.NVarChar(10), booking.currency || 'VND')
+      .input('desc', sql.NVarChar(sql.MAX), `Settlement of deposit for booking ${booking.bookingCode}`)
+      .input('ref', sql.NVarChar(100), refCode)
+      .input('bb', sql.Decimal(18, 2), balanceBefore)
+      .input('ba', sql.Decimal(18, 2), balanceAfter)
+      .query(`
+        INSERT INTO dbo.Transactions (
+          walletId, bookingId, type, amount, currency, balanceBefore, balanceAfter,
+          description, paymentMethod, referenceCode, status, payerType, provider, createdAt, completedAt
+        ) VALUES (
+          @wId, @bId, 'SETTLEMENT', @amt, @cur, @bb, @ba,
+          @desc, 'INTERNAL_WALLET', @ref, 'completed', 'ADMIN', 'INTERNAL', SYSUTCDATETIME(), SYSUTCDATETIME()
+        )
+      `);
+
+    // 6. Danh dau booking da giai ngan
+    await req.query(`UPDATE dbo.Bookings SET isSettledToWallet = 1, updatedAt = SYSUTCDATETIME() WHERE id = @bookingId`);
+
+    await tx.commit();
+    return { success: true, balanceAfter };
+  } catch (err) {
+    if (tx) await tx.rollback();
     throw err;
   }
 }
@@ -784,5 +845,6 @@ module.exports = {
   rejectWithdrawalRequest,
   completeWalletTopupTransactionAndIncreaseBalance,
   chargeCommissionFromRestaurantToAdmin,
-  failTransaction
+  failTransaction,
+  settleDepositToWallet
 };

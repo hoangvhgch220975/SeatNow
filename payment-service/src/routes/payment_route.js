@@ -28,5 +28,7 @@ r.post('/wallet/withdraw', internalAuth, controller.createWithdrawal);
 r.post('/internal/wallet/withdraw/:id/approve', internalAuth, controller.approveWithdrawal);
 r.post('/internal/wallet/withdraw/:id/reject', internalAuth, controller.rejectWithdrawal);
 
+r.post('/internal/wallet/settle-booking', internalAuth, controller.settleBookingDeposit);
+
 // Xuất router
 module.exports = r;

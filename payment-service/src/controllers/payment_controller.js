@@ -143,6 +143,21 @@ async function rejectWithdrawal(req, res, next) {
   }
 }
 
+// Giải ngân tiền cọc cho nhà hàng (Internal API)
+async function settleBookingDeposit(req, res, next) {
+  try {
+    const { bookingId } = req.body;
+    if (!bookingId) {
+      return res.status(400).json({ success: false, message: 'bookingId is required' });
+    }
+
+    const result = await paymentModel.settleDepositToWallet(bookingId);
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Export các handler để route sử dụng
 module.exports = {
   generateDepositQR,
@@ -153,5 +168,6 @@ module.exports = {
   chargeCommission,
   createWithdrawal,
   approveWithdrawal,
-  rejectWithdrawal
+  rejectWithdrawal,
+  settleBookingDeposit
 };

@@ -256,6 +256,40 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Settle Booking Deposit (Internal)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-internal-token",
+								"value": "{{internal_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bookingId\": \"<booking-uuid>\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/internal/wallet/settle-booking",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"internal",
+								"wallet",
+								"settle-booking"
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		},
