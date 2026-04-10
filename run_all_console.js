@@ -1,5 +1,6 @@
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
+const os = require('os');
 
 const services = [
   { name: 'AUTH', path: 'auth_service', cmd: 'npm', args: ['start'], color: '\x1b[32m' }, // Green
@@ -15,12 +16,16 @@ const services = [
 
 console.log('\x1b[1m🚀 Starting SeatNow Microservices in single console...\x1b[0m\n');
 
+const children = [];
+
 services.forEach((service) => {
   const fullPath = path.resolve(process.cwd(), service.path);
   const subprocess = spawn(service.cmd, service.args, {
     cwd: fullPath,
     shell: true,
   });
+
+  children.push(subprocess);
 
   const prefix = `${service.color}[${service.name}]\x1b[0m `;
 
@@ -45,5 +50,16 @@ services.forEach((service) => {
 
 process.on('SIGINT', () => {
   console.log('\nStopping all services...');
+  if (os.platform() === 'win32') {
+    children.forEach((child) => {
+      try {
+        execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: 'ignore' });
+      } catch (e) {
+        // Ignore if process is already dead
+      }
+    });
+  } else {
+    children.forEach((child) => child.kill('SIGKILL'));
+  }
   process.exit();
 });

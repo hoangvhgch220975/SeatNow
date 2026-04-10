@@ -77,37 +77,46 @@ function genCode() {
 
 // Hàm tính tiền đặt cọc dựa trên chính sách của nhà hàng
 function computeDeposit(restaurant, numGuests) {
+  // Nếu nhà hàng không bật tính năng đặt cọc, trả về không yêu cầu
   if (!restaurant.depositEnabled) return { depositRequired: false, depositAmount: 0 };
 
-  // Hỗ trợ cả trường hợp policy lưu dạng object hoặc JSON string
   let policy = null;
   try {
+    // Phân giải dữ liệu JSON từ database
     policy = typeof restaurant.depositPolicyJson === 'string'
       ? (restaurant.depositPolicyJson ? JSON.parse(restaurant.depositPolicyJson) : null)
       : (restaurant.depositPolicyJson || null);
-  } catch {}
+  } catch {
+    // Log lỗi nếu JSON không hợp lệ (nếu cần)
+  }
+
+  // Nếu không có chính sách, mặc định yêu cầu đặt cọc nhưng số tiền là 0 (hoặc xử lý tùy nghiệp vụ)
   if (!policy) return { depositRequired: true, depositAmount: 0 };
 
-  // Nếu policy khai báo không yêu cầu đặt cọc thì bỏ qua
+  // Nếu chính sách ghi rõ không yêu cầu (required = false)
   if (policy.required === false) return { depositRequired: false, depositAmount: 0 };
 
-  // Chấp nhận nhiều tên key để tương thích dữ liệu cũ/mới
-  const minGuests = Number(
-    policy.minGuests ?? policy.min_guests ?? policy.minimumGuests ?? policy.minPartySize ?? 0
+  // Lấy số lượng khách tối thiểu để áp dụng đặt cọc (ưu tiên key 'minGuest')
+  const minGuest = Number(
+    policy.minGuest ?? policy.minGuests ?? policy.min_guests ?? 0
   );
-  if (numGuests < minGuests) return { depositRequired: false, depositAmount: 0 };
+  
+  // Nếu số khách đặt ít hơn mức tối thiểu thì không cần đặt cọc
+  if (numGuests < minGuest) return { depositRequired: false, depositAmount: 0 };
 
+  // Xác định loại hình đặt cọc (theo người hay theo đơn)
   const rawType = String(policy.type ?? policy.depositType ?? '').toLowerCase();
   const isPerPerson = rawType === 'per_person' || rawType === 'perperson' || rawType === 'per-person';
 
-  // Theo format hiện tại: chỉ lấy tiền cọc từ minAmount
-  // Hỗ trợ thêm monAmount trong trường hợp dữ liệu cũ bị gõ nhầm key.
+  // Lấy số tiền cơ bản (ưu tiên key 'minAmount')
   const baseAmount = Number(policy.minAmount ?? policy.monAmount ?? 0);
 
+  // Tính toán tổng số tiền dựa trên loại hình
   let amount = isPerPerson
     ? baseAmount * Number(numGuests || 0)
     : baseAmount;
 
+  // Đảm bảo số tiền hợp lệ
   if (!Number.isFinite(amount) || amount < 0) amount = 0;
 
   return { depositRequired: true, depositAmount: amount };
