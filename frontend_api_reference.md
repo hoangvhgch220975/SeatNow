@@ -893,12 +893,13 @@ Hệ thống thanh toán chịu trách nhiệm xử lý các giao dịch đặt 
 **Base path:** `/api/v1/payment`
 | Method | Endpoint | Mô tả | Auth |
 | ------ | ---------------------- | --------------------------- | -------- |
-| `POST` | `/deposit/generate-qr` | Tạo QR thanh toán cọc | Tùy |
-| `GET` | `/transaction/:id` | Xem chi tiết giao dịch | Tùy |
-| `POST` | `/wallet/topup/create` | Nạp tiền ví | Tùy |
-| `GET` | `/wallet/balance` | Xem số dư ví | Tùy |
-| `GET` | `/wallet/transactions` | Lịch sử giao dịch ví | Tùy |
-| `POST` | `/wallet/withdraw` | Yêu cầu rút tiền (Internal) | Internal |
+| `POST` | `/deposit/generate-qr`        | Tạo QR thanh toán cọc              | Tùy      |
+| `GET`  | `/transaction/:id`            | Xem chi tiết giao dịch             | Tùy      |
+| `POST` | `/wallet/topup/create`        | Nạp tiền ví                        | Tùy      |
+| `GET`  | `/wallet/balance`             | Xem số dư ví                       | Tùy      |
+| `GET`  | `/wallet/transactions`        | Lịch sử giao dịch ví               | Tùy      |
+| `POST` | `/internal/wallet/settle-booking` | Giải ngân tiền cọc (Internal)   | Internal |
+| `POST` | `/wallet/withdraw`            | Yêu cầu rút tiền                   | ✅       |
 
 ### 💵 5.1 QR Code / Redirect Link Generation
 
@@ -957,21 +958,30 @@ Hệ thống xử lý thanh toán theo mô hình Redirect & Webhook (IPN).
 ```mermaid
 sequenceDiagram
     participant FE as Frontend (Web/App)
-    participant BE as Payment Service
+    participant BE_BK as Booking Service
+    participant BE_PY as Payment Service
     participant PV as Provider (Momo/VNPay)
 
-    FE->>BE: POST /deposit/generate-qr (provider)
-    BE-->>FE: Return paymentUrl / deeplink
+    FE->>BE_PY: POST /deposit/generate-qr (provider)
+    BE_PY-->>FE: Return paymentUrl / deeplink
     FE->>PV: Redirect người dùng sang URL thanh toán
-    PV->>FE: Sau khi trả tiền, Redirect về returnUrl (UI)
-    PV->>BE: Gửi Webhook ngầm (IPN) xác nhận thành công
-    BE->>BE: Cập nhật trạng thái Booking/Wallet
+    PV->>BE_PY: Gửi Webhook ngầm (IPN) xác nhận thành công
+    BE_PY->>BE_PY: Đánh dấu depositPaid = 1 (Tiền treo - Escrow)
+    
+    Note over BE_BK, BE_PY: Tiền chưa vào ví nhà hàng ngay lập tức
+    
+    BE_BK->>BE_BK: Trạng thái Booking chuyển sang ARRIVED / COMPLETED / NOSHOW
+    BE_BK->>BE_PY: POST /internal/wallet/settle-booking (Trigger giải ngân)
+    BE_PY->>BE_PY: Cộng tiền vào ví & Tạo Settlement Transaction
 ```
 
-#### 📍 Lưu ý cho Frontend:
+#### 📍 Lưu ý quan trọng cho Frontend:
 
-1.  **Chuyển hướng (Redirect)**: Ngay khi nhận được `paymentUrl`, Frontend cần thực hiện redirect người dùng.
-2.  **Trang kết quả (Return Page)**: Gateway sẽ proxy kết quả trả về từ cổng thanh toán tới URL đã cấu hình cho Frontend.
+1.  **Chế độ Giam tiền (Escrow)**: Kể từ phiên bản này, tiền cọc của khách hàng sẽ **không** được cộng ngay vào ví nhà hàng khi thanh toán thành công. Tiền sẽ được hệ thống giữ ở trạng thái "Chờ giải ngân".
+2.  **Thời điểm giải ngân**: Tiền chỉ được chuyển vào ví nhà hàng khi đơn hàng đạt trạng thái kết thúc có lợi cho nhà hàng:
+    *   Khách đến (`ARRIVED`) hoặc Hoàn thành (`COMPLETED`).
+    *   Khách không đến (`NO_SHOW`).
+    *   Khách hủy muộn (Late Cancel) mà không được hoàn tiền.
 3.  **Tra cứu (Polling)**: Nếu chưa nhận được tín hiệu từ Socket, FE có thể gọi API `GET /transaction/:id` để kiểm tra trạng thái giao dịch.
 
 ### 🌐 5.3 Webhook & Return URLs (Public)
@@ -992,6 +1002,21 @@ Các URL này do Cổng thanh toán gọi trực tiếp:
 | `GET`  | `/wallet/balance`      | Kiểm tra số dư ví nhà hàng | ✅   |
 | `GET`  | `/wallet/transactions` | Lịch sử giao dịch ví       | ✅   |
 | `POST` | `/wallet/withdraw`     | Yêu cầu rút tiền từ ví     | ✅   |
+
+### 🛡️ 5.4 Internal Operations (Chỉ dành cho Services)
+
+Các API này yêu cầu Header `x-internal-token` và không được tiếp cận trực tiếp từ Frontend/Public.
+
+| Method | Endpoint | Mô tả |
+| :--- | :--- | :--- |
+| `POST` | `/internal/wallet/settle-booking` | Giải ngân tiền cọc của một Booking vào ví nhà hàng. |
+
+#### Body mẫu (Settle):
+```json
+{
+  "bookingId": "uuid-cua-booking"
+}
+```
 
 ---
 
