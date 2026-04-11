@@ -1,12 +1,26 @@
 /**
- * table.controller (placeholder)
+ * table.controller
+ * Quản lý các thực thể bàn vật lý
  */
 const tableSvc = require('../services/table_service');
+const restaurantSvc = require('../services/restaurant_service');
 
-// Hàm liệt kê các bàn của một nhà hàng (hỗ trợ lọc theo location)
+// Helper kiểm tra quyền sở hữu nhà hàng
+async function checkOwnership(req, restaurantId) {
+  if (req.user?.role === 'ADMIN') return true;
+  if (req.user?.role === 'RESTAURANT_OWNER') {
+    const r = await restaurantSvc.getRestaurant(restaurantId);
+    if (!r) return false;
+    if (r.ownerId !== (req.user.id || req.user.sub)) return false;
+    return true;
+  }
+  return false;
+}
+
+// Hàm liệt kê các bàn của một nhà hàng (ai cũng có thể xem nếu authOptional cho phép)
 async function list(req, res) {
   try {
-    const restaurantId = await require('../services/restaurant_service').resolveId(req.params.id);
+    const restaurantId = await restaurantSvc.resolveId(req.params.id);
     if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
     
     const { location } = req.query;
@@ -20,8 +34,11 @@ async function list(req, res) {
 // Hàm tạo bàn mới cho một nhà hàng
 async function create(req, res) {
   try {
-    const restaurantId = await require('../services/restaurant_service').resolveId(req.params.id);
+    const restaurantId = await restaurantSvc.resolveId(req.params.id);
     if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
+
+    const isOwner = await checkOwnership(req, restaurantId);
+    if (!isOwner) return res.status(403).json({ message: 'Forbidden: not your restaurant' });
 
     const data = await tableSvc.createTable({
       restaurantId: restaurantId,
@@ -40,8 +57,11 @@ async function create(req, res) {
 // Hàm cập nhật thông tin bàn
 async function update(req, res) {
   try {
-    const restaurantId = await require('../services/restaurant_service').resolveId(req.params.id);
+    const restaurantId = await restaurantSvc.resolveId(req.params.id);
     if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
+
+    const isOwner = await checkOwnership(req, restaurantId);
+    if (!isOwner) return res.status(403).json({ message: 'Forbidden: not your restaurant' });
 
     const data = await tableSvc.updateTable(restaurantId, req.params.tableId, req.body);
     if (!data) return res.status(404).json({ message: 'Not found' });
@@ -54,8 +74,11 @@ async function update(req, res) {
 // Hàm xóa bàn
 async function remove(req, res) {
   try {
-    const restaurantId = await require('../services/restaurant_service').resolveId(req.params.id);
+    const restaurantId = await restaurantSvc.resolveId(req.params.id);
     if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
+
+    const isOwner = await checkOwnership(req, restaurantId);
+    if (!isOwner) return res.status(403).json({ message: 'Forbidden: not your restaurant' });
 
     const ok = await tableSvc.deleteTable(restaurantId, req.params.tableId);
     res.json({ ok });
@@ -64,14 +87,28 @@ async function remove(req, res) {
   }
 }
 
-// Hàm thống kê bàn theo tầng/vị trí
+// Hàm thống kê bàn tổng hợp cho Dashboard
 async function getStats(req, res) {
   try {
-    const restaurantId = await require('../services/restaurant_service').resolveId(req.params.id);
+    const restaurantId = await restaurantSvc.resolveId(req.params.id);
     if (!restaurantId) return res.status(404).json({ message: 'Restaurant not found' });
 
-    const data = await tableSvc.getStatsByLocation(restaurantId);
-    res.json({ data });
+    const isOwner = await checkOwnership(req, restaurantId);
+    if (!isOwner) return res.status(403).json({ message: 'Forbidden: not your restaurant' });
+
+    const globalStats = await tableSvc.getGlobalStats(restaurantId);
+    const locationStats = await tableSvc.getStatsByLocation(restaurantId);
+    
+    // Trả về số liệu tổng hợp tương thích với frontend TableStats.jsx
+    res.json({ 
+      data: {
+        total: globalStats.totalTables,
+        available: globalStats.availableTables,
+        occupied: globalStats.busyTables, 
+        maintenance: globalStats.maintenanceTables,
+        byLocation: locationStats
+      }
+    });
   } catch (e) {
     res.status(400).json({ message: e.message });
   }

@@ -435,8 +435,8 @@ async function getOwnerPortfolioSummary(ownerId, { from, to } = {}) {
       ISNULL(SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
       ISNULL(SUM(CASE WHEN b.status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow,
       ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN b.depositAmount ELSE 0 END), 0) AS totalGrossRevenue,
-      SUM(CASE WHEN b.numGuests = 2 THEN 1 ELSE 0 END) AS countCouple,
-      SUM(CASE WHEN b.numGuests BETWEEN 4 AND 6 THEN 1 ELSE 0 END) AS countSmallGroup,
+      SUM(CASE WHEN b.numGuests <= 2 THEN 1 ELSE 0 END) AS countCouple,
+      SUM(CASE WHEN b.numGuests BETWEEN 3 AND 7 THEN 1 ELSE 0 END) AS countSmallGroup,
       SUM(CASE WHEN b.numGuests >= 8 THEN 1 ELSE 0 END) AS countParty,
       COUNT(DISTINCT r.id) AS totalRestaurants,
       (SELECT ISNULL(SUM(r2.ratingCount), 0) FROM dbo.Restaurants r2 WHERE r2.ownerId = @ownerId) AS portfolioTotalReviews,
@@ -458,8 +458,8 @@ async function getOwnerPortfolioSummary(ownerId, { from, to } = {}) {
       ISNULL(SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
       ISNULL(SUM(CASE WHEN b.status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow,
       ISNULL(SUM(CASE WHEN b.depositPaid = 1 AND ISNULL(b.depositRefunded, 0) = 0 THEN b.depositAmount ELSE 0 END), 0) AS totalGrossRevenue,
-      SUM(CASE WHEN b.numGuests = 2 THEN 1 ELSE 0 END) AS countCouple,
-      SUM(CASE WHEN b.numGuests BETWEEN 4 AND 6 THEN 1 ELSE 0 END) AS countSmallGroup,
+      SUM(CASE WHEN b.numGuests <= 2 THEN 1 ELSE 0 END) AS countCouple,
+      SUM(CASE WHEN b.numGuests BETWEEN 3 AND 7 THEN 1 ELSE 0 END) AS countSmallGroup,
       SUM(CASE WHEN b.numGuests >= 8 THEN 1 ELSE 0 END) AS countParty
     FROM dbo.Restaurants r
     LEFT JOIN dbo.Bookings b ON r.id = b.restaurantId ${dateFilter}
@@ -517,8 +517,8 @@ async function getRestaurantStatsSummary(restaurantId, { from, to } = {}) {
       ISNULL(SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS totalCancelled,
       ISNULL(SUM(CASE WHEN status = 'NO_SHOW' THEN 1 ELSE 0 END), 0) AS totalNoShow,
       ISNULL(SUM(CASE WHEN depositPaid = 1 AND ISNULL(depositRefunded, 0) = 0 THEN depositAmount ELSE 0 END), 0) AS totalGrossRevenue,
-      SUM(CASE WHEN numGuests = 2 THEN 1 ELSE 0 END) AS countCouple,
-      SUM(CASE WHEN numGuests BETWEEN 4 AND 6 THEN 1 ELSE 0 END) AS countSmallGroup,
+      SUM(CASE WHEN numGuests <= 2 THEN 1 ELSE 0 END) AS countCouple,
+      SUM(CASE WHEN numGuests BETWEEN 3 AND 7 THEN 1 ELSE 0 END) AS countSmallGroup,
       SUM(CASE WHEN numGuests >= 8 THEN 1 ELSE 0 END) AS countParty
     FROM dbo.Bookings
     WHERE restaurantId = @restaurantId ${dateFilter}

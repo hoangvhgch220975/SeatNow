@@ -125,5 +125,26 @@ async function getStatsByLocation(restaurantId) {
     `);
   return rs.recordset;
 }
+// Thống kê tổng quát bàn của 1 nhà hàng
+async function getGlobalStats(restaurantId) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+    .query(`
+      SELECT 
+        COUNT(*) as totalTables,
+        SUM(CASE WHEN [status] = 'available' THEN 1 ELSE 0 END) as availableTables,
+        SUM(CASE WHEN [status] = 'unavailable' THEN 1 ELSE 0 END) as busyTables,
+        SUM(CASE WHEN [status] = 'maintenance' THEN 1 ELSE 0 END) as maintenanceTables
+      FROM dbo.Tables
+      WHERE restaurantId=@restaurantId;
+    `);
+  return rs.recordset[0] || {
+    totalTables: 0,
+    availableTables: 0,
+    busyTables: 0,
+    maintenanceTables: 0
+  };
+}
 
-module.exports = { listByRestaurant, findById, createTable, updateTable, deleteTable, getStatsByLocation };
+module.exports = { listByRestaurant, findById, createTable, updateTable, deleteTable, getStatsByLocation, getGlobalStats };

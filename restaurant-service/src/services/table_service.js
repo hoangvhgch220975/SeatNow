@@ -30,4 +30,9 @@ async function getStatsByLocation(restaurantId) {
   return tableSql.getStatsByLocation(restaurantId);
 }
 
-module.exports = { listTables, createTable, updateTable, deleteTable, getStatsByLocation };
+// Thống kê tổng quát các bàn theo ID nhà hàng
+async function getGlobalStats(restaurantId) {
+  return tableSql.getGlobalStats(restaurantId);
+}
+
+module.exports = { listTables, createTable, updateTable, deleteTable, getStatsByLocation, getGlobalStats };

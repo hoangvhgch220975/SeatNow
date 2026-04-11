@@ -547,11 +547,18 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 | `GET`  | `/restaurants/:id/revenue-stats` | Biểu đồ doanh thu                               | ✅   | OWNER, ADMIN |
 | `GET`  | `/portfolio/summary`             | Tổng hợp Portfolio (toàn bộ nhà hàng của Owner) | ✅   | OWNER, ADMIN |
 
-| Param    | Type   | Mô tả                                                                                                        |
-| -------- | ------ | ------------------------------------------------------------------------------------------------------------- |
+| `period` | string | `hour`, `day`, `week`, `month`, `quarter`, `year`                                                             |
 | `from`   | string | Ngày bắt đầu (YYYY-MM-DD)                                                                                     |
 | `to`     | string | Ngày kết thúc (YYYY-MM-DD)                                                                                    |
-| `period` | string | `hour`, `day`, `week`, `month`, `quarter`, `year`                                                             |
+
+> [!IMPORTANT]
+> **Phân loại Nhóm khách (Guest-Size Groups):**
+> Các trường trong `guestSizeCounts` được phân loại như sau:
+> - `couple`: 1-2 khách (Cặp đôi/Cá nhân)
+> - `smallGroup`: 3-7 khách (Nhóm nhỏ)
+> - `party`: 8 khách trở lên (Đoàn đông)
+>
+> Tỷ lệ phần trăm (`percentCouple`, `percentSmallGroup`, `percentParty`) được hệ thống tính toán tự động dựa trên tổng số booking trong kỳ.
 
 > [!NOTE]
 > **Logic mặc định (Auto-fill):** Nếu bạn truyền `period` nhưng không truyền `from/to`, hệ thống sẽ tự động tính toán khoảng ngày mặc định:
@@ -816,9 +823,9 @@ _(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xá
     "totalNoShow": 5,
     "cancellationRate": 0.1133,
     "guestSizeCounts": {
-      "couple": 80,
-      "smallGroup": 50,
-      "party": 20,
+      "couple": 80,         // 1-2 khách
+      "smallGroup": 50,     // 3-7 khách
+      "party": 20,          // 8+ khách
       "percentCouple": 53.33,
       "percentSmallGroup": 33.33,
       "percentParty": 13.34
