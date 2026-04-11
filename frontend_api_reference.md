@@ -368,7 +368,19 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 | `PUT`    | `/restaurants/:id/menu/:itemId` | Sửa món  | ✅   | OWNER, ADMIN |
 | `DELETE` | `/restaurants/:id/menu/:itemId` | Xóa món  | ✅   | OWNER, ADMIN |
 
+#### 🔍 Query Params cho `GET /restaurants/:id/menu`:
+
+| Param      | Type   | Mô tả                                                                                               |
+| ---------- | ------ | --------------------------------------------------------------------------------------------------- |
+| `search`   | string | Tìm kiếm theo tên hoặc mô tả món ăn (không phân biệt hoa thường).                                   |
+| `category` | string | Lọc theo danh mục (ví dụ: `Appetizers`, `Drinks`). Sử dụng `all` hoặc để trống để lấy tất cả.       |
+| `status`   | string | Lọc theo trạng thái kinh doanh: `true` (Đang bán), `false` (Ngừng bán).                             |
+| `sortBy`   | string | Tiêu chí sắp xếp: `newest` (mặc định), `price_asc`, `price_desc`, `name_asc`, `name_desc`, `oldest`. |
+| `limit`    | number | Số lượng kết quả mỗi trang (Mặc định: 100).                                                         |
+| `offset`   | number | Vị trí bắt đầu lấy dữ liệu (Mặc định: 0).                                                           |
+
 #### Body mẫu (Create Menu Item):
+
 
 ```json
 {

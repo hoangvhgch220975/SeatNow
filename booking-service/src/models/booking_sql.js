@@ -620,6 +620,8 @@ async function getRevenueStatistics(restaurantId, { period = 'month', from, to }
 async function getHourlyBookingStats(restaurantId, { from, to } = {}) {
   const pool = await getPool();
   const req = pool.request().input('restaurantId', sql.UniqueIdentifier, restaurantId);
+  if (from) req.input('from', sql.Date, from);
+  if (to) req.input('to', sql.Date, to);
   const query = `
     WITH Hours AS (SELECT 0 AS h UNION ALL SELECT h + 2 FROM Hours WHERE h < 22)
     SELECT RIGHT('0' + CAST(h AS VARCHAR(2)), 2) + ':00' AS hour, COUNT(b.id) AS count
@@ -632,6 +634,8 @@ async function getHourlyBookingStats(restaurantId, { from, to } = {}) {
 async function getOwnerHourlyBookingStats(ownerId, { from, to } = {}) {
   const pool = await getPool();
   const req = pool.request().input('ownerId', sql.UniqueIdentifier, ownerId);
+  if (from) req.input('from', sql.Date, from);
+  if (to) req.input('to', sql.Date, to);
   const query = `
     WITH Hours AS (SELECT 0 AS h UNION ALL SELECT h + 2 FROM Hours WHERE h < 22)
     SELECT RIGHT('0' + CAST(h AS VARCHAR(2)), 2) + ':00' AS hour, COUNT(b.id) AS count
