@@ -1377,6 +1377,8 @@ API cung cấp dữ liệu bền vững (persistent) cho bảng "Recent Global A
 ```
 
 > [!TIP]
+> **Chuẩn hóa Tiêu đề (Standardized Titles):** Kể từ bản cập nhật 2026-04-12, Server đã tự động tra cứu và gán `title` thân thiện (ví dụ: "Booking Confirmed" cho `BOOKING_CONFIRMED`) trước khi lưu vào DB và gửi qua Socket. Frontend có thể sử dụng trực tiếp trường `title` để hiển thị trên UI mà không cần logic ánh xạ thủ công.
+>
 > **Tích hợp Socket + API (Recommended Pattern):**
 > 1. **Khi tải trang:** Gọi `GET /api/v1/owner/activity` để hiển thị danh sách ban đầu (bao gồm lịch sử offline).
 > 2. **Real-time:** Lắng nghe socket event `notification` để đẩy thêm mục mới lên đầu danh sách mà không cần reload.
@@ -1397,7 +1399,8 @@ Notification Service gửi push notification qua Socket.IO theo 2 cấp độ:
 
 | Event                       | Payload                                         | Đối tượng nhận | Mô tả                                                                     |
 | --------------------------- | ----------------------------------------------- | -------------- | ------------------------------------------------------------------------- |
-| `notification`              | `{ message, data }`                             | Any            | Sự kiện gửi notification chung cơ bản.                                    |
+| `notification`              | `{ title, message, data }`                      | Any            | Sự kiện gửi notification chung cơ bản. Tiêu đề (`title`) hiện được tự động chuẩn hóa cho các sự kiện hệ thống. |
+| `bookingChanged`            | `{ type, booking }`                             | OWNER, ADMIN   | Kích hoạt khi có thay đổi trạng thái đặt bàn (created, confirmed, cancelled, ...). Dùng để refresh Dashboard realtime. |
 | `withdrawal_requested`      | `{ message, data: { restaurantName, amount } }` | `role:ADMIN`   | Kích hoạt ngay lập tức khi một Owner nộp đơn yêu cầu Rút tiền thành công. |
 | `partner_request_submitted` | `{ message, data: { ...requestData } }`         | `role:ADMIN`   | Kích hoạt khi partner hoàn tất form "Be my member" (Trở thành đối tác).   |
 | `restaurant_created`        | `{ message, data: { restaurantId, name } }`     | `role:ADMIN`   | Kích hoạt khi Owner tạo nhà hàng mới và chờ duyệt.                        |
