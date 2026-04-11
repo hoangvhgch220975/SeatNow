@@ -410,6 +410,33 @@ async function settleQuarterCommission({ year, quarter, adminUserId, restaurantI
         markedCount,
         status: 'settled'
       });
+
+      // Notify restaurant owner: commission settled
+      try {
+        const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+        // Lấy ownerId từ restaurant-service
+        const restBase = getRestaurantServiceBaseUrl();
+        const restData = await requestJson('GET', `${restBase}/restaurants/${restaurantId}`, undefined).catch(() => null);
+        const ownerId = restData?.data?.ownerId || restData?.ownerId;
+        if (ownerId) {
+          fetch(`${notificationUrl}/test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'web',
+              payload: {
+                userId: ownerId,
+                restaurantId,
+                event: 'COMMISSION_SETTLED',
+                message: `Commission settled for Q${quarter}/${year}: ${Number(amount).toLocaleString('vi-VN')} VND (${markedCount} bookings)`,
+                data: { restaurantId, amount, quarter, year, bookingCount: markedCount }
+              }
+            })
+          }).catch(err => console.error('[Commission] Notify owner failed:', err.message));
+        }
+      } catch (notifErr) {
+        console.error('[Commission] Notification error:', notifErr.message);
+      }
     } catch (e) {
       restaurants.push({
         restaurantId,

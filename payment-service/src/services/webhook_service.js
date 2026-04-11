@@ -105,11 +105,55 @@ async function processProviderResult({ provider, payload, verifySignature = true
     }
 
     if (tx.type === 'TOP_UP') {
-      return paymentModel.completeWalletTopupTransactionAndIncreaseBalance({
+      const topupResult = await paymentModel.completeWalletTopupTransactionAndIncreaseBalance({
         referenceCode,
         providerTxnId,
         metadataJson: JSON.stringify(rawPayload)
       });
+
+      // Notify restaurant owner: wallet top-up successful
+      if (topupResult && !topupResult.alreadyCompleted) {
+        try {
+          const notifUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+          const topupMsg = `Wallet top-up successful: ${Number(tx.amount || 0).toLocaleString('vi-VN')} VND (Ref: ${referenceCode})`;
+          const topupData = { referenceCode, amount: tx.amount, walletId: tx.walletId };
+
+          // 1. Notify restaurant owner (resolve userId từ walletId trong worker)
+          fetch(`${notifUrl}/test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'web',
+              payload: {
+                walletId: tx.walletId,
+                event: 'TRANSACTION_TOPUP',
+                message: topupMsg,
+                data: topupData
+              }
+            })
+          }).catch(err => console.error('[Webhook] Failed to notify owner TOPUP:', err.message));
+
+          // 2. Notify ADMIN real-time: restaurant đã nạp tiền
+          fetch(`${notifUrl}/test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'web',
+              payload: {
+                role: 'ADMIN',
+                event: 'TRANSACTION_TOPUP',
+                message: `[Admin] Restaurant wallet top-up: ${Number(tx.amount || 0).toLocaleString('vi-VN')} VND (Ref: ${referenceCode})`,
+                data: topupData
+              }
+            })
+          }).catch(err => console.error('[Webhook] Failed to notify admin TOPUP:', err.message));
+
+        } catch (notifErr) {
+          console.error('[Webhook] TOPUP notification error:', notifErr.message);
+        }
+      }
+
+      return topupResult;
     }
 
     throw new Error(`Unsupported success flow for transaction type ${tx.type}`);

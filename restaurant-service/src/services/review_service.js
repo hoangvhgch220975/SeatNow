@@ -122,6 +122,35 @@ async function createReview(restaurantId, customerId, payload) {
   // Tính toán lại rating trung bình và cập nhật SQL Server
   await aggregateRestaurantRating(restaurantId);
 
+  // Notify restaurant owner: new review received
+  try {
+    const restaurant = await restaurantSql.findById(restaurantId);
+    if (restaurant && restaurant.ownerId) {
+      const notifUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+      fetch(`${notifUrl}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'web',
+          payload: {
+            userId: restaurant.ownerId,
+            restaurantId,
+            event: 'REVIEW_NEW',
+            message: `New ${payload.rating}-star review for ${restaurant.name}`,
+            data: {
+              restaurantId,
+              restaurantName: restaurant.name,
+              rating: payload.rating,
+              comment: payload.comment
+            }
+          }
+        })
+      }).catch(err => console.error('[Review] Failed to notify owner:', err.message));
+    }
+  } catch (notifErr) {
+    console.error('[Review] Notification error:', notifErr.message);
+  }
+
   return doc.toObject();
 }
 

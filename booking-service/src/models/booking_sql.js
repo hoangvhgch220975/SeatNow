@@ -101,7 +101,8 @@ async function listByRestaurant(restaurantId, { from, to, status, limit = 50, of
   const sortDirection = sort.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
   const rs = await req.query(`
-    SELECT b.*, u.name AS customerName
+    SELECT b.*, u.name AS customerName,
+           COUNT(*) OVER() as totalRecords
     FROM dbo.Bookings b
     LEFT JOIN dbo.Users u ON b.customerId = u.id
     WHERE ${where.join(' AND ')}
@@ -109,8 +110,29 @@ async function listByRestaurant(restaurantId, { from, to, status, limit = 50, of
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
   `);
 
-  return rs.recordset;
+  const summaryWhere = ['restaurantId=@restaurantId'];
+  if (from) summaryWhere.push('bookingDate >= @from');
+  if (to) summaryWhere.push('bookingDate <= @to');
+
+  const rsSummary = await req.query(`
+    SELECT 
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed,
+      SUM(CASE WHEN status IN ('CANCELLED', 'NO_SHOW') THEN 1 ELSE 0 END) as cancelled
+    FROM dbo.Bookings
+    WHERE ${summaryWhere.join(' AND ')}
+  `);
+
+  const summary = rsSummary.recordset[0] || { total: 0, completed: 0, cancelled: 0 };
+  const total = rs.recordset[0]?.totalRecords || 0;
+
+  return {
+    items: rs.recordset,
+    total,
+    summary
+  };
 }
+
 
 // Hàm chèn booking mới trong một giao dịch
 async function insertBookingTx(payload) {

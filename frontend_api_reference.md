@@ -802,7 +802,25 @@ _(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xá
 | `status` | string | Trạng thái (VD: `CONFIRMED`, `PENDING`)                                                                    |
 | `sort`   | string | Sắp xếp mốc thời gian booking. Mặc định là `DESC` (giảm dần/mới nhất). Chuyển thành `ASC` nếu lấy "Sắp tới" (Upcoming) |
 
-> 🧩 **Trường Dữ liệu mới:** Bắt đầu từ 2026-04-10, Endpoint `GET /restaurants/:id/bookings` đã được tích hợp liên kết SQL (`LEFT JOIN Users`). JSON trả về ở mỗi Request sẽ có thêm biến **`customerName`** đại diện cho tên thật của khách đăng nhập bên cạnh biến `guestName` gốc.
+> 🧩 **Cấu trúc Dữ liệu mới (Cập nhật 2026-04-12):** 
+> Endpoint `GET /restaurants/:id/bookings` hiện trả về một Object chứa danh sách và thông tin thống kê tóm tắt, giúp Frontend không cần gọi thêm API phụ.
+>
+> **Cấu trúc Response:**
+> ```json
+> {
+>   "items": [ 
+>     { "id": "uuid", "bookingCode": "BK...", "customerName": "...", "...": "..." } 
+>   ],
+>   "total": 45,          // Tổng số bản ghi thỏa mãn bộ lọc (dùng cho phân trang)
+>   "summary": {         // Thống kê nhanh trong khoảng ngày (không bị ảnh hưởng bởi filter status)
+>     "total": 45,        // Tổng đơn trong ngày/khoảng ngày
+>     "completed": 30,    // Số đơn hoàn thành
+>     "cancelled": 5      // Tổng số đơn Hủy + No-show
+>   },
+>   "limit": 50,
+>   "offset": 0
+> }
+> ```
 
 > [!TIP]
 > **Nhãn thời gian tiếng Anh (Labels):** 

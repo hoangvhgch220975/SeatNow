@@ -151,7 +151,7 @@ async function restaurantBookings(req, res) {
     const restaurantId = req.params.id;
     const paging = pickPaging(req.query, 50);
 
-    const items = await bookingSvc.restaurantBookings(restaurantId, req.user, {
+    const result = await bookingSvc.restaurantBookings(restaurantId, req.user, {
       from: req.query.from,
       to: req.query.to,
       status: req.query.status,
@@ -159,11 +159,17 @@ async function restaurantBookings(req, res) {
       ...paging
     });
 
-    return res.json({ items, ...paging });
+    return res.json({ 
+      items: result.items, 
+      total: result.total, 
+      summary: result.summary,
+      ...paging 
+    });
   } catch (e) {
     return res.status(e.status || 400).json({ message: e.message });
   }
 }
+
 
 // Các hành động thay đổi trạng thái booking
 async function confirm(req, res) {

@@ -66,7 +66,32 @@ async function createWithdrawal({ restaurantId, amount, description }) {
 }
 
 async function approveWithdrawal({ transactionId, providerTxnId, metadataJson }) {
-  return paymentModel.approveWithdrawalRequest(transactionId, { providerTxnId, metadataJson });
+  const result = await paymentModel.approveWithdrawalRequest(transactionId, { providerTxnId, metadataJson });
+
+  // Notify restaurant owner: withdrawal approved
+  try {
+    const tx = await paymentModel.findTransactionById(transactionId);
+    if (tx && tx.walletId) {
+      const notifUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+      fetch(`${notifUrl}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'web',
+          payload: {
+            walletId: tx.walletId,
+            event: 'TRANSACTION_WITHDRAW_APPROVED',
+            message: `Withdrawal approved: ${Number(tx.amount || 0).toLocaleString('vi-VN')} VND`,
+            data: { transactionId, amount: tx.amount, referenceCode: tx.referenceCode }
+          }
+        })
+      }).catch(err => console.error('[Withdrawal] Failed to notify owner:', err.message));
+    }
+  } catch (notifErr) {
+    console.error('[Withdrawal] Notification error:', notifErr.message);
+  }
+
+  return result;
 }
 
 async function rejectWithdrawal({ transactionId, reason }) {

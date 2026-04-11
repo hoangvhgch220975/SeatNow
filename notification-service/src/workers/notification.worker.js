@@ -8,6 +8,34 @@ const templates = require('../utils/template_helper');
 const notificationModel = require('../models/notification.model');
 
 /**
+ * Resolve userId from walletId by querying DB
+ * Payment service gửi walletId thay vì userId khi xử lý TOPUP / WITHDRAW
+ */
+async function resolveOwnerIdFromWalletId(walletId) {
+  if (!walletId) return null;
+  try {
+    const { sql, getPool } = require('../config/db');
+    const pool = await getPool();
+    // Wallet có thể gắn với Restaurant (restaurantId) hoặc Admin (userId)
+    // Với restaurant wallet: lookup Restaurant.ownerId
+    const rs = await pool.request()
+      .input('walletId', sql.UniqueIdentifier, walletId)
+      .query(`
+        SELECT TOP 1 w.userId, r.ownerId
+        FROM dbo.Wallets w
+        LEFT JOIN dbo.Restaurants r ON r.id = w.restaurantId
+        WHERE w.id = @walletId
+      `);
+    const row = rs.recordset[0];
+    if (!row) return null;
+    return row.ownerId || row.userId || null;
+  } catch (err) {
+    console.warn('[Worker] resolveOwnerIdFromWalletId failed:', err.message);
+    return null;
+  }
+}
+
+/**
  * Main processor for the notification queue
  * @param {object} job 
  */
@@ -47,16 +75,25 @@ module.exports = async function processNotification(job) {
           payload.data
         );
 
-      case 'web':
+      case 'web': {
         console.log(`Worker: Emitting web notification for event: ${payload.event || 'notification'}`, payload);
+
+        // Nếu không có userId nhưng có walletId → resolve từ DB (TOPUP, WITHDRAW_APPROVED)
+        let resolvedUserId = payload.ownerId || payload.userId;
+        if (!resolvedUserId && payload.walletId) {
+          resolvedUserId = await resolveOwnerIdFromWalletId(payload.walletId);
+          if (resolvedUserId) {
+            console.log(`[Worker] Resolved userId=${resolvedUserId} from walletId=${payload.walletId}`);
+          }
+        }
         
         // Tự động lưu vào DB nếu có đầy đủ thông tin ownerId
-        if (payload.ownerId || payload.userId) {
+        if (resolvedUserId) {
           try {
             await notificationModel.saveNotification({
-              ownerId:      payload.ownerId || payload.userId,
+              ownerId:      resolvedUserId,
               restaurantId: payload.restaurantId || null,
-              type:         payload.activityType || payload.event || 'SYSTEM',
+              type:         (payload.activityType || payload.event || 'SYSTEM').toUpperCase(),
               title:        payload.title        || payload.event || 'Notification',
               message:      payload.message      || '',
               metadata:     payload.data         || null
@@ -75,10 +112,11 @@ module.exports = async function processNotification(job) {
           );
         }
         return webNotificationService.sendWebNotification(
-          payload.userId,
+          resolvedUserId || payload.userId,
           payload.event || 'notification',
           payload
         );
+      }
 
       default:
         console.warn(`Unknown notification type: ${type}`);

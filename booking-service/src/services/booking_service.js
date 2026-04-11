@@ -196,7 +196,7 @@ async function createBooking({ actor, body }) {
         type: 'web',
         payload: {
           userId: r.ownerId,
-          event: 'booking_created',
+          event: 'BOOKING_NEW',
           message: `New order: ${row.bookingCode}`,
           data: { booking: row, restaurant: r }
         }
@@ -400,6 +400,19 @@ async function confirm(idOrCode) {
         }
       });
     }
+
+    // Notify Owner dashboard: booking confirmed
+    if (r && r.ownerId) {
+      notificationQueue.add({
+        type: 'web',
+        payload: {
+          userId: r.ownerId,
+          event: 'BOOKING_CONFIRMED',
+          message: `Confirmed booking: ${updated.bookingCode}`,
+          data: { booking: updated }
+        }
+      });
+    }
   } catch (e) {}
   return updated;
 }
@@ -566,7 +579,7 @@ async function guestCancel(idOrCode, guestPhone, cancellationReason = null) {
         type: 'web',
         payload: {
           userId: r.ownerId,
-          event: 'booking_cancelled',
+          event: 'BOOKING_CANCELLED',
           message: updated.depositRefunded 
               ? `Guest cancelled: ${updated.bookingCode}. REFUND REQUIRED: ${updated.depositAmount} ${updated.currency || 'VND'}`
               : `Guest cancelled: ${updated.bookingCode}`,
@@ -683,7 +696,7 @@ async function cancel(idOrCode, actor = null, cancellationReason = null) {
           type: 'web',
           payload: {
             userId: r.ownerId,
-            event: 'booking_cancelled',
+            event: 'BOOKING_CANCELLED',
             message: updated.depositRefunded 
               ? `Customer cancelled: ${updated.bookingCode}. REFUND REQUIRED: ${updated.depositAmount} ${updated.currency || 'VND'}`
               : `Customer cancelled: ${updated.bookingCode}`,
@@ -751,7 +764,23 @@ async function noShow(idOrCode) {
     console.error('Error emitting tableStatusChanged for noShow', e);
   }
 
-  try { socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'no_show', booking: updated } }); } catch (e) {}
+  try {
+    socket.emitBookingChanged({ restaurantId: updated.restaurantId, customerId: updated.customerId, payload: { type: 'no_show', booking: updated } });
+    
+    // Notify Owner dashboard: no-show
+    const r = await bookingSql.getRestaurant(updated.restaurantId);
+    if (r && r.ownerId) {
+      notificationQueue.add({
+        type: 'web',
+        payload: {
+          userId: r.ownerId,
+          event: 'BOOKING_NO_SHOW',
+          message: `No-show recorded: ${updated.bookingCode}`,
+          data: { booking: updated }
+        }
+      });
+    }
+  } catch (e) {}
   
   // Giải ngân tiền cọc khi khách không đến
   if (updated.depositPaid && !updated.isSettledToWallet) {
@@ -883,6 +912,20 @@ async function paymentSuccess(id) {
       customerId: booking.customerId, 
       payload: { type: 'payment_success', booking } 
     }); 
+
+    // Notify Owner dashboard: deposit received
+    const r = await bookingSql.getRestaurant(booking.restaurantId);
+    if (r && r.ownerId) {
+      notificationQueue.add({
+        type: 'web',
+        payload: {
+          userId: r.ownerId,
+          event: 'TRANSACTION_DEPOSIT',
+          message: `Deposit received for booking: ${booking.bookingCode} - ${booking.depositAmount} VND`,
+          data: { booking }
+        }
+      });
+    }
   } catch (e) {
     console.error('Error emitting payment_success socket event', e);
   }
