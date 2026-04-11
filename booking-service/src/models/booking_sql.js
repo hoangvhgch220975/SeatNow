@@ -43,7 +43,17 @@ async function findById(id) {
   const pool = await getPool();
   const rs = await pool.request()
     .input('id', sql.UniqueIdentifier, id)
-    .query(`SELECT TOP 1 * FROM dbo.Bookings WHERE id=@id`);
+    .query(`
+      SELECT b.*, 
+             COALESCE(u.name, b.guestName) AS customerName,
+             u.avatar AS customerAvatar,
+             t.tableNumber,
+             t.location AS tableLocation
+      FROM dbo.Bookings b
+      LEFT JOIN dbo.Users u ON b.customerId = u.id
+      LEFT JOIN dbo.Tables t ON b.tableId = t.id
+      WHERE b.id=@id
+    `);
   return rs.recordset[0] || null;
 }
 
@@ -53,7 +63,17 @@ async function findByCode(bookingCode) {
   const pool = await getPool();
   const rs = await pool.request()
     .input('bookingCode', sql.NVarChar(30), bookingCode)
-    .query(`SELECT TOP 1 * FROM dbo.Bookings WHERE bookingCode=@bookingCode`);
+    .query(`
+      SELECT b.*, 
+             COALESCE(u.name, b.guestName) AS customerName,
+             u.avatar AS customerAvatar,
+             t.tableNumber,
+             t.location AS tableLocation
+      FROM dbo.Bookings b
+      LEFT JOIN dbo.Users u ON b.customerId = u.id
+      LEFT JOIN dbo.Tables t ON b.tableId = t.id
+      WHERE b.bookingCode=@bookingCode
+    `);
   return rs.recordset[0] || null;
 }
 
@@ -63,7 +83,17 @@ async function findByCodeAndGuestPhone(bookingCode, guestPhone) {
   const rs = await pool.request()
     .input('bookingCode', sql.NVarChar(30), bookingCode)
     .input('guestPhone', sql.NVarChar(20), guestPhone)
-    .query(`SELECT TOP 1 * FROM dbo.Bookings WHERE bookingCode=@bookingCode AND guestPhone=@guestPhone`);
+    .query(`
+      SELECT b.*, 
+             COALESCE(u.name, b.guestName) AS customerName,
+             u.avatar AS customerAvatar,
+             t.tableNumber,
+             t.location AS tableLocation
+      FROM dbo.Bookings b
+      LEFT JOIN dbo.Users u ON b.customerId = u.id
+      LEFT JOIN dbo.Tables t ON b.tableId = t.id
+      WHERE b.bookingCode=@bookingCode AND b.guestPhone=@guestPhone
+    `);
   return rs.recordset[0] || null;
 }
 
@@ -75,11 +105,16 @@ async function listByCustomer(customerId, { limit = 20, offset = 0 } = {}) {
     .input('limit', sql.Int, limit)
     .input('offset', sql.Int, offset)
     .query(`
-      SELECT b.*, u.name AS customerName
-    FROM dbo.Bookings b
-    LEFT JOIN dbo.Users u ON b.customerId = u.id
-      WHERE customerId=@customerId
-      ORDER BY createdAt DESC
+      SELECT b.*, 
+             u.name AS customerName,
+             u.avatar AS customerAvatar,
+             t.tableNumber,
+             t.location AS tableLocation
+      FROM dbo.Bookings b
+      LEFT JOIN dbo.Users u ON b.customerId = u.id
+      LEFT JOIN dbo.Tables t ON b.tableId = t.id
+      WHERE b.customerId=@customerId
+      ORDER BY b.createdAt DESC
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
     `);
   return rs.recordset;
@@ -101,10 +136,15 @@ async function listByRestaurant(restaurantId, { from, to, status, limit = 50, of
   const sortDirection = sort.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
   const rs = await req.query(`
-    SELECT b.*, u.name AS customerName,
+    SELECT b.*, 
+           COALESCE(u.name, b.guestName) AS customerName,
+           u.avatar AS customerAvatar,
+           t.tableNumber,
+           t.location AS tableLocation,
            COUNT(*) OVER() as totalRecords
     FROM dbo.Bookings b
     LEFT JOIN dbo.Users u ON b.customerId = u.id
+    LEFT JOIN dbo.Tables t ON b.tableId = t.id
     WHERE ${where.join(' AND ')}
     ORDER BY b.bookingDate ${sortDirection}, b.bookingTime ${sortDirection}, b.createdAt DESC
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
