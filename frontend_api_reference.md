@@ -488,13 +488,16 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 | `PUT`    | `/restaurants/:id/tables/:tableId` | Sửa bàn                       | ✅                | OWNER, ADMIN |
 | `DELETE` | `/restaurants/:id/tables/:tableId` | Xóa bàn                       | ✅                | OWNER, ADMIN |
 
+> [!TIP]
+> **Lưu ý về `:id`**: Tại tất cả các Endpoint của Table (List, Stats, Create, Update, Delete), bạn có thể truyền vào **ID (UUID)** hoặc **Slug** nhà hàng đều được hỗ trợ tự động.
+
 #### Query params cho `GET /restaurants/:id/tables`:
 
 | Param      | Type   | Mô tả                                                                         |
 | ---------- | ------ | ----------------------------------------------------------------------------- |
 | `location` | string | Lọc theo tầng (VD: `1st Floor`, `2nd Floor`, `Rooftop`, `Terrace`, `Outdoor`) |
 
-#### Body mẫu (Create Table):
+#### Body mẫu (Create Table - POST):
 
 ```json
 {
@@ -503,6 +506,18 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
   "type": "standard",
   "location": "1st Floor",
   "status": "available"
+}
+```
+
+#### Body mẫu (Update Table - PUT):
+
+> [!IMPORTANT]
+> **Bảo mật**: Hệ thống sẽ tự động kiểm tra `tableId` có thực sự thuộc về `restaurantId` hay không trước khi cho phép cập nhật hoặc xóa.
+
+```json
+{
+  "status": "unavailable",
+  "capacity": 2
 }
 ```
 

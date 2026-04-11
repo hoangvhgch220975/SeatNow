@@ -16,13 +16,13 @@ async function createTable(payload) {
 }
 
 // Hàm cập nhật thông tin của một bàn dựa trên ID và payload, có thể dùng để thay đổi trạng thái bàn
-async function updateTable(id, patch) {
-  return tableSql.updateTable(id, patch);
+async function updateTable(restaurantId, id, patch) {
+  return tableSql.updateTable(restaurantId, id, patch);
 }
 
 // Hàm xóa một bàn khỏi nhà hàng dựa trên ID
-async function deleteTable(id) {
-  return tableSql.deleteTable(id);
+async function deleteTable(restaurantId, id) {
+  return tableSql.deleteTable(restaurantId, id);
 }
 
 // Hàm thống kê bàn theo vị trí/tầng

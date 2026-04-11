@@ -61,9 +61,11 @@ async function createTable({ restaurantId, tableNumber, capacity, type = 'standa
 }
 
 // Cập nhật bàn
-async function updateTable(id, patch) {
+async function updateTable(restaurantId, id, patch) {
   const pool = await getPool();
-  const req = pool.request().input('id', sql.UniqueIdentifier, id);
+  const req = pool.request()
+    .input('id', sql.UniqueIdentifier, id)
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId);
   const sets = [];
 
   const map = {
@@ -87,18 +89,19 @@ async function updateTable(id, patch) {
     UPDATE dbo.Tables
     SET ${sets.join(', ')}, updatedAt=SYSUTCDATETIME()
     OUTPUT INSERTED.*
-    WHERE id=@id;
+    WHERE id=@id AND restaurantId=@restaurantId;
   `);
 
   return rs.recordset[0] || null;
 }
 
 // Xoá bàn
-async function deleteTable(id) {
+async function deleteTable(restaurantId, id) {
   const pool = await getPool();
   await pool.request()
     .input('id', sql.UniqueIdentifier, id)
-    .query(`DELETE FROM dbo.Tables WHERE id=@id;`);
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+    .query(`DELETE FROM dbo.Tables WHERE id=@id AND restaurantId=@restaurantId;`);
   return true;
 }
 
