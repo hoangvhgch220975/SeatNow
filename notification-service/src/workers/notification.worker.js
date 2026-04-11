@@ -6,6 +6,7 @@ const firebaseService = require('../services/firebase.service');
 const webNotificationService = require('../services/web-notification.service');
 const templates = require('../utils/template_helper');
 const notificationModel = require('../models/notification.model');
+const notifTitles = require('../utils/notif_titles');
 
 /**
  * Resolve userId from walletId by querying DB
@@ -94,7 +95,7 @@ module.exports = async function processNotification(job) {
               ownerId:      resolvedUserId,
               restaurantId: payload.restaurantId || null,
               type:         (payload.activityType || payload.event || 'SYSTEM').toUpperCase(),
-              title:        payload.title        || payload.event || 'Notification',
+              title:        payload.title        || notifTitles[payload.event] || payload.event || 'Notification',
               message:      payload.message      || '',
               metadata:     payload.data         || null
             });
