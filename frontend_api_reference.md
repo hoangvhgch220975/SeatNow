@@ -642,6 +642,10 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
     "bookingTime": "19:00",
     "numGuests": 4,
     "status": "PENDING",
+    "customerName": "Nguyen Van A",
+    "customerAvatar": "http://...",
+    "tableNumber": "T-05",
+    "tableLocation": "Tầng 1",
     "depositRequired": true,
     "depositAmount": 200000.0,
     "depositPaid": 0,
@@ -809,7 +813,15 @@ _(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xá
 > ```json
 > {
 >   "items": [ 
->     { "id": "uuid", "bookingCode": "BK...", "customerName": "...", "...": "..." } 
+>     { 
+>       "id": "uuid", 
+>       "bookingCode": "BK...", 
+>       "customerName": "Nguyen Van A", 
+>       "customerAvatar": "http://...", 
+>       "tableNumber": "T-05", 
+>       "tableLocation": "Tầng 2",
+>       "...": "..." 
+>     } 
 >   ],
 >   "total": 45,          // Tổng số bản ghi thỏa mãn bộ lọc (dùng cho phân trang)
 >   "summary": {         // Thống kê nhanh trong khoảng ngày (không bị ảnh hưởng bởi filter status)
