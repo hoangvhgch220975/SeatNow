@@ -11,7 +11,7 @@ const requireRole = require('../middlewares/requireRole_middleware');
 // ===== Validators =====
 const { validateQuery, validateBody, listQuerySchema } = require('../validators/common_validator');
 const { createRestaurantSchema, updateRestaurantSchema, depositPolicySchema } = require('../validators/restaurant_validator');
-const { upsertMenuItemSchema } = require('../validators/menu_validator');
+const { createMenuItemSchema, updateMenuItemSchema } = require('../validators/menu_validator');
 const { createReviewSchema } = require('../validators/review_validator');
 const { createTableSchema, updateTableSchema } = require('../validators/table_validator');
 
@@ -31,8 +31,8 @@ router.get('/restaurants/:id', rateLimit({ limit: 120, windowSec: 60, key: 'rest
 // MENU (Mongo)
 // ==================================================
 router.get('/restaurants/:id/menu', rateLimit({ limit: 120, windowSec: 60, key: 'restaurants_menu' }), menuCtl.list);
-router.post('/restaurants/:id/menu', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), validateBody(upsertMenuItemSchema), menuCtl.create);
-router.put('/restaurants/:id/menu/:itemId', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), validateBody(upsertMenuItemSchema), menuCtl.update);
+router.post('/restaurants/:id/menu', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), validateBody(createMenuItemSchema), menuCtl.create);
+router.put('/restaurants/:id/menu/:itemId', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), validateBody(updateMenuItemSchema), menuCtl.update);
 router.delete('/restaurants/:id/menu/:itemId', requireAuth, requireRole('RESTAURANT_OWNER', 'ADMIN'), menuCtl.remove);
 
 // ==================================================

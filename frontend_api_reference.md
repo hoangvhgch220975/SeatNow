@@ -379,18 +379,36 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 | `limit`    | number | Số lượng kết quả mỗi trang (Mặc định: 100).                                                         |
 | `offset`   | number | Vị trí bắt đầu lấy dữ liệu (Mặc định: 0).                                                           |
 
-#### Body mẫu (Create Menu Item):
+#### Body mẫu (Create Menu Item - POST):
 
+> [!IMPORTANT]
+> - **Bắt buộc:** `name`, `price`.
+> - **Tùy chọn:** Các trường còn lại.
 
 ```json
 {
-  "name": "Pho Bo Dac Biet",
-  "description": "Pho bo tai, chin, gan",
-  "price": 70000,
-  "discountPrice": 60000,
-  "category": "Soup",
+  "name": "Phở Bò Đặc Biệt",
+  "description": "Phở bò đặc biệt với đầy đủ topping gầu nạm gân.",
+  "price": 75000,
+  "discountPrice": 65000,
+  "category": "Món Chính",
+  "preparationTime": 15,
   "isAvailable": true,
-  "tags": ["beef", "noodle"]
+  "images": ["https://..."],
+  "tags": ["Signature", "Beef"],
+  "allergens": ["Beef"]
+}
+```
+
+#### Body mẫu (Update Menu Item - PUT):
+
+> [!TIP]
+> **Hỗ trợ cập nhật một phần (Partial Update):** Bạn không cần gửi toàn bộ các trường. Chỉ cần gửi những trường nào bạn muốn thay đổi.
+
+```json
+{
+  "price": 80000,
+  "isAvailable": false
 }
 ```
 
