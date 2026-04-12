@@ -871,7 +871,7 @@ async function getRecentRestaurantTransactions(restaurantId, limit = 5) {
       LEFT JOIN dbo.Tables t ON b.tableId = t.id
       WHERE b.restaurantId = @restaurantId
         AND tx.status = 'completed'
-        AND tx.type IN ('DEPOSIT_PAYMENT', 'SETTLEMENT')
+        AND tx.type = 'DEPOSIT_PAYMENT'
       ORDER BY tx.createdAt DESC
     `);
   return rs.recordset;
