@@ -224,6 +224,44 @@
 					"response": []
 				},
 				{
+					"name": "Get Recent Transactions",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/wallet/recent-transactions?restaurantId=<restaurant-uuid>&limit=5",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"wallet",
+								"recent-transactions"
+							],
+							"query": [
+								{
+									"key": "restaurantId",
+									"value": "<restaurant-uuid>"
+								},
+								{
+									"key": "limit",
+									"value": "5"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Charge Commission from LockedAmount (Internal)",
 					"request": {
 						"description": "Trừ phí hoa hồng từ lockedAmount của ví nhà hàng sang ví Admin. Không ảnh hưởng balance (doanh thu thuần).",
