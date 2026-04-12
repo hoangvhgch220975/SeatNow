@@ -1108,7 +1108,15 @@ Các URL này do Cổng thanh toán gọi trực tiếp:
 > }
 > ```
 
-> 🧩 **Response mẫu `/wallet/recent-transactions`:**
+> 🧩 **Cấu trúc Số dư Ví (Wallet Balance):**
+> ```json
+> {
+>   "balance": 8500000,           // Số dư khả dụng (Có thể rút ngay)
+>   "lockedAmount": 500000,      // Phí hoa hồng tạm giữ (Nợ SeatNow, sẽ bị trừ khi Admin thu phí)
+>   "pendingWithdrawal": 1000000, // Tiền đang trong lệnh rút (Chờ Admin duyệt chuyển khoản)
+>   "currency": "VND"
+> }
+> ```
 > ```json
 > {
 >   "success": true,

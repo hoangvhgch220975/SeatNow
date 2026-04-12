@@ -630,7 +630,7 @@ async function failTransaction({ referenceCode, providerTxnId, metadataJson }) {
 }
 
 // Tạo yêu cầu rút tiền
-async function createWithdrawalRequest({ restaurantId, amount, description, referenceCode, idempotencyKey, metadataJson }) {
+async function createWithdrawalRequest({ restaurantId, amount, description, referenceCode, idempotencyKey, metadataJson, paymentMethod }) {
   const pool = await getPool();
   const tx = new sql.Transaction(pool);
 
@@ -658,16 +658,16 @@ async function createWithdrawalRequest({ restaurantId, amount, description, refe
     }
 
     const balanceAfter = balanceBefore - withdrawAmount;
-    const lockedAfter = lockedBefore + withdrawAmount;
+    const pendingAfter = (Number(wallet.pendingWithdrawal) || 0) + withdrawAmount;
 
     await req
       .input('walletId', sql.UniqueIdentifier, wallet.id)
       .input('balanceAfter', sql.Decimal(18, 2), balanceAfter)
-      .input('lockedAfter', sql.Decimal(18, 2), lockedAfter)
+      .input('pendingAfter', sql.Decimal(18, 2), pendingAfter)
       .query(`
         UPDATE dbo.Wallets
         SET balance = @balanceAfter,
-            lockedAmount = @lockedAfter,
+            pendingWithdrawal = @pendingAfter,
             updatedAt = SYSUTCDATETIME()
         WHERE id = @walletId
       `);
@@ -682,6 +682,7 @@ async function createWithdrawalRequest({ restaurantId, amount, description, refe
       .input('provider', sql.NVarChar(30), 'INTERNAL')
       .input('bb', sql.Decimal(18, 2), balanceBefore)
       .input('ba', sql.Decimal(18, 2), balanceAfter)
+      .input('paymentMethod', sql.NVarChar(30), paymentMethod || 'BANK_TRANSFER')
       .input('metadataJson', sql.NVarChar(sql.MAX), metadataJson ? JSON.stringify(metadataJson) : null)
       .query(`
         INSERT INTO dbo.Transactions (
@@ -691,7 +692,7 @@ async function createWithdrawalRequest({ restaurantId, amount, description, refe
         OUTPUT INSERTED.*
         VALUES (
           @walletId, 'WITHDRAWAL', @amount, @currency, @bb, @ba,
-          @description, 'BANK_TRANSFER', @referenceCode, 'pending', @payerType, @provider, @idempotencyKey, @metadataJson, SYSUTCDATETIME()
+          @description, @paymentMethod, @referenceCode, 'pending', @payerType, @provider, @idempotencyKey, @metadataJson, SYSUTCDATETIME()
         )
       `);
 
@@ -735,27 +736,38 @@ async function approveWithdrawalRequest(transactionId, { providerTxnId, metadata
     const wallet = walletRes.recordset[0];
     if (!wallet) throw new Error('Wallet not found');
 
-    const lockedBefore = Number(wallet.lockedAmount || 0);
+    const pendingBefore = Number(wallet.pendingWithdrawal || 0);
     const withdrawAmount = Number(transaction.amount);
 
-    if (lockedBefore < withdrawAmount) {
-      throw new Error('Inconsistent wallet locked amount');
+    if (pendingBefore < withdrawAmount) {
+      throw new Error('Inconsistent wallet pending withdrawal amount');
     }
 
-    const lockedAfter = lockedBefore - withdrawAmount;
+    const pendingAfter = pendingBefore - withdrawAmount;
 
     await req
-      .input('lockedAfterApprove', sql.Decimal(18, 2), lockedAfter)
+      .input('pendingAfterApprove', sql.Decimal(18, 2), pendingAfter)
       .query(`
         UPDATE dbo.Wallets
-        SET lockedAmount = @lockedAfterApprove,
+        SET pendingWithdrawal = @pendingAfterApprove,
             updatedAt = SYSUTCDATETIME()
         WHERE id = @walletId
       `);
 
+    // Gộp metadata cũ và mới để tránh mất thông tin điểm đến (thẻ/QR)
+    let finalMetadata = {};
+    if (transaction.metadataJson) {
+      try {
+        finalMetadata = JSON.parse(transaction.metadataJson);
+      } catch (e) {
+        finalMetadata = { _raw: transaction.metadataJson };
+      }
+    }
+    const updatedMetadata = { ...finalMetadata, ...metadataJson, approvedAt: new Date() };
+
     await req
       .input('providerTxnId', sql.NVarChar(100), providerTxnId || null)
-      .input('metadataJson', sql.NVarChar(sql.MAX), metadataJson ? JSON.stringify(metadataJson) : null)
+      .input('metadataJson', sql.NVarChar(sql.MAX), JSON.stringify(updatedMetadata))
       .query(`
         UPDATE dbo.Transactions
         SET status = 'completed',
@@ -806,25 +818,36 @@ async function rejectWithdrawalRequest(transactionId, { reason }) {
     if (!wallet) throw new Error('Wallet not found');
 
     const balanceBefore = Number(wallet.balance);
-    const lockedBefore = Number(wallet.lockedAmount || 0);
+    const pendingBefore = Number(wallet.pendingWithdrawal || 0);
     const withdrawAmount = Number(transaction.amount);
 
     const balanceAfter = balanceBefore + withdrawAmount;
-    const lockedAfter = lockedBefore - withdrawAmount;
+    const pendingAfter = pendingBefore - withdrawAmount;
 
     await req
       .input('balanceAfterReject', sql.Decimal(18, 2), balanceAfter)
-      .input('lockedAfterReject', sql.Decimal(18, 2), lockedAfter)
+      .input('pendingAfterReject', sql.Decimal(18, 2), pendingAfter)
       .query(`
         UPDATE dbo.Wallets
         SET balance = @balanceAfterReject,
-            lockedAmount = @lockedAfterReject,
+            pendingWithdrawal = @pendingAfterReject,
             updatedAt = SYSUTCDATETIME()
         WHERE id = @walletId
       `);
 
+    // Gộp metadata cũ và lý do từ chối
+    let finalMetadata = {};
+    if (transaction.metadataJson) {
+      try {
+        finalMetadata = JSON.parse(transaction.metadataJson);
+      } catch (e) {
+        finalMetadata = { _raw: transaction.metadataJson };
+      }
+    }
+    const updatedMetadata = { ...finalMetadata, rejectReason: reason, rejectedAt: new Date() };
+
     await req
-      .input('reason', sql.NVarChar(sql.MAX), reason ? JSON.stringify({ reason }) : null)
+      .input('reasonJson', sql.NVarChar(sql.MAX), JSON.stringify(updatedMetadata))
       .input('bb', sql.Decimal(18, 2), balanceBefore)
       .input('ba', sql.Decimal(18, 2), balanceAfter)
       .query(`
@@ -832,7 +855,7 @@ async function rejectWithdrawalRequest(transactionId, { reason }) {
         SET status = 'failed',
             balanceBefore = @bb,
             balanceAfter = @ba,
-            metadataJson = @reason,
+            metadataJson = @reasonJson,
             failedAt = SYSUTCDATETIME()
         WHERE id = @txId
       `);
