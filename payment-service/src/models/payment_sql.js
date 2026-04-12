@@ -861,6 +861,8 @@ async function getRecentRestaurantTransactions(restaurantId, limit = 5) {
         tx.createdAt,
         tx.completedAt,
         b.bookingCode,
+        b.commissionFee,
+        tx.amount - ISNULL(b.commissionFee, 0) AS netAmount,
         COALESCE(u.name, b.guestName) AS customerName,
         u.avatar AS customerAvatar,
         t.tableNumber,

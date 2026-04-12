@@ -239,7 +239,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/wallet/recent-transactions?restaurantId=<restaurant-uuid>&limit=5",
+							"raw": "{{baseUrl}}/wallet/recent-transactions?restaurantId=4A3B2C1D-E5F6-4A7B-8C9D-0E1A2B3D4F5E&limit=5",
 							"host": [
 								"{{baseUrl}}"
 							],
@@ -250,7 +250,7 @@
 							"query": [
 								{
 									"key": "restaurantId",
-									"value": "<restaurant-uuid>"
+									"value": "4A3B2C1D-E5F6-4A7B-8C9D-0E1A2B3D4F5E"
 								},
 								{
 									"key": "limit",
