@@ -183,20 +183,27 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/wallet/balance",
+							"raw": "{{baseUrl}}/wallet/balance?restaurantId=the-culinary-curator",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"wallet",
 								"balance"
+							],
+							"query": [
+								{
+									"key": "restaurantId",
+									"value": "the-culinary-curator",
+									"description": "Có thể dùng UUID hoặc Slug"
+								}
 							]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Get Wallet Transactions",
+					"name": "Get Wallet History",
 					"request": {
 						"auth": {
 							"type": "bearer",
@@ -211,13 +218,24 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/wallet/transactions",
+							"raw": "{{baseUrl}}/wallet/history?restaurantId=the-culinary-curator&type=WITHDRAWAL",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"wallet",
-								"transactions"
+								"history"
+							],
+							"query": [
+								{
+									"key": "restaurantId",
+									"value": "the-culinary-curator"
+								},
+								{
+									"key": "type",
+									"value": "WITHDRAWAL",
+									"description": "Lọc theo loại giao dịch (tùy chọn)"
+								}
 							]
 						}
 					},
@@ -348,7 +366,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"restaurantId\": \"<restaurant-uuid>\",\n    \"amount\": 1500000,\n    \"description\": \"Rút tiền kinh doanh tháng\"\n}",
+							"raw": "{\n    \"idOrSlug\": \"the-culinary-curator\",\n    \"amount\": 1500000,\n    \"description\": \"Rút tiền kinh doanh tháng\",\n    \"withdrawMethod\": \"CARD\",\n    \"bankInfo\": {\n        \"bankName\": \"NCB\",\n        \"cardNumber\": \"9704198426145678\",\n        \"accountName\": \"NGUYEN VAN A\"\n    },\n    \"qrCodeUrl\": \"https://storage.seatnow.com/qr/restaurant.png\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"

@@ -72,8 +72,8 @@ async function getWalletBalance(req, res, next) {
 // Lay lich su giao dich vi theo restaurant.
 async function getWalletTransactions(req, res, next) {
   try {
-    const { restaurantId } = req.query;
-    const data = await walletService.getWalletHistory({ restaurantId });
+    const { restaurantId, type } = req.query;
+    const data = await walletService.getWalletHistory({ restaurantId, type });
     return res.json({ success: true, data });
   } catch (err) {
     next(err);

@@ -103,11 +103,11 @@ async function getWalletBalance({ restaurantId }) {
   return walletStats;
 }
 
-async function getWalletHistory({ restaurantId }) {
+async function getWalletHistory({ restaurantId, type }) {
   const resolvedId = await resolveRestaurantId(restaurantId);
   const wallet = await paymentModel.findWalletByRestaurantId(resolvedId);
   if (!wallet) throw new Error('Restaurant wallet not found');
-  return paymentModel.getWalletTransactions(wallet.id);
+  return paymentModel.getWalletTransactions(wallet.id, type);
 }
 
 async function chargeCommission({ restaurantId, adminUserId, amount, description, idempotencyKey }) {

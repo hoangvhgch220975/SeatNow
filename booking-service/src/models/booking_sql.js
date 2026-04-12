@@ -46,6 +46,8 @@ async function findById(id) {
     .query(`
       SELECT b.*, 
              COALESCE(u.name, b.guestName) AS customerName,
+             COALESCE(u.email, b.guestEmail) AS customerEmail,
+             COALESCE(u.phone, b.guestPhone) AS customerPhone,
              u.avatar AS customerAvatar,
              t.tableNumber,
              t.location AS tableLocation
@@ -66,6 +68,8 @@ async function findByCode(bookingCode) {
     .query(`
       SELECT b.*, 
              COALESCE(u.name, b.guestName) AS customerName,
+             COALESCE(u.email, b.guestEmail) AS customerEmail,
+             COALESCE(u.phone, b.guestPhone) AS customerPhone,
              u.avatar AS customerAvatar,
              t.tableNumber,
              t.location AS tableLocation
@@ -86,6 +90,8 @@ async function findByCodeAndGuestPhone(bookingCode, guestPhone) {
     .query(`
       SELECT b.*, 
              COALESCE(u.name, b.guestName) AS customerName,
+             COALESCE(u.email, b.guestEmail) AS customerEmail,
+             COALESCE(u.phone, b.guestPhone) AS customerPhone,
              u.avatar AS customerAvatar,
              t.tableNumber,
              t.location AS tableLocation
@@ -138,6 +144,8 @@ async function listByRestaurant(restaurantId, { from, to, status, limit = 50, of
   const rs = await req.query(`
     SELECT b.*, 
            COALESCE(u.name, b.guestName) AS customerName,
+           COALESCE(u.email, b.guestEmail) AS customerEmail,
+           COALESCE(u.phone, b.guestPhone) AS customerPhone,
            u.avatar AS customerAvatar,
            t.tableNumber,
            t.location AS tableLocation,

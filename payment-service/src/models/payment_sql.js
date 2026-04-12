@@ -127,18 +127,26 @@ async function findWalletByUserId(userId) {
   return rs.recordset[0] || null;
 }
 
-// Lay lich su giao dich theo wallet.
-async function getWalletTransactions(walletId) {
+// Lay lich su giao dich theo wallet (ho tro loc theo type).
+async function getWalletTransactions(walletId, type = null) {
   const pool = await getPool();
-  const rs = await pool.request()
-    .input('walletId', sql.UniqueIdentifier, walletId)
-    .query(`
-      SELECT *
-      FROM dbo.Transactions
-      WHERE walletId = @walletId
-      ORDER BY createdAt DESC
-    `);
+  const req = pool.request();
+  req.input('walletId', sql.UniqueIdentifier, walletId);
+  
+  let query = `
+    SELECT *
+    FROM dbo.Transactions
+    WHERE walletId = @walletId
+  `;
 
+  if (type) {
+    req.input('type', sql.NVarChar(50), type);
+    query += ' AND type = @type ';
+  }
+
+  query += ' ORDER BY createdAt DESC ';
+
+  const rs = await req.query(query);
   return rs.recordset;
 }
 

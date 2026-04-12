@@ -672,6 +672,10 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
   "id": "uuid",
   "bookingCode": "BK...",
   "status": "CONFIRMED",
+  "customerName": "Sarah Miller",
+  "customerEmail": "sarah.m@example.com",
+  "customerPhone": "+84901234567",
+  "customerAvatar": "http://...",
   "bookingDate": "2026-12-25",
   "bookingTime": "19:00",
   "numGuests": 4,
@@ -817,6 +821,8 @@ _(Lưu ý: `guestPhone` là bắt buộc đối với khách vãng lai để xá
 >       "id": "uuid", 
 >       "bookingCode": "BK...", 
 >       "customerName": "Nguyen Van A", 
+>       "customerEmail": "a.nguyen@example.com",
+>       "customerPhone": "0987654321",
 >       "customerAvatar": "http://...", 
 >       "tableNumber": "T-05", 
 >       "tableLocation": "Tầng 2",
@@ -1085,8 +1091,8 @@ Các URL này do Cổng thanh toán gọi trực tiếp:
 
 | Method | Endpoint               | Mô tả                                              | Auth |
 | ------ | ---------------------- | -------------------------------------------------- | ---- |
-| `GET`  | `/wallet/balance`             | Kiểm tra số dư ví (trả về `balance` + `lockedAmount`)                                                       | ✅   |
-| `GET`  | `/wallet/transactions`        | Lịch sử giao dịch ví (Toàn bộ)                                                                              | ✅   |
+| `GET`  | `/wallet/balance`             | Kiểm tra số dư ví & Thống kê chi tiết (hỗ trợ `restaurantId` query)                                       | ✅   |
+| `GET`  | `/wallet/history`             | Lịch sử giao dịch ví (Toàn bộ hoặc lọc theo `type`)                                                       | ✅   |
 | `GET`  | `/wallet/recent-transactions` | Lấy 5 giao dịch thanh toán tiền cọc mới nhất phục vụ Dashboard (kèm thông tin khách hàng, số bàn, mã đơn)      | ✅   |
 | `POST` | `/wallet/withdraw`            | Yêu cầu rút tiền từ ví (chỉ rút từ `balance`)                                                               | ✅   |
 
@@ -1121,6 +1127,12 @@ Các URL này do Cổng thanh toán gọi trực tiếp:
 >   "currency": "VND"
 > }
 > ```
+> 
+> 🧩 **Lịch sử giao dịch (Wallet History):**
+> - **Endpoint:** `/wallet/history`
+> - **Query Params:** 
+>   - `restaurantId`: (Bắt buộc) UUID hoặc Slug.
+>   - `type`: (Tùy chọn) `WITHDRAWAL` để lọc riêng lịch sử rút tiền.
 > ```json
 > {
 >   "success": true,
