@@ -844,6 +844,39 @@ async function rejectWithdrawalRequest(transactionId, { reason }) {
   }
 }
 
+// Lay danh sach 5 giao dich doanh thu gan nhat (joining Bookings & Users)
+async function getRecentRestaurantTransactions(restaurantId, limit = 5) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+    .input('limit', sql.Int, limit)
+    .query(`
+      SELECT TOP (@limit)
+        tx.id,
+        tx.bookingId,
+        tx.type,
+        tx.amount,
+        tx.currency,
+        tx.status,
+        tx.createdAt,
+        tx.completedAt,
+        b.bookingCode,
+        COALESCE(u.name, b.guestName) AS customerName,
+        u.avatar AS customerAvatar,
+        t.tableNumber,
+        t.location AS tableLocation
+      FROM dbo.Transactions tx
+      INNER JOIN dbo.Bookings b ON tx.bookingId = b.id
+      LEFT JOIN dbo.Users u ON b.customerId = u.id
+      LEFT JOIN dbo.Tables t ON b.tableId = t.id
+      WHERE b.restaurantId = @restaurantId
+        AND tx.status = 'completed'
+        AND tx.type IN ('DEPOSIT_PAYMENT', 'SETTLEMENT')
+      ORDER BY tx.createdAt DESC
+    `);
+  return rs.recordset;
+}
+
 module.exports = {
   findBookingForDeposit,
   findPendingDepositByBookingId,
@@ -864,5 +897,6 @@ module.exports = {
   completeWalletTopupTransactionAndIncreaseBalance,
   chargeCommissionFromRestaurantToAdmin,
   failTransaction,
-  settleDepositToWallet
+  settleDepositToWallet,
+  getRecentRestaurantTransactions
 };

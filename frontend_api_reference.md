@@ -1085,9 +1085,33 @@ Các URL này do Cổng thanh toán gọi trực tiếp:
 
 | Method | Endpoint               | Mô tả                                              | Auth |
 | ------ | ---------------------- | -------------------------------------------------- | ---- |
-| `GET`  | `/wallet/balance`      | Kiểm tra số dư ví (trả về `balance` + `lockedAmount`) | ✅   |
-| `GET`  | `/wallet/transactions` | Lịch sử giao dịch ví                                | ✅   |
-| `POST` | `/wallet/withdraw`     | Yêu cầu rút tiền từ ví (chỉ rút từ `balance`)       | ✅   |
+| `GET`  | `/wallet/balance`             | Kiểm tra số dư ví (trả về `balance` + `lockedAmount`)                                                       | ✅   |
+| `GET`  | `/wallet/transactions`        | Lịch sử giao dịch ví (Toàn bộ)                                                                              | ✅   |
+| `GET`  | `/wallet/recent-transactions` | Lấy 5 giao dịch doanh thu mới nhất phục vụ Dashboard (kèm thông tin khách hàng, số bàn, mã đơn)             | ✅   |
+| `POST` | `/wallet/withdraw`            | Yêu cầu rút tiền từ ví (chỉ rút từ `balance`)                                                               | ✅   |
+
+> 🧩 **Response mẫu `/wallet/recent-transactions`:**
+> ```json
+> {
+>   "success": true,
+>   "data": [
+>     {
+>       "id": "uuid",
+>       "bookingId": "uuid",
+>       "type": "SETTLEMENT",
+>       "amount": 200000.0,
+>       "currency": "VND",
+>       "status": "completed",
+>       "createdAt": "2026-04-12T07:30:00.000Z",
+>       "bookingCode": "BK20260412ABCD",
+>       "customerName": "Sarah Miller",
+>       "customerAvatar": "http://...",
+>       "tableNumber": "T-05",
+>       "tableLocation": "Tầng 1"
+>     }
+>   ]
+> }
+> ```
 
 ### 🛡️ 5.4 Internal Operations (Chỉ dành cho Services)
 

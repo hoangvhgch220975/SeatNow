@@ -165,6 +165,7 @@ module.exports = {
   createWalletTopup,
   getWalletBalance,
   getWalletTransactions,
+  getRecentTransactions,
   chargeCommission,
   createWithdrawal,
   approveWithdrawal,

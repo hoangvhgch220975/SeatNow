@@ -148,9 +148,16 @@ async function chargeCommission({ restaurantId, adminUserId, amount, description
   }
 }
 
+async function getRecentTransactions({ restaurantId, limit = 5 }) {
+  const wallet = await paymentModel.findWalletByRestaurantId(restaurantId);
+  if (!wallet) throw new Error('Restaurant wallet not found');
+  return paymentModel.getRecentRestaurantTransactions(restaurantId, limit);
+}
+
 module.exports = {
   createWalletTopup,
   getWalletBalance,
   getWalletHistory,
+  getRecentTransactions,
   chargeCommission
 };

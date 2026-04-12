@@ -21,6 +21,7 @@ r.get('/transaction/:id', controller.getTransaction);
 r.post('/wallet/topup/create', validate(createWalletTopupSchema), controller.createWalletTopup);
 r.get('/wallet/balance', controller.getWalletBalance);
 r.get('/wallet/transactions', controller.getWalletTransactions);
+r.get('/wallet/recent-transactions', controller.getRecentTransactions);
 r.post('/wallet/commission/charge', internalAuth, validate(chargeCommissionSchema), controller.chargeCommission);
 
 // Withdrawal APIs (usually called via internal requests from admin/restaurant service)
