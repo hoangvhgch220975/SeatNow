@@ -903,6 +903,35 @@ async function getRecentRestaurantTransactions(restaurantId, limit = 5) {
   return rs.recordset;
 }
 
+// Lấy thống kê chi tiết ví nhà hàng
+async function getWalletStatistics(restaurantId) {
+  const pool = await getPool();
+  const walletRes = await pool.request()
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+    .query('SELECT TOP 1 id, balance, lockedAmount, pendingWithdrawal, currency, status FROM dbo.Wallets WHERE restaurantId = @restaurantId');
+  
+  const wallet = walletRes.recordset[0];
+  if (!wallet) return null;
+
+  const statsRes = await pool.request()
+    .input('walletId', sql.UniqueIdentifier, wallet.id)
+    .query(`
+      SELECT 
+        ISNULL(SUM(CASE WHEN type = 'WITHDRAWAL' AND status = 'completed' THEN amount ELSE 0 END), 0) as totalWithdrawnSuccess,
+        ISNULL(COUNT(CASE WHEN type = 'WITHDRAWAL' THEN 1 END), 0) as totalWithdrawalCount,
+        ISNULL(COUNT(*), 0) as totalTransactionCount,
+        ISNULL((SELECT TOP 1 amount FROM dbo.Transactions WHERE walletId = @walletId AND type = 'WITHDRAWAL' AND status = 'pending' ORDER BY createdAt DESC), 0) as latestPendingWithdrawal
+      FROM dbo.Transactions
+      WHERE walletId = @walletId
+    `);
+
+  const stats = statsRes.recordset[0];
+  return {
+    ...wallet,
+    ...stats
+  };
+}
+
 module.exports = {
   findBookingForDeposit,
   findPendingDepositByBookingId,
@@ -924,5 +953,6 @@ module.exports = {
   chargeCommissionFromRestaurantToAdmin,
   failTransaction,
   settleDepositToWallet,
-  getRecentRestaurantTransactions
+  getRecentRestaurantTransactions,
+  getWalletStatistics
 };

@@ -81,9 +81,9 @@ async function createWalletTopup({ restaurantId, provider, amount, req }) {
 }
 
 async function getWalletBalance({ restaurantId }) {
-  const wallet = await paymentModel.findWalletByRestaurantId(restaurantId);
-  if (!wallet) throw new Error('Restaurant wallet not found');
-  return wallet;
+  const walletStats = await paymentModel.getWalletStatistics(restaurantId);
+  if (!walletStats) throw new Error('Restaurant wallet not found');
+  return walletStats;
 }
 
 async function getWalletHistory({ restaurantId }) {

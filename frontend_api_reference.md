@@ -1112,8 +1112,12 @@ Các URL này do Cổng thanh toán gọi trực tiếp:
 > ```json
 > {
 >   "balance": 8500000,           // Số dư khả dụng (Có thể rút ngay)
->   "lockedAmount": 500000,      // Phí hoa hồng tạm giữ (Nợ SeatNow, sẽ bị trừ khi Admin thu phí)
->   "pendingWithdrawal": 1000000, // Tiền đang trong lệnh rút (Chờ Admin duyệt chuyển khoản)
+>   "lockedAmount": 500000,      // Phí hoa hồng tạm giữ (Nợ SeatNow)
+>   "pendingWithdrawal": 1000000, // Tổng tiền đang trong lệnh rút (Chưa được duyệt)
+>   "latestPendingWithdrawal": 1000000, // Số tiền của lệnh rút gần nhất đang chờ duyệt
+>   "totalWithdrawnSuccess": 5000000, // Tổng số tiền đã rút thành công từ trước tới nay
+>   "totalWithdrawalCount": 12,    // Tổng số lệnh rút tiền đã tạo
+>   "totalTransactionCount": 45,   // Tổng số giao dịch phát sinh (Nạp, rút, cọc...)
 >   "currency": "VND"
 > }
 > ```
