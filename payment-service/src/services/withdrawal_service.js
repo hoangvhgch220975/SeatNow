@@ -48,13 +48,17 @@ async function createWithdrawal({ idOrSlug, amount, description, withdrawMethod,
       qrCodeUrl: qrCodeUrl || null
     };
 
+    // Map withdraw method to payment provider
+    const mappedPaymentMethod = withdrawMethod === 'QR' ? 'momo' : 'vnpay';
+
     const withdrawal = await paymentModel.createWithdrawalRequest({
       restaurantId,
       amount: normalizedAmount,
       description,
       referenceCode,
       idempotencyKey: referenceCode,
-      metadataJson
+      metadataJson,
+      paymentMethod: mappedPaymentMethod
     });
 
     // Notify Admin via notification service
