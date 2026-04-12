@@ -102,11 +102,14 @@ async function chargeCommission(req, res, next) {
 // Tạo yêu cầu rút tiền
 async function createWithdrawal(req, res, next) {
   try {
-    const { restaurantId, amount, description } = req.body;
+    const { idOrSlug, amount, description, withdrawMethod, bankInfo, qrCodeUrl } = req.body;
     const result = await withdrawalService.createWithdrawal({
-      restaurantId,
+      idOrSlug,
       amount,
-      description
+      description,
+      withdrawMethod,
+      bankInfo,
+      qrCodeUrl
     });
     return res.json({ success: true, data: result });
   } catch (err) {
@@ -153,6 +156,22 @@ async function settleBookingDeposit(req, res, next) {
 
     const result = await paymentModel.settleDepositToWallet(bookingId);
     return res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Lay 5 giao dich gan nhat cho owner dashboard
+async function getRecentTransactions(req, res, next) {
+  try {
+    const { restaurantId, limit } = req.query;
+    if (!restaurantId) return res.status(400).json({ success: false, message: 'restaurantId is required' });
+    
+    const data = await walletService.getRecentTransactions({ 
+      restaurantId, 
+      limit: parseInt(limit || '5', 10) 
+    });
+    return res.json({ success: true, data });
   } catch (err) {
     next(err);
   }

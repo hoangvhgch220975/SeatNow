@@ -5,7 +5,28 @@ const { generateReferenceCode } = require('../utils/reference-code');
 const { normalizeAmount } = require('../utils/money');
 const axios = require('axios');
 
-async function createWithdrawal({ restaurantId, amount, description }) {
+async function createWithdrawal({ idOrSlug, amount, description, withdrawMethod, bankInfo, qrCodeUrl }) {
+  // 1. Resolve restaurantId from slug/id
+  let restaurantId = idOrSlug;
+  let restaurantName = idOrSlug;
+  const restaurantBaseUrl = process.env.RESTAURANT_SERVICE_URL || 'http://localhost:3003/api/v1';
+
+  try {
+    const resResp = await axios.get(`${restaurantBaseUrl}/restaurants/${idOrSlug}`);
+    const resData = resResp.data?.data || resResp.data;
+    if (resData && resData.id) {
+      restaurantId = resData.id;
+      restaurantName = resData.name || restaurantId;
+    }
+  } catch (err) {
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(idOrSlug);
+    if (!isUuid) {
+      const e = new Error('Restaurant not found or invalid id/slug');
+      e.status = 404;
+      throw e;
+    }
+  }
+
   const redis = await getRedis();
   const lockKey = `payment:withdrawal:create:${restaurantId}`;
   const locked = await redis.set(lockKey, '1', { NX: true, EX: 30 });
@@ -20,25 +41,24 @@ async function createWithdrawal({ restaurantId, amount, description }) {
     const referenceCode = generateReferenceCode('WDL');
     const normalizedAmount = normalizeAmount(amount);
 
+    // Prepare metadata for bank or QR
+    const metadataJson = {
+      withdrawMethod: withdrawMethod || 'BANK_TRANSFER',
+      bankInfo: bankInfo || null,
+      qrCodeUrl: qrCodeUrl || null
+    };
+
     const withdrawal = await paymentModel.createWithdrawalRequest({
       restaurantId,
       amount: normalizedAmount,
       description,
       referenceCode,
-      idempotencyKey: referenceCode
+      idempotencyKey: referenceCode,
+      metadataJson
     });
 
     // Notify Admin via notification service
     try {
-      let restaurantName = restaurantId;
-      try {
-        const restaurantBaseUrl = process.env.RESTAURANT_SERVICE_URL || 'http://localhost:3003/api/v1';
-        const resResp = await axios.get(`${restaurantBaseUrl}/restaurants/${restaurantId}`);
-        restaurantName = resResp.data?.data?.name || resResp.data?.name || resResp.data?.restaurant?.name || restaurantId;
-      } catch(ignoreErr) {
-        // Fallback to ID if fetch fails
-      }
-
       const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
       await axios.post(`${notificationUrl}/test`, {
         type: 'web',
@@ -51,7 +71,8 @@ async function createWithdrawal({ restaurantId, amount, description }) {
             restaurantName,
             referenceCode,
             amount: normalizedAmount,
-            description
+            description,
+            metadata: metadataJson
           }
         }
       });

@@ -630,7 +630,7 @@ async function failTransaction({ referenceCode, providerTxnId, metadataJson }) {
 }
 
 // Tạo yêu cầu rút tiền
-async function createWithdrawalRequest({ restaurantId, amount, description, referenceCode, idempotencyKey }) {
+async function createWithdrawalRequest({ restaurantId, amount, description, referenceCode, idempotencyKey, metadataJson }) {
   const pool = await getPool();
   const tx = new sql.Transaction(pool);
 
@@ -682,15 +682,16 @@ async function createWithdrawalRequest({ restaurantId, amount, description, refe
       .input('provider', sql.NVarChar(30), 'INTERNAL')
       .input('bb', sql.Decimal(18, 2), balanceBefore)
       .input('ba', sql.Decimal(18, 2), balanceAfter)
+      .input('metadataJson', sql.NVarChar(sql.MAX), metadataJson ? JSON.stringify(metadataJson) : null)
       .query(`
         INSERT INTO dbo.Transactions (
           walletId, type, amount, currency, balanceBefore, balanceAfter,
-          description, paymentMethod, referenceCode, status, payerType, provider, idempotencyKey, createdAt
+          description, paymentMethod, referenceCode, status, payerType, provider, idempotencyKey, metadataJson, createdAt
         )
         OUTPUT INSERTED.*
         VALUES (
           @walletId, 'WITHDRAWAL', @amount, @currency, @bb, @ba,
-          @description, 'BANK_TRANSFER', @referenceCode, 'pending', @payerType, @provider, @idempotencyKey, SYSUTCDATETIME()
+          @description, 'BANK_TRANSFER', @referenceCode, 'pending', @payerType, @provider, @idempotencyKey, @metadataJson, SYSUTCDATETIME()
         )
       `);
 

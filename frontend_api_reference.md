@@ -1090,6 +1090,24 @@ Các URL này do Cổng thanh toán gọi trực tiếp:
 | `GET`  | `/wallet/recent-transactions` | Lấy 5 giao dịch thanh toán tiền cọc mới nhất phục vụ Dashboard (kèm thông tin khách hàng, số bàn, mã đơn)      | ✅   |
 | `POST` | `/wallet/withdraw`            | Yêu cầu rút tiền từ ví (chỉ rút từ `balance`)                                                               | ✅   |
 
+> 🧩 **Yêu cầu rút tiền (Withdrawal Request) Payload:**
+> ```json
+> {
+>   "idOrSlug": "celestial-bistro", // UUID hoặc URL Slug của nhà hàng
+>   "amount": 1500000,
+>   "description": "Rút tiền doanh thu tuần",
+>   "withdrawMethod": "CARD", // "CARD" hoặc "QR"
+>   "bankInfo": {
+>     "bankName": "NCB",
+>     "cardNumber": "9704198526191432198",
+>     "accountName": "NGUYEN VAN A",
+>     "expiryDate": "07/15",
+>     "cvv": "123"
+>   },
+>   "qrCodeUrl": null // Hoặc URL ảnh QR nếu dùng mode QR
+> }
+> ```
+
 > 🧩 **Response mẫu `/wallet/recent-transactions`:**
 > ```json
 > {
