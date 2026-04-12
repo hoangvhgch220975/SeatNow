@@ -5,8 +5,24 @@ const paymentModel = require('../models/payment_sql');
 const { getRedis } = require('../config/redis');
 const { generateReferenceCode } = require('../utils/reference-code');
 const { normalizeAmount } = require('../utils/money');
+const axios = require('axios');
 const momoProvider = require('../providers/momo_provider');
 const vnpayProvider = require('../providers/vnpay_provider');
+
+const RESTAURANT_SERVICE_URL = process.env.RESTAURANT_SERVICE_URL || 'http://localhost:3003/api/v1';
+
+async function resolveRestaurantId(idOrSlug) {
+  try {
+    const resResp = await axios.get(`${RESTAURANT_SERVICE_URL}/restaurants/${idOrSlug}`);
+    const resData = resResp.data?.data || resResp.data;
+    if (resData && resData.id) return resData.id;
+  } catch (err) {
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(idOrSlug);
+    if (isUuid) return idOrSlug;
+    throw new Error('Restaurant not found or invalid id/slug');
+  }
+  return idOrSlug;
+}
 
 async function createWalletTopup({ restaurantId, provider, amount, req }) {
   const normalizedProvider = String(provider || '').toUpperCase();
@@ -81,13 +97,15 @@ async function createWalletTopup({ restaurantId, provider, amount, req }) {
 }
 
 async function getWalletBalance({ restaurantId }) {
-  const walletStats = await paymentModel.getWalletStatistics(restaurantId);
+  const resolvedId = await resolveRestaurantId(restaurantId);
+  const walletStats = await paymentModel.getWalletStatistics(resolvedId);
   if (!walletStats) throw new Error('Restaurant wallet not found');
   return walletStats;
 }
 
 async function getWalletHistory({ restaurantId }) {
-  const wallet = await paymentModel.findWalletByRestaurantId(restaurantId);
+  const resolvedId = await resolveRestaurantId(restaurantId);
+  const wallet = await paymentModel.findWalletByRestaurantId(resolvedId);
   if (!wallet) throw new Error('Restaurant wallet not found');
   return paymentModel.getWalletTransactions(wallet.id);
 }
@@ -149,9 +167,10 @@ async function chargeCommission({ restaurantId, adminUserId, amount, description
 }
 
 async function getRecentTransactions({ restaurantId, limit = 5 }) {
-  const wallet = await paymentModel.findWalletByRestaurantId(restaurantId);
+  const resolvedId = await resolveRestaurantId(restaurantId);
+  const wallet = await paymentModel.findWalletByRestaurantId(resolvedId);
   if (!wallet) throw new Error('Restaurant wallet not found');
-  return paymentModel.getRecentRestaurantTransactions(restaurantId, limit);
+  return paymentModel.getRecentRestaurantTransactions(resolvedId, limit);
 }
 
 module.exports = {
