@@ -1087,7 +1087,7 @@ Các URL này do Cổng thanh toán gọi trực tiếp:
 | ------ | ---------------------- | -------------------------------------------------- | ---- |
 | `GET`  | `/wallet/balance`             | Kiểm tra số dư ví (trả về `balance` + `lockedAmount`)                                                       | ✅   |
 | `GET`  | `/wallet/transactions`        | Lịch sử giao dịch ví (Toàn bộ)                                                                              | ✅   |
-| `GET`  | `/wallet/recent-transactions` | Lấy 5 giao dịch doanh thu mới nhất phục vụ Dashboard (kèm thông tin khách hàng, số bàn, mã đơn)             | ✅   |
+| `GET`  | `/wallet/recent-transactions` | Lấy 5 giao dịch thanh toán tiền cọc mới nhất phục vụ Dashboard (kèm thông tin khách hàng, số bàn, mã đơn)      | ✅   |
 | `POST` | `/wallet/withdraw`            | Yêu cầu rút tiền từ ví (chỉ rút từ `balance`)                                                               | ✅   |
 
 > 🧩 **Response mẫu `/wallet/recent-transactions`:**
@@ -1098,8 +1098,10 @@ Các URL này do Cổng thanh toán gọi trực tiếp:
 >     {
 >       "id": "uuid",
 >       "bookingId": "uuid",
->       "type": "SETTLEMENT",
->       "amount": 200000.0,
+>       "type": "DEPOSIT_PAYMENT",
+>       "amount": 300000.0,
+>       "commissionFee": 60000.0,
+>       "netAmount": 240000.0,
 >       "currency": "VND",
 >       "status": "completed",
 >       "createdAt": "2026-04-12T07:30:00.000Z",
