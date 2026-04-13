@@ -461,6 +461,8 @@ def get_owner_monthly_revenue_summary(owner_id: str, months: int = 12) -> list[d
             SUM(CASE WHEN b.status = 'COMPLETED' THEN 1 ELSE 0 END)           AS completed,
             SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END)           AS cancelled,
             SUM(CASE WHEN b.status = 'ARRIVED'   THEN 1 ELSE 0 END)           AS arrived,
+            SUM(CASE WHEN b.status = 'CONFIRMED' THEN 1 ELSE 0 END)           AS confirmed,
+            SUM(CASE WHEN b.status = 'NO_SHOW'   THEN 1 ELSE 0 END)           AS noShow,
             ISNULL(SUM(b.commissionFee), 0)                                   AS totalCommission,
             ISNULL(SUM(CASE WHEN b.depositPaid = 1 THEN b.depositAmount ELSE 0 END), 0) AS totalDeposit
         FROM dbo.Bookings b
@@ -512,6 +514,8 @@ def get_restaurant_monthly_revenue_summary(restaurant_id: str, months: int = 12)
             SUM(CASE WHEN b.status = 'COMPLETED' THEN 1 ELSE 0 END)           AS completed,
             SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END)           AS cancelled,
             SUM(CASE WHEN b.status = 'ARRIVED'   THEN 1 ELSE 0 END)           AS arrived,
+            SUM(CASE WHEN b.status = 'CONFIRMED' THEN 1 ELSE 0 END)           AS confirmed,
+            SUM(CASE WHEN b.status = 'NO_SHOW'   THEN 1 ELSE 0 END)           AS noShow,
             ISNULL(SUM(b.commissionFee), 0)                                   AS totalCommission,
             ISNULL(SUM(CASE WHEN b.depositPaid = 1 THEN b.depositAmount ELSE 0 END), 0) AS totalDeposit
         FROM dbo.Bookings b
