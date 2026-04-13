@@ -539,8 +539,9 @@ async function guestCancel(idOrCode, guestPhone, cancellationReason = null) {
       minutes = parseInt(parts[1], 10);
     }
     
-    // Gộp thành giờ hệ thống để so sánh với thời gian thực
-    const startTime = new Date(year, month, day, hours, minutes, 0, 0);
+    // Gộp thành giờ hệ thống để so sánh với thời gian thực (Giả định UTC+7 cho Vietnam)
+    const isoString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00+07:00`;
+    const startTime = new Date(isoString);
     const now = new Date();
     const diffMs = startTime.getTime() - now.getTime();
     const diffHours = diffMs / (1000 * 60 * 60);
@@ -646,7 +647,8 @@ async function cancel(idOrCode, actor = null, cancellationReason = null) {
         minutes = parseInt(parts[1], 10);
       }
       
-      const startTime = new Date(year, month, day, hours, minutes, 0, 0);
+      const isoString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00+07:00`;
+      const startTime = new Date(isoString);
       const now = new Date();
       const diffMs = startTime.getTime() - now.getTime();
       const diffHours = diffMs / (1000 * 60 * 60);

@@ -43,15 +43,17 @@ async function markNoShow() {
   const pool = await getPool();
   const grace = parseInt(process.env.NO_SHOW_GRACE_MIN || '30', 10);
 
-  // Tìm các booking CONFIRMED đã quá giờ chờ
+  // Tìm các booking CONFIRMED đã quá giờ chờ (Quy đổi local time sang UTC bằng cách -7h)
   const toNoShow = await pool.request()
     .input('grace', sql.Int, grace)
     .query(`
       SELECT id
       FROM dbo.Bookings
       WHERE status='CONFIRMED'
-        AND DATEADD(minute, @grace,
-            CAST(CONCAT(CONVERT(VARCHAR(10), bookingDate, 120), ' ', bookingTime) AS DATETIME2)
+        AND DATEADD(minute, @grace, 
+            DATEADD(hour, -7, 
+                CAST(CONCAT(CONVERT(VARCHAR(10), bookingDate, 120), ' ', bookingTime) AS DATETIME2)
+            )
         ) < SYSUTCDATETIME()
     `);
 
@@ -60,6 +62,7 @@ async function markNoShow() {
       // Sử dụng service thay vì SQL trực tiếp để kích hoạt Socket events (Zero-Latency)
       const updated = await bookingSvc.noShow(r.id);
       if (updated) {
+        addLog(`[job] Marked NO_SHOW: ${updated.bookingCode}`, 'success');
         await availability.invalidateAvailability({ 
           restaurantId: updated.restaurantId, 
           bookingDate: updated.bookingDate, 
@@ -67,7 +70,7 @@ async function markNoShow() {
         });
       }
     } catch (e) {
-      console.warn('[job] markNoShow cancel error', e.message || e);
+      console.warn('[job] markNoShow error for ID:', r.id, e.message || e);
     }
   }
 }
