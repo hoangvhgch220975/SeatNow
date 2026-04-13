@@ -22,6 +22,12 @@
 			"value": "",
 			"type": "string",
 			"description": "JWT access token for an admin account (role=admin). Alternatively use internal token: vhTony_24_internal_token"
+		},
+		{
+			"key": "ownerToken",
+			"value": "",
+			"type": "string",
+			"description": "JWT access token for a restaurant owner account (role=restaurant_owner)."
 		}
 	],
 	"item": [

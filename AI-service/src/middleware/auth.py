@@ -29,11 +29,23 @@ def verify_token(request: Request) -> dict:
             detail="Missing or malformed Authorization header"
         )
 
-    token = auth_header[7:]
+    token = auth_header[7:].strip()
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is empty"
+        )
 
     # Allow internal service calls
     if INTERNAL_TOKEN and token == INTERNAL_TOKEN:
         return {"sub": "internal", "role": "admin"}
+
+    # Basic check for JWT format (must have 3 parts)
+    if token.count('.') != 2:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format (JWT should have 3 segments)"
+        )
 
     try:
         payload = jwt.decode(
