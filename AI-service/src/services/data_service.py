@@ -50,6 +50,14 @@ def search_restaurants_by_keyword(query: str, limit: int = 20) -> list[dict]:
     if not query or len(query.strip()) < 2:
         return []
 
+    # --- PART 0: Check Cache ---
+    import hashlib
+    query_hash = hashlib.md5(query.strip().lower().encode('utf-8')).hexdigest()
+    cache_key = f"ai:cache:search:{query_hash}"
+    cached_results = redis_client.get_cache(cache_key)
+    if cached_results:
+        return cached_results
+
     # Clean the query
     keywords = query.lower().split()
     fillers = {"cho", "tôi", "nhà", "hàng", "một", "1", "tìm", "giúp", "với", "phát", "ở", "gần", "đây", "có", "nào", "không"}
@@ -103,12 +111,12 @@ def search_restaurants_by_keyword(query: str, limit: int = 20) -> list[dict]:
             if "restaurantId" in doc:
                 matched_ids.add(str(doc["restaurantId"]))
                 
-        # 2b. Search Reviews (Optional but helpful as requested previously)
+        # 2b. Search Reviews
         review_matches = mongo_db.reviews.find({
             "$and": [
                 {"comment": pat} for pat in regex_patterns
             ]
-        }, {"restaurantId": 1}).limit(50) # Limit reviews to avoid too many IDs
+        }, {"restaurantId": 1}).limit(50) 
         
         for doc in review_matches:
             if "restaurantId" in doc:
@@ -143,6 +151,10 @@ def search_restaurants_by_keyword(query: str, limit: int = 20) -> list[dict]:
     
     cursor.close()
     conn.close()
+
+    # --- PART 4: Save to Cache (30 min) ---
+    redis_client.set_cache(cache_key, results, 1800)
+    
     return results
 
 
@@ -521,6 +533,12 @@ def get_single_restaurant_context(owner_id: str, restaurant_id_or_slug: str) -> 
     """
     Get context for a single restaurant (with ownership verification).
     """
+    # 0. Check Cache
+    cache_key = f"ai:cache:owner_rest_context:{owner_id}:{restaurant_id_or_slug}"
+    cached_data = redis_client.get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
     # 1. Resolve & Verify Ownership
     conn = get_connection()
     cursor = conn.cursor()
@@ -565,6 +583,10 @@ def get_single_restaurant_context(owner_id: str, restaurant_id_or_slug: str) -> 
         "restaurant": restaurant,
         "monthly_revenue": get_restaurant_monthly_revenue_summary(restaurant_id, 12)
     }
+
+    # 3. Save to Cache (10 min)
+    redis_client.set_cache(cache_key, data, 600)
+
     return data
 
 

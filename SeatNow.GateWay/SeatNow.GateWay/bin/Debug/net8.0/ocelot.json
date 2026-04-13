@@ -162,7 +162,7 @@
         "AuthenticationProviderKey": "GatewayJwt"
       },
       "RouteClaimsRequirement": {
-        "role": "PARTNER"
+        "role": "RESTAURANT_OWNER"
       }
     },
     {

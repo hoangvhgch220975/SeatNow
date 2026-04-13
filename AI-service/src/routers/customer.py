@@ -19,8 +19,11 @@ router = APIRouter(prefix="/api/ai/customer", tags=["Customer AI"])
 
 # ─────────────────────── Helpers ───────────────────────
 
-def _session_key(customer_id: str) -> str:
-    return f"ai:customer:{customer_id}"
+def _session_key(customer_id: str, sessionId: str = None) -> str:
+    base = f"ai:customer:{customer_id}"
+    if sessionId:
+        base += f":sess:{sessionId}"
+    return base
 
 
 def _build_system_prompt(booking_history: list[dict], restaurants: list[dict], search_results: list[dict] = None, lang: str = "en") -> str:
@@ -92,7 +95,7 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_customer))
     Multi-turn chat for customers.
     """
     customer_id = str(payload.get("sub", ""))
-    session_key = _session_key(customer_id)
+    session_key = _session_key(customer_id, body.sessionId)
     lang = body.lang or "en"
 
     # Load context from DB

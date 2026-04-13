@@ -19,10 +19,13 @@ router = APIRouter(prefix="/api/ai/owner", tags=["Owner AI"])
 
 # ─────────────────────── Helpers ───────────────────────
 
-def _session_key(owner_id: str, restaurant_id: str = None) -> str:
+def _session_key(owner_id: str, restaurant_id: str = None, sessionId: str = None) -> str:
+    base = f"ai:owner:{owner_id}"
     if restaurant_id:
-        return f"ai:owner:{owner_id}:rest:{restaurant_id}"
-    return f"ai:owner:{owner_id}"
+        base += f":rest:{restaurant_id}"
+    if sessionId:
+        base += f":sess:{sessionId}"
+    return base
 
 
 def _build_owner_system_prompt(context: dict, lang: str = "en") -> str:
@@ -162,7 +165,7 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_owner)):
         # Chat tổng quát (Portfolio)
         context = data_service.get_owner_overview_context(owner_id)
         system_prompt = _build_owner_system_prompt(context, lang=lang)
-        session_key = _session_key(owner_id, session_id=body.sessionId)
+        session_key = _session_key(owner_id, sessionId=body.sessionId)
 
     # Tải lịch sử từ Redis
     history = redis_client.load_history(session_key)

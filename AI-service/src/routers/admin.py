@@ -19,8 +19,11 @@ router = APIRouter(prefix="/api/ai/admin", tags=["Admin AI"])
 
 # ─────────────────────── Helpers ───────────────────────
 
-def _session_key(admin_id: str) -> str:
-    return f"ai:admin:{admin_id}"
+def _session_key(admin_id: str, sessionId: str = None) -> str:
+    base = f"ai:admin:{admin_id}"
+    if sessionId:
+        base += f":sess:{sessionId}"
+    return base
 
 
 def _build_admin_system_prompt(context: dict, lang: str = "en") -> str:
@@ -106,7 +109,6 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_admin)):
     Multi-turn chat for admin analytics. 
     """
     admin_id = str(payload.get("sub", ""))
-    session_key = _session_key(admin_id)
     session_key = _session_key(admin_id, body.sessionId)
     lang = body.lang or "en"
 
