@@ -10,15 +10,16 @@ from services import data_service, gemini_service
 
 router = APIRouter(prefix="/api/ai/public", tags=["Public AI"])
 
-def _build_public_system_prompt(trending: list[dict], newest: list[dict]) -> str:
+def _build_public_system_prompt(trending: list[dict], newest: list[dict], lang: str = "en") -> str:
     trending_text = json.dumps(trending, ensure_ascii=False, default=str)
     newest_text = json.dumps(newest, ensure_ascii=False, default=str)
+    
+    lang_name = "English" if lang == "en" else "Vietnamese"
 
-    return f"""### LANGUAGE POLICY (STRICTEST RULE):
-- YOU MUST RESPOND IN THE SAME LANGUAGE AS THE USER'S QUERY.
-- VIETNAMESE -> VIETNAMESE.
-- ENGLISH -> ENGLISH.
-- DO NOT MIX LANGUAGES. Consistency is your TOP priority.
+    return f"""### CRITICAL: TARGET LANGUAGE IS {lang_name.upper()}.
+- You MUST respond ONLY in {lang_name}.
+- DO NOT use any other language.
+- This is the MOST important rule.
 
 You are the SeatNow Assistant. You provide helpful restaurant recommendations to guests.
 
@@ -49,12 +50,14 @@ async def public_recommend(body: PublicRecommendRequest):
     context = data_service.get_public_context()
     system_prompt = _build_public_system_prompt(
         context.get("trending", []), 
-        context.get("newest", [])
+        context.get("newest", []),
+        lang=lang
     )
     
     # Constructing the final prompt clearly
-    instruction = "\n\nHãy gợi ý cho tôi vài nhà hàng nổi bật." if lang == "vi" else "\n\nPlease suggest some notable restaurants."
-    full_prompt = f"{system_prompt}\n\nUser question: {body.message}{instruction}"
+    instruction = "\n\n## Yêu cầu:\nHãy gợi ý cho tôi vài nhà hàng nổi bật." if lang == "vi" else "\n\n## Request:\nPlease suggest some notable restaurants."
+    body_message = body.message if body.message else ""
+    full_prompt = f"{system_prompt}\n\nUser context: {body_message}{instruction}"
     
     # Using one-shot since we don't save guest history
     reply = gemini_service.one_shot(full_prompt)

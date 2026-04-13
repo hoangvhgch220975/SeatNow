@@ -6,6 +6,7 @@ Endpoints for logged-in customers:
   DELETE /api/ai/customer/chat/history – clear conversation history
 """
 import json
+from typing import Optional
 from fastapi import APIRouter, Depends, Request
 
 from middleware.auth import get_current_customer
@@ -22,15 +23,16 @@ def _session_key(customer_id: str) -> str:
     return f"ai:customer:{customer_id}"
 
 
-def _build_system_prompt(booking_history: list[dict], restaurants: list[dict]) -> str:
+def _build_system_prompt(booking_history: list[dict], restaurants: list[dict], lang: str = "en") -> str:
     history_text = json.dumps(booking_history, ensure_ascii=False, default=str)
     restaurants_text = json.dumps(restaurants, ensure_ascii=False, default=str)
+    
+    lang_name = "English" if lang == "en" else "Vietnamese"
 
-    return f"""### LANGUAGE POLICY (STRICTEST RULE):
-- YOU MUST RESPOND IN THE SAME LANGUAGE AS THE USER'S QUERY.
-- If the user asks in **VIETNAMESE**, you MUST respond in **VIETNAMESE**.
-- If the user asks in **ENGLISH**, you MUST respond in **ENGLISH**.
-- NEVER mix languages. Language consistency is your TOP priority.
+    return f"""### CRITICAL: TARGET LANGUAGE IS {lang_name.upper()}.
+- You MUST respond ONLY in {lang_name}.
+- DO NOT use any other language.
+- This is the MOST important rule.
 
 You are the intelligent AI Assistant for the SeatNow restaurant reservation platform.
 Your mission is to assist customers in searching for, suggesting restaurants, and answering inquiries related to dining services on SeatNow.
@@ -63,14 +65,16 @@ async def recommend(body: Optional[RevenueSummaryRequest] = None, payload: dict 
     """
     customer_id = str(payload.get("sub", ""))
     lang = body.lang if body and body.lang else "en"
-
-    booking_history = data_service.get_customer_booking_history(customer_id)
-    restaurants = data_service.get_active_restaurants()
-
-    base_prompt = _build_system_prompt(booking_history, restaurants)
-    instruction = "\n\nXin hãy gợi ý cho tôi vài nhà hàng phù hợp." if lang == "vi" else "\n\nPlease suggest some restaurants that match my preferences."
     
-    prompt = base_prompt + instruction
+    history = data_service.get_customer_booking_history(customer_id)
+    restaurants = data_service.get_active_restaurants()
+    
+    prompt = _build_system_prompt(history, restaurants, lang=lang)
+    
+    if lang == "vi":
+        prompt += "\n## Yêu cầu:\nDựa trên lịch sử của tôi, hãy đưa ra 3 gợi ý nhà hàng phù hợp."
+    else:
+        prompt += "\n## Request:\nBased on my history, please provide 3 suitable restaurant recommendations."
 
     reply = gemini_service.one_shot(prompt)
     return RecommendResponse(recommendations=reply)
@@ -88,7 +92,7 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_customer))
     # Load context from DB
     booking_history = data_service.get_customer_booking_history(customer_id)
     restaurants = data_service.get_active_restaurants()
-    system_prompt = _build_system_prompt(booking_history, restaurants)
+    system_prompt = _build_system_prompt(booking_history, restaurants, lang=lang)
 
     # Load existing chat history
     history = redis_client.load_history(session_key)

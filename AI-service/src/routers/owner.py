@@ -25,15 +25,16 @@ def _session_key(owner_id: str, restaurant_id: str = None) -> str:
     return f"ai:owner:{owner_id}"
 
 
-def _build_owner_system_prompt(context: dict) -> str:
+def _build_owner_system_prompt(context: dict, lang: str = "en") -> str:
     revenue_text = json.dumps(context.get("monthly_revenue", []), ensure_ascii=False, default=str)
     restaurants_text = json.dumps(context.get("my_restaurants", []), ensure_ascii=False, default=str)
+    
+    lang_name = "English" if lang == "en" else "Vietnamese"
 
-    return f"""### LANGUAGE POLICY (STRICTEST RULE):
-- YOU MUST RESPOND IN THE SAME LANGUAGE AS THE USER'S QUERY.
-- VIETNAMESE -> VIETNAMESE.
-- ENGLISH -> ENGLISH.
-- DO NOT MIX LANGUAGES. Consistency is your TOP priority.
+    return f"""### CRITICAL: TARGET LANGUAGE IS {lang_name.upper()}.
+- You MUST respond ONLY in {lang_name}.
+- DO NOT use any other language.
+- This is the MOST important rule.
 
 You are the SeatNow Business Advisor — an AI business expert specialized in the F&B industry. 
 Your mission is to provide professional advice, analysis, and strategic suggestions to restaurant owners based on their actual performance data on the SeatNow platform.
@@ -57,15 +58,16 @@ Your mission is to provide professional advice, analysis, and strategic suggesti
 """
 
 
-def _build_single_restaurant_system_prompt(context: dict) -> str:
+def _build_single_restaurant_system_prompt(context: dict, lang: str = "en") -> str:
     restaurant = context.get("restaurant", {})
     revenue_text = json.dumps(context.get("monthly_revenue", []), ensure_ascii=False, default=str)
+    
+    lang_name = "English" if lang == "en" else "Vietnamese"
 
-    return f"""### LANGUAGE POLICY (STRICTEST RULE):
-- YOU MUST RESPOND IN THE SAME LANGUAGE AS THE USER'S QUERY.
-- VIETNAMESE -> VIETNAMESE.
-- ENGLISH -> ENGLISH.
-- DO NOT MIX LANGUAGES.
+    return f"""### CRITICAL: TARGET LANGUAGE IS {lang_name.upper()}.
+- You MUST respond ONLY in {lang_name}.
+- DO NOT use any other language.
+- This is the MOST important rule.
 
 You are the SeatNow Business Advisor. You are currently analyzing a SPECIFIC restaurant for the owner.
 
@@ -90,7 +92,7 @@ You are the SeatNow Business Advisor. You are currently analyzing a SPECIFIC res
 
 
 def _build_one_shot_prompt(context: dict, is_single: bool = False, lang: str = "en") -> str:
-    base = _build_single_restaurant_system_prompt(context) if is_single else _build_owner_system_prompt(context)
+    base = _build_single_restaurant_system_prompt(context, lang=lang) if is_single else _build_owner_system_prompt(context, lang=lang)
     
     if lang == "vi":
         target = "nhà hàng này" if is_single else "các nhà hàng của tôi"
@@ -152,14 +154,14 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_owner)):
         if not context:
             return ChatResponse(reply="I'm sorry, I couldn't find information for that restaurant or you don't have access to it.", session_key="")
         
-        system_prompt = _build_single_restaurant_system_prompt(context)
+        system_prompt = _build_single_restaurant_system_prompt(context, lang=lang)
         # Use the absolute ID for the session key to avoid slug changes breaking history
         final_id = context["restaurant"]["id"]
         session_key = _session_key(owner_id, final_id)
     else:
         # Chat tổng quát (Portfolio)
         context = data_service.get_owner_overview_context(owner_id)
-        system_prompt = _build_owner_system_prompt(context)
+        system_prompt = _build_owner_system_prompt(context, lang=lang)
         session_key = _session_key(owner_id)
 
     # Tải lịch sử từ Redis

@@ -146,6 +146,12 @@
 							}
 						}
 					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{customerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n  \"lang\": \"en\"\n}"
@@ -374,6 +380,12 @@
 							}
 						}
 					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n  \"lang\": \"en\"\n}"
@@ -637,6 +649,12 @@
 							}
 						}
 					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{ownerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n  \"lang\": \"en\"\n}"

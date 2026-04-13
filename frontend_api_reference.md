@@ -1653,8 +1653,9 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 ### ⚡ Đặc điểm kỹ thuật
 
 - **Caching Layer (Redis):** Dữ liệu được cache giúp tốc độ phản hồi cực nhanh.
-- **Language Policy (GOLDEN RULE):** Phản hồi theo đúng ngôn ngữ người dùng hỏi (Tiếng Việt <-> Tiếng Anh). Mặc định hệ thống phản hồi bằng **Tiếng Anh** nếu không có yêu cầu khác.
-- **Default Language:** Tất cả các bản tóm tắt/gợi ý mặc định là Tiếng Anh. Sử dụng body `{"lang": "vi"}` để nhận phản hồi Tiếng Việt.
+- **Language Policy (GOLDEN RULE):** AI tuân thủ nghiêm ngặt quy tắc: **"Phản hồi bằng chính ngôn ngữ người dùng yêu cầu"**. 
+- **Target Language:** Hệ thống sử dụng tham số `lang` trong Request Body để xác định ngôn ngữ phản hồi (mặc định là `en`).
+- **Strict Consistency:** Đối với các yêu cầu chat (đa lượt), AI sẽ phản hồi theo ngôn ngữ của câu hỏi cuối cùng nếu không có tham số `lang` ép kiểu. Tuy nhiên, khuyến khích FE luôn gửi `lang` để đảm bảo trải nghiệm đồng nhất.
 
 ### 🌐 1. Public AI (Khách vãng lai)
 

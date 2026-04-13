@@ -6,6 +6,7 @@ Endpoints for platform admins:
   DELETE /api/ai/admin/chat/history   – clear admin conversation history
 """
 import json
+from typing import Optional
 from fastapi import APIRouter, Depends
 
 from middleware.auth import get_current_admin
@@ -22,15 +23,16 @@ def _session_key(admin_id: str) -> str:
     return f"ai:admin:{admin_id}"
 
 
-def _build_admin_system_prompt(context: dict) -> str:
+def _build_admin_system_prompt(context: dict, lang: str = "en") -> str:
     revenue_text = json.dumps(context.get("monthly_revenue", []), ensure_ascii=False, default=str)
     top_rest_text = json.dumps(context.get("top_restaurants", []), ensure_ascii=False, default=str)
+    
+    lang_name = "English" if lang == "en" else "Vietnamese"
 
-    return f"""### LANGUAGE POLICY (STRICTEST RULE):
-- YOU MUST RESPOND IN THE SAME LANGUAGE AS THE USER'S QUERY.
-- If the user asks in **VIETNAMESE**, you MUST respond in **VIETNAMESE**.
-- If the user asks in **ENGLISH**, you MUST respond in **ENGLISH**.
-- NEVER mix languages. Language consistency is your TOP priority.
+    return f"""### CRITICAL: TARGET LANGUAGE IS {lang_name.upper()}.
+- You MUST respond ONLY in {lang_name}.
+- DO NOT use any other language.
+- This is the MOST important rule.
 
 You are the AI Business Analytics Expert for the SeatNow platform — an online restaurant reservation management system.
 Your mission is to assist administrators in analyzing revenue, providing insights, and suggesting business strategies based on real-time data.
@@ -63,24 +65,22 @@ Field definitions:
 
 
 def _build_one_shot_prompt(context: dict, lang: str = "en") -> str:
-    base = _build_admin_system_prompt(context)
+    base = _build_admin_system_prompt(context, lang=lang)
     if lang == "vi":
         return base + """
 ## Yêu cầu:
-Vui lòng phân tích tình hình kinh doanh trong 12 tháng qua và cung cấp:
-1. Tổng quan về doanh thu (phí dịch vụ + tiền cọc).
-2. Các xu hướng đáng lưu ý (tháng tốt nhất, tháng yếu nhất, tỷ lệ hủy đặt chỗ).
-3. Các nhà hàng hàng đầu.
-4. Các gợi ý chiến lược cụ thể cho 1-3 tháng tới.
+Vui lòng cung cấp một bản phân tích tình hình kinh doanh toàn diện cho 12 tháng qua, bao gồm:
+1. Tổng quan về doanh thu và lượng đặt bàn trên toàn sàn.
+2. Các xu hướng hiệu suất chính và những điểm nổi bật đáng lưu ý.
+3. Các gợi ý chiến lược cụ thể để tăng doanh thu phí hoa hồng và cải thiện hiệu quả hệ thống trong tương lai.
 """
     else:
         return base + """
 ## Request:
-Please analyze the business situation for the past 12 months and provide:
-1. Revenue overview (commission + deposit)
-2. Noteworthy trends (best month, weakest month, cancellation rate)
-3. Top restaurants
-4. Specific strategy suggestions for the next 1–3 months
+Please provide a comprehensive business analysis for the past 12 months, including:
+1. Revenue & booking overview across the entire platform.
+2. Key performance trends and noteworthy highlights.
+3. Specific strategic suggestions to increase commission revenue and improve system efficiency in the future.
 """
 
 
@@ -92,8 +92,10 @@ async def revenue_summary(body: Optional[RevenueSummaryRequest] = None, payload:
     One-shot: fetch platform revenue data, generate comprehensive analysis.
     """
     lang = body.lang if body and body.lang else "en"
+    
     context = data_service.get_admin_overview_context()
     prompt = _build_one_shot_prompt(context, lang=lang)
+    
     reply = gemini_service.one_shot(prompt)
     return AdminRevenueSummaryResponse(summary=reply)
 
@@ -109,7 +111,7 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_admin)):
 
     # Always fetch fresh context from DB
     context = data_service.get_admin_overview_context()
-    system_prompt = _build_admin_system_prompt(context)
+    system_prompt = _build_admin_system_prompt(context, lang=lang)
 
     # Load Redis history
     history = redis_client.load_history(session_key)
