@@ -1521,7 +1521,7 @@ Tất cả các tính toán thời gian trong hệ thống được chuẩn hóa
    - `createdAt`, `updatedAt`, `confirmedAt`,...: `DATETIME2` (Giờ quốc tế UTC).
 2. **Logic tính toán (No-show & Refund):**
    - Hệ thống tự động quy đổi `bookingDate` + `bookingTime` sang UTC (trừ 7 tiếng) trước khi so sánh với thời gian thực của máy chủ.
-   - Các logic "Hủy trước 3 tiếng" hoặc "No-show sau 30 phút" đều được tính toán dựa trên mốc thời gian thực tế tại Việt Nam.
+   - Các logic "Hủy trước 3 tiếng" hoặc "No-show sau 15 phút" đều được tính toán dựa trên mốc thời gian thực tế tại Việt Nam.
 
 ---
 
@@ -1679,7 +1679,7 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 | Gợi ý nhà hàng (AI)     | `POST` | `/api/v1/ai/public/recommend`  |
 | Gửi yêu cầu làm Đối tác | `POST` | `/api/v1/auth/partner-request` |
 | Tìm kiếm nhà hàng       | `GET`  | `/api/v1/restaurants`          |
-| Xem chi tiết nhà hàng   | `GET`  | `/api/v1/restaurants/:id`      |
+| Xem chi tiết nhà hàng   | `GET`  | `/api/v1/restaurants/:idOrSlug`|
 
 ### 👤 Customer (Khách hàng)
 
@@ -1690,10 +1690,10 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 | Xem profile         | `GET`    | `/api/v1/users/me`                                                          |
 | Cập nhật profile    | `PUT`    | `/api/v1/users/me`                                                          |
 | Tìm nhà hàng        | `GET`    | `/api/v1/restaurants?keyword=...`                                           |
-| Chi tiết nhà hàng   | `GET`    | `/api/v1/restaurants/:id`                                                   |
-| Xem menu            | `GET`    | `/api/v1/restaurants/:id/menu`                                              |
-| Xem reviews         | `GET`    | `/api/v1/restaurants/:id/reviews`                                           |
-| Kiểm tra bàn trống  | `GET`    | `/api/v1/booking-restaurants/:id/availability?date=...&time=...&guests=...` |
+| Chi tiết nhà hàng   | `GET`    | `/api/v1/restaurants/:idOrSlug`                                             |
+| Xem menu            | `GET`    | `/api/v1/restaurants/:idOrSlug/menu`                                        |
+| Xem reviews         | `GET`    | `/api/v1/restaurants/:idOrSlug/reviews`                                     |
+| Kiểm tra bàn trống  | `GET`    | `/api/v1/booking-restaurants/:idOrSlug/availability?date=...&time=...&guests=...` |
 | Tạo booking         | `POST`   | `/api/v1/bookings`                                                          |
 | Lịch sử booking     | `GET`    | `/api/v1/bookings/my-bookings`                                              |
 | Hủy booking         | `PUT`    | `/api/v1/bookings/:id/cancel`                                               |
@@ -1706,16 +1706,18 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 
 | Chức năng              | Method                | Endpoint (qua Gateway)                                       |
 | ---------------------- | --------------------- | ------------------------------------------------------------ |
-| Xem DS booking         | `GET`                 | `/api/v1/booking-restaurants/:id/bookings`                   |
+| Xem DS booking         | `GET`                 | `/api/v1/booking-restaurants/:idOrSlug/bookings`             |
 | Xác nhận booking       | `PUT`                 | `/api/v1/bookings/:id/confirm`                               |
 | Check-in               | `PUT`                 | `/api/v1/bookings/:id/arrived`                               |
 | Hoàn thành             | `PUT`                 | `/api/v1/bookings/:id/complete`                              |
 | Hủy booking            | `PUT`                 | `/api/v1/bookings/:id/cancel`                                |
-| Quản lý bàn            | `GET/POST/PUT/DELETE` | `/api/v1/restaurants/:id/tables`                             |
-| Quản lý menu           | `GET/POST/PUT/DELETE` | `/api/v1/restaurants/:id/menu`                               |
-| Thống kê bàn theo tầng | `GET`                 | `/api/v1/restaurants/:id/tables/stats`                       |
-| Thống kê doanh thu     | `GET`                 | `/api/v1/booking-restaurants/:id/revenue-stats?period=month` |
-| Thống kê giờ           | `GET`                 | `/api/v1/booking-restaurants/:id/stats/hourly?period=week`   |
+| Quản lý thông tin      | `PUT/DELETE`          | `/api/v1/restaurants/:idOrSlug`                              |
+| Cập nhật chính sách cọc| `PUT`                 | `/api/v1/restaurants/:idOrSlug/deposit-policy`               |
+| Quản lý bàn            | `GET/POST/PUT/DELETE` | `/api/v1/restaurants/:idOrSlug/tables`                       |
+| Quản lý menu           | `GET/POST/PUT/DELETE` | `/api/v1/restaurants/:idOrSlug/menu`                         |
+| Thống kê bàn theo tầng | `GET`                 | `/api/v1/restaurants/:idOrSlug/tables/stats`                 |
+| Thống kê doanh thu     | `GET`                 | `/api/v1/booking-restaurants/:idOrSlug/revenue-stats?period=month` |
+| Thống kê giờ           | `GET`                 | `/api/v1/booking-restaurants/:idOrSlug/stats/hourly?period=week`   |
 | Portfolio Summary      | `GET`                 | `/api/v1/owner/portfolio-summary?from=...&to=...`            |
 | Số dư ví               | `GET`                 | `/api/v1/payment/wallet/balance`                             |
 | **AI Advisor (Chat)**  | `POST`                | `/api/v1/ai/owner/chat`                                      |
@@ -1726,8 +1728,8 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 | Chức năng            | Method   | Endpoint (qua Gateway)                       |
 | -------------------- | -------- | -------------------------------------------- |
 | Thống kê tổng quan   | `GET`    | `/api/v1/admin/dashboard/stats`              |
-| Duyệt nhà hàng       | `PUT`    | `/api/v1/admin/restaurants/:id/approve`      |
-| Tạm ngưng nhà hàng   | `PUT`    | `/api/v1/admin/restaurants/:id/suspend`      |
+| Duyệt nhà hàng       | `PUT`    | `/api/v1/admin/restaurants/:idOrSlug/approve`|
+| Tạm ngưng nhà hàng   | `PUT`    | `/api/v1/admin/restaurants/:idOrSlug/suspend`|
 | Tạo Owner            | `POST`   | `/api/v1/admin/users/restaurant-owner`       |
 | DS người dùng        | `GET`    | `/api/v1/admin/users`                        |
 | DS giao dịch         | `GET`    | `/api/v1/admin/transactions`                 |

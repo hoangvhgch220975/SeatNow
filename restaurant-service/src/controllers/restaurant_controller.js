@@ -79,16 +79,17 @@ async function update(req, res) {
       for (const f of ADMIN_ONLY_FIELDS) delete payload[f];
     }
 
+    const existing = await restaurantSvc.getRestaurant(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Not found' });
+
     // Kiểm tra ownership nếu là RESTAURANT_OWNER
     if (role === 'RESTAURANT_OWNER') {
-      const existing = await restaurantSvc.getRestaurant(req.params.id);
-      if (!existing) return res.status(404).json({ message: 'Not found' });
       if (existing.ownerId !== req.user.id) {
         return res.status(403).json({ message: 'Forbidden: not your restaurant' });
       }
     }
 
-    const data = await restaurantSvc.updateRestaurant(req.params.id, payload);
+    const data = await restaurantSvc.updateRestaurant(existing.id, payload);
     if (!data) return res.status(404).json({ message: 'Not found' });
     res.json({ data });
   } catch (e) {
@@ -99,7 +100,15 @@ async function update(req, res) {
 // Hàm cập nhật chính sách đặt cọc của nhà hàng
 async function updateDepositPolicy(req, res) {
   try {
-    const data = await restaurantSvc.updateDepositPolicy(req.params.id, req.body);
+    const existing = await restaurantSvc.getRestaurant(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Not found' });
+
+    const role = req.user?.role;
+    if (role === 'RESTAURANT_OWNER' && existing.ownerId !== req.user.id) {
+      return res.status(403).json({ message: 'Forbidden: not your restaurant' });
+    }
+
+    const data = await restaurantSvc.updateDepositPolicy(existing.id, req.body);
     if (!data) return res.status(404).json({ message: 'Not found' });
     res.json({ data });
   } catch (e) {
@@ -109,12 +118,21 @@ async function updateDepositPolicy(req, res) {
 // Hàm xóa mềm nhà hàng
 async function remove(req, res) {
   try {
-    const data = await restaurantSvc.softDeleteRestaurant(req.params.id);
+    const existing = await restaurantSvc.getRestaurant(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Not found' });
+
+    const role = req.user?.role;
+    if (role === 'RESTAURANT_OWNER' && existing.ownerId !== req.user.id) {
+      return res.status(403).json({ message: 'Forbidden: not your restaurant' });
+    }
+
+    const data = await restaurantSvc.softDeleteRestaurant(existing.id);
     res.json({ data });
   } catch (e) {
     res.status(400).json({ message: e.message });
   }
 }
+
 
 // Proxy availability sang booking-service de dung chung logic slot/table.
 async function availability(req, res) {
