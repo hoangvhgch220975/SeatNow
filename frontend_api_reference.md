@@ -94,7 +94,7 @@ Dưới đây là chi tiết những hành động mà mỗi vai trò (Role) **c
   - **Tài chính:** Gửi yêu cầu Rút tiền từ Ví (Wallet) của quán về tài khoản ngân hàng (Yêu cầu này sẽ gửi cho Admin duyệt). 
     - _Lưu ý về số dư:_ Số dư khả dụng (`balance`) là số tiền thực nhận (Net Revenue) sau khi đã "tạm ứng" phí hoa hồng vào `lockedAmount`. Nhà hàng chỉ có thể rút tiền từ `balance`.
 - **Không thể làm gì?**
-  - **KHÔNG THỂ tự kích hoạt nhà hàng (Approve):** Không tự đưa nhà hàng lên hiển thị (Published) ra trang chủ, mọi thẩm định an toàn nội dung phải do Admin làm.
+  - **KHÔNG THỂ tự kích hoạt nhà hàng (Activate) từ trạng thái Pending:** Khi nhà hàng mới tạo hoặc bị Admin khóa định danh, Owner không thể tự kích hoạt. Tuy nhiên, nếu nhà hàng đã ở trạng thái `active`, Owner có quyền tự chuyển sang `suspended` (để tạm đóng cửa kinh doanh) và tự `active` lại sau đó.
   - **KHÔNG THỂ thay đổi phần trăm hoa hồng (Commission Rate) hoặc gói Premium:** Các chỉ số tài chính tính phí định kỳ là dữ liệu nhạy cảm do Admin quyết định và thu tiền.
   - **KHÔNG THỂ tự động duyệt rút tiền:** Lệnh sẽ nằm ở trạng thái "Chờ xử lý" (Pending) cho tới khi nhận dòng tiền thực tế, lúc đó Admin mới chuyển trạng thái Approve.
   - **KHÔNG THỂ nhìn dữ liệu chéo của hệ thống:** Chỉ xem báo cáo và kiểm tra dữ liệu ứng với nhà hàng dưới danh nghĩa chủ sở hữu.
@@ -260,6 +260,13 @@ Chỉ dành cho tài khoản có Role là **`CUSTOMER`**. Các tài khoản **`R
 | `PUT` | `/restaurants/:id` | Cập nhật thông tin | ✅ | ADMIN, OWNER |
 | `PUT` | `/restaurants/:id/deposit-policy` | Cập nhật chính sách cọc | ✅ | ADMIN, OWNER |
 | `DELETE` | `/restaurants/:id` | Xóa nhà hàng | ✅ | ADMIN, OWNER |
+
+> [!TIP]
+> **Tính năng Tự Đóng/Mở (Self-locking):**
+> Chủ nhà hàng (Owner) có thể gửi trường `status` trong body của `PUT /restaurants/:id` để chủ động quản lý việc kinh doanh:
+> - `{"status": "suspended"}`: Tạm đóng cửa (Nhà hàng sẽ biến mất khỏi kết quả tìm kiếm).
+> - `{"status": "active"}`: Mở cửa hoạt động trở lại.
+> - *Điều kiện:* Chỉ có thể tự `active` lại nếu trạng thái trước đó KHÔNG PHẢI là `pending`.
 
 #### 🥗 Danh sách Cuisine Type chuẩn:
 

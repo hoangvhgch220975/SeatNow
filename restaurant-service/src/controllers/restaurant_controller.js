@@ -73,6 +73,7 @@ async function update(req, res) {
   try {
     const payload = { ...req.body };
     const role = req.user?.role;
+    const targetStatus = payload.status; // Lưu tạm status người dùng muốn thay đổi
 
     // Strip các trường admin-only nếu không phải ADMIN
     if (role !== 'ADMIN') {
@@ -86,6 +87,15 @@ async function update(req, res) {
     if (role === 'RESTAURANT_OWNER') {
       if (existing.ownerId !== req.user.id) {
         return res.status(403).json({ message: 'Forbidden: not your restaurant' });
+      }
+
+      // Logic "Tự khóa/mở": Cho phép Owner chuyển đổi giữa active và suspended
+      // Ràng buộc: Không được tự kích hoạt (active) nếu nhà hàng đang ở trạng thái pending (chưa được duyệt)
+      if (targetStatus && ['active', 'suspended'].includes(targetStatus)) {
+        const canSelfActivate = existing.status !== 'pending' || targetStatus !== 'active';
+        if (canSelfActivate) {
+          payload.status = targetStatus;
+        }
       }
     }
 
