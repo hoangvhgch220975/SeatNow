@@ -108,7 +108,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"message\": \"Hôm nay nên đi đâu ăn hỉ?\"\n}"
+							"raw": "{\n  \"message\": \"Hôm nay nên đi đâu ăn hỉ?\",\n  \"lang\": \"vi\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/ai/public/recommend",
@@ -146,17 +146,16 @@
 							}
 						}
 					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{customerToken}}" }
-						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"lang\": \"en\"\n}"
+						},
 						"url": {
 							"raw": "{{baseUrl}}/api/ai/customer/recommend",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "ai", "customer", "recommend"]
 						},
-						"description": "One-shot restaurant recommendation based on the customer's booking history (Personal history cached for 30 mins). No chat history is stored.\n\n**Auth:** Customer JWT (role=customer)"
+						"description": "One-shot restaurant recommendation based on the customer's booking history (Personal history cached for 30 mins). No chat history is stored.\n\n**Auth:** Customer JWT (role=customer)\n\n**Params:** `lang` (optional, default 'en')"
 					},
 					"response": []
 				},
@@ -192,7 +191,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"message\": \"I'm looking for a mid-range Japanese restaurant for 2 people tonight.\"\n}"
+							"raw": "{\n  \"message\": \"I'm looking for a mid-range Japanese restaurant for 2 people tonight.\",\n  \"lang\": \"en\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/ai/customer/chat",
@@ -375,17 +374,16 @@
 							}
 						}
 					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{adminToken}}" }
-						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"lang\": \"en\"\n}"
+						},
 						"url": {
 							"raw": "{{baseUrl}}/api/ai/admin/revenue-summary",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "ai", "admin", "revenue-summary"]
 						},
-						"description": "One-shot analysis of the last 12 months of revenue data. Returns trends, insights, and near-future business direction suggestions. (Revenue context cached for 6 hours).\n\n**Auth:** Admin JWT (role=admin) or internal service token."
+						"description": "One-shot analysis of the last 12 months of revenue data. Returns trends, insights, and near-future business direction suggestions. (Revenue context cached for 6 hours).\n\n**Auth:** Admin JWT (role=admin) or internal service token.\n\n**Params:** `lang` (optional, default 'en')"
 					},
 					"response": []
 				},
@@ -639,17 +637,16 @@
 							}
 						}
 					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{ownerToken}}" }
-						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"lang\": \"en\"\n}"
+						},
 						"url": {
 							"raw": "{{baseUrl}}/api/ai/owner/revenue-summary",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "ai", "owner", "revenue-summary"]
 						},
-						"description": "One-shot analysis of the owner's entire portfolio (All restaurants combined)."
+						"description": "One-shot analysis of the owner's entire portfolio (All restaurants combined).\n\n**Params:** `lang` (optional, default 'en')"
 					},
 					"response": []
 				},
@@ -681,7 +678,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"restaurantId\": \"REPLACE_WITH_UUID_OR_SLUG\"\n}"
+							"raw": "{\n  \"restaurantId\": \"REPLACE_WITH_UUID_OR_SLUG\",\n  \"lang\": \"vi\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/ai/owner/revenue-summary",
