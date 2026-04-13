@@ -9,7 +9,7 @@ import json
 from fastapi import APIRouter, Depends
 
 from middleware.auth import get_current_admin
-from models.schemas import ChatRequest, AdminChatResponse, AdminRevenueSummaryResponse
+from models.schemas import ChatRequest, AdminChatResponse, AdminRevenueSummaryResponse, RevenueSummaryRequest
 from services import data_service, gemini_service
 from config import redis_client
 
@@ -28,9 +28,9 @@ def _build_admin_system_prompt(context: dict) -> str:
 
     return f"""### LANGUAGE POLICY (STRICTEST RULE):
 - YOU MUST RESPOND IN THE SAME LANGUAGE AS THE USER'S QUERY.
-- VIETNAMESE -> VIETNAMESE.
-- ENGLISH -> ENGLISH.
-- DO NOT MIX LANGUAGES. Consistency is your TOP priority.
+- If the user asks in **VIETNAMESE**, you MUST respond in **VIETNAMESE**.
+- If the user asks in **ENGLISH**, you MUST respond in **ENGLISH**.
+- NEVER mix languages. Language consistency is your TOP priority.
 
 You are the AI Business Analytics Expert for the SeatNow platform — an online restaurant reservation management system.
 Your mission is to assist administrators in analyzing revenue, providing insights, and suggesting business strategies based on real-time data.
@@ -57,14 +57,24 @@ Field definitions:
 ## Response Guidelines:
 1. **Direct Action:** When the admin asks for analysis or suggestions, provide them IMMEDIATELY based on the data. Do not ask for more context unless the query is completely unclear.
 2. **Data-Driven:** Analyze trends (growth/decline), highlights, and risks accurately using the provided figures.
-3. **Language Consistency:** Always respond in the SAME language as the query.
+3. **Language Consistency:** Always respond in THE SAME language as the query.
 4. **Professionalism:** Professional, objective, and concise tone.
 """
 
 
-def _build_one_shot_prompt(context: dict) -> str:
+def _build_one_shot_prompt(context: dict, lang: str = "en") -> str:
     base = _build_admin_system_prompt(context)
-    return base + """
+    if lang == "vi":
+        return base + """
+## Yêu cầu:
+Vui lòng phân tích tình hình kinh doanh trong 12 tháng qua và cung cấp:
+1. Tổng quan về doanh thu (phí dịch vụ + tiền cọc).
+2. Các xu hướng đáng lưu ý (tháng tốt nhất, tháng yếu nhất, tỷ lệ hủy đặt chỗ).
+3. Các nhà hàng hàng đầu.
+4. Các gợi ý chiến lược cụ thể cho 1-3 tháng tới.
+"""
+    else:
+        return base + """
 ## Request:
 Please analyze the business situation for the past 12 months and provide:
 1. Revenue overview (commission + deposit)
@@ -77,13 +87,13 @@ Please analyze the business situation for the past 12 months and provide:
 # ─────────────────────── Routes ───────────────────────
 
 @router.post("/revenue-summary", response_model=AdminRevenueSummaryResponse)
-async def revenue_summary(payload: dict = Depends(get_current_admin)):
+async def revenue_summary(body: Optional[RevenueSummaryRequest] = None, payload: dict = Depends(get_current_admin)):
     """
-    One-shot: fetch platform revenue data, generate comprehensive analysis
-    and near-future business direction suggestions via Gemini.
+    One-shot: fetch platform revenue data, generate comprehensive analysis.
     """
+    lang = body.lang if body and body.lang else "en"
     context = data_service.get_admin_overview_context()
-    prompt = _build_one_shot_prompt(context)
+    prompt = _build_one_shot_prompt(context, lang=lang)
     reply = gemini_service.one_shot(prompt)
     return AdminRevenueSummaryResponse(summary=reply)
 
@@ -91,11 +101,11 @@ async def revenue_summary(payload: dict = Depends(get_current_admin)):
 @router.post("/chat", response_model=AdminChatResponse)
 async def chat(body: ChatRequest, payload: dict = Depends(get_current_admin)):
     """
-    Multi-turn chat for admin analytics. History stored in Redis with 7-day TTL.
-    Refreshes revenue context on every request to ensure up-to-date data.
+    Multi-turn chat for admin analytics. 
     """
     admin_id = str(payload.get("sub", ""))
     session_key = _session_key(admin_id)
+    lang = body.lang or "en"
 
     # Always fetch fresh context from DB
     context = data_service.get_admin_overview_context()
@@ -121,4 +131,4 @@ async def clear_history(payload: dict = Depends(get_current_admin)):
     admin_id = str(payload.get("sub", ""))
     session_key = _session_key(admin_id)
     redis_client.clear_history(session_key)
-    return {"message": "Chat history cleared successfully", "session_key": session_key}
+    return {"message": "Admin chat history cleared successfully", "session_key": session_key}

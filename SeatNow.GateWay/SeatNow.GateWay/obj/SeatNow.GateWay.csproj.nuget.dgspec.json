@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\SeatNow.GateWay.csproj": {}
+    "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project BE\\SeatNow.GateWay\\SeatNow.GateWay\\SeatNow.GateWay.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\SeatNow.GateWay.csproj": {
+    "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project BE\\SeatNow.GateWay\\SeatNow.GateWay\\SeatNow.GateWay.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\SeatNow.GateWay.csproj",
+        "projectUniqueName": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project BE\\SeatNow.GateWay\\SeatNow.GateWay\\SeatNow.GateWay.csproj",
         "projectName": "SeatNow.GateWay",
-        "projectPath": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\SeatNow.GateWay.csproj",
+        "projectPath": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project BE\\SeatNow.GateWay\\SeatNow.GateWay\\SeatNow.GateWay.csproj",
         "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project\\SeatNow.GateWay\\SeatNow.GateWay\\obj\\",
+        "outputPath": "C:\\Users\\Admin\\OneDrive\\Desktop\\Final Project BE\\SeatNow.GateWay\\SeatNow.GateWay\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

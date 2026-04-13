@@ -1650,23 +1650,28 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 ### ⚡ Đặc điểm kỹ thuật
 
 - **Caching Layer (Redis):** Dữ liệu được cache giúp tốc độ phản hồi cực nhanh.
-- **Language Policy (STRICT):** Phản hồi theo đúng ngôn ngữ người dùng hỏi (Tiếng Việt <-> Tiếng Anh).
+- **Language Policy (GOLDEN RULE):** Phản hồi theo đúng ngôn ngữ người dùng hỏi (Tiếng Việt <-> Tiếng Anh). Mặc định hệ thống phản hồi bằng **Tiếng Anh** nếu không có yêu cầu khác.
+- **Default Language:** Tất cả các bản tóm tắt/gợi ý mặc định là Tiếng Anh. Sử dụng body `{"lang": "vi"}` để nhận phản hồi Tiếng Việt.
 
 ### 🌐 1. Public AI (Khách vãng lai)
 
 - **Endpoint:** `POST /api/v1/ai/public/recommend`
-- **Body:** `{ "message": "string" }`
+- **Body:** `{ "message": "string", "lang": "string (en|vi)" }`
 
 ### 👤 2. Customer AI (Khách hàng)
 
-- **Gợi ý nhanh:** `POST /api/v1/ai/customer/recommend`
-- **Chat:** `POST /api/v1/ai/customer/chat` (`{ "message": "string" }`)
+- **Gợi ý nhanh:** `POST /api/v1/ai/customer/recommend` 
+    - Body: `{ "lang": "string (en|vi)" }`
+- **Chat:** `POST /api/v1/ai/customer/chat` 
+    - Body: `{ "message": "string", "lang": "string (en|vi)" }`
 - **Xóa lịch sử:** `DELETE /api/v1/ai/customer/chat/history`
 
 ### 🛡️ 3. Admin AI (Quản trị viên)
 
 - **Phân tích doanh thu:** `POST /api/v1/ai/admin/revenue-summary`
-- **Chat phân tích:** `POST /api/v1/ai/admin/chat` (`{ "message": "string" }`)
+    - Body: `{ "lang": "string (en|vi)" }`
+- **Chat phân tích:** `POST /api/v1/ai/admin/chat`
+    - Body: `{ "message": "string", "lang": "string (en|vi)" }`
 - **Xóa lịch sử:** `DELETE /api/v1/ai/admin/chat/history`
 
 ### 🏪 4. Owner AI (Chủ nhà hàng)
@@ -1674,12 +1679,11 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 Hệ thống hỗ trợ cả phân tích chuỗi (Portfolio) và phân tích sâu cho từng nhà hàng cụ thể.
 
 - **Phân tích kinh doanh (One-shot):** `POST /api/v1/ai/owner/revenue-summary`
-    - Body: `{ "restaurantId": "UUID_HOAC_SLUG" }` (Optional). Nếu không gửi, AI sẽ phân tích toàn bộ các quán của Owner.
+    - Body: `{ "restaurantId": "UUID_HOAC_SLUG", "lang": "en|vi" }` (Optional). Nếu không gửi, AI sẽ phân tích toàn bộ các quán của Owner.
 - **Tư vấn đa lượt (Chat):** `POST /api/v1/ai/owner/chat`
-    - Body: `{ "message": "string", "restaurantId": "UUID_HOAC_SLUG" }` (Optional).
+    - Body: `{ "message": "string", "restaurantId": "UUID_HOAC_SLUG", "lang": "en|vi" }` (Optional).
     - *Lưu ý:* Khi gửi `restaurantId`, AI sẽ sử dụng ngữ cảnh và lịch sử chat riêng biệt cho quán đó.
 - **Xóa lịch sử:** `DELETE /api/v1/ai/owner/chat/history?restaurantId=...`
-    - Query Param: `restaurantId` (Optional).
 
 ---
 

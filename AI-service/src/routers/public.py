@@ -43,9 +43,9 @@ You are the SeatNow Assistant. You provide helpful restaurant recommendations to
 @router.post("/recommend", response_model=RecommendResponse)
 async def public_recommend(body: PublicRecommendRequest):
     """
-    Public recommendation for guests. No authentication, no history.
-    Takes a message from the user (often a suggested question from FE).
+    Public recommendation for guests. 
     """
+    lang = body.lang if body.lang else "en"
     context = data_service.get_public_context()
     system_prompt = _build_public_system_prompt(
         context.get("trending", []), 
@@ -53,7 +53,8 @@ async def public_recommend(body: PublicRecommendRequest):
     )
     
     # Constructing the final prompt clearly
-    full_prompt = f"{system_prompt}\n\nUser question: {body.message}"
+    instruction = "\n\nHãy gợi ý cho tôi vài nhà hàng nổi bật." if lang == "vi" else "\n\nPlease suggest some notable restaurants."
+    full_prompt = f"{system_prompt}\n\nUser question: {body.message}{instruction}"
     
     # Using one-shot since we don't save guest history
     reply = gemini_service.one_shot(full_prompt)

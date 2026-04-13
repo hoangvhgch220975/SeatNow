@@ -9,7 +9,7 @@ import json
 from fastapi import APIRouter, Depends, Request
 
 from middleware.auth import get_current_customer
-from models.schemas import ChatRequest, ChatResponse, RecommendResponse
+from models.schemas import ChatRequest, ChatResponse, RecommendResponse, RevenueSummaryRequest
 from services import data_service, gemini_service
 from config import redis_client
 
@@ -57,18 +57,20 @@ Your mission is to assist customers in searching for, suggesting restaurants, an
 # ─────────────────────── Routes ───────────────────────
 
 @router.post("/recommend", response_model=RecommendResponse)
-async def recommend(payload: dict = Depends(get_current_customer)):
+async def recommend(body: Optional[RevenueSummaryRequest] = None, payload: dict = Depends(get_current_customer)):
     """
-    One-shot recommendation: fetches customer history + active restaurants,
-    asks Gemini to suggest suitable places. No conversation history stored.
+    One-shot recommendation: fetches customer history + active restaurants.
     """
     customer_id = str(payload.get("sub", ""))
+    lang = body.lang if body and body.lang else "en"
 
     booking_history = data_service.get_customer_booking_history(customer_id)
     restaurants = data_service.get_active_restaurants()
 
-    prompt = _build_system_prompt(booking_history, restaurants) + \
-        "\n\nPlease suggest some restaurants that match my preferences."
+    base_prompt = _build_system_prompt(booking_history, restaurants)
+    instruction = "\n\nXin hãy gợi ý cho tôi vài nhà hàng phù hợp." if lang == "vi" else "\n\nPlease suggest some restaurants that match my preferences."
+    
+    prompt = base_prompt + instruction
 
     reply = gemini_service.one_shot(prompt)
     return RecommendResponse(recommendations=reply)
@@ -77,11 +79,11 @@ async def recommend(payload: dict = Depends(get_current_customer)):
 @router.post("/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, payload: dict = Depends(get_current_customer)):
     """
-    Multi-turn chat: loads history from Redis, sends to Gemini with system context,
-    appends both user message and model reply to Redis (TTL 7 days).
+    Multi-turn chat for customers.
     """
     customer_id = str(payload.get("sub", ""))
     session_key = _session_key(customer_id)
+    lang = body.lang or "en"
 
     # Load context from DB
     booking_history = data_service.get_customer_booking_history(customer_id)
@@ -94,7 +96,7 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_customer))
     # Call Gemini with history
     reply = gemini_service.chat(system_prompt, history, body.message)
 
-    # Persist updated history (user turn + model turn)
+    # Persist updated history
     history.append({"role": "user", "parts": [body.message]})
     history.append({"role": "model", "parts": [reply]})
     redis_client.save_history(session_key, history)
@@ -108,4 +110,4 @@ async def clear_history(payload: dict = Depends(get_current_customer)):
     customer_id = str(payload.get("sub", ""))
     session_key = _session_key(customer_id)
     redis_client.clear_history(session_key)
-    return {"message": "Lịch sử trò chuyện đã được xóa", "session_key": session_key}
+    return {"message": "Chat history cleared successfully", "session_key": session_key}

@@ -7,10 +7,17 @@ from typing import Optional
 class ChatRequest(BaseModel):
     message: str
     restaurantId: Optional[str] = None
+    lang: Optional[str] = "en"
+
+
+class RevenueSummaryRequest(BaseModel):
+    restaurantId: Optional[str] = None
+    lang: Optional[str] = "en"
 
 
 class PublicRecommendRequest(BaseModel):
     message: str
+    lang: Optional[str] = "en"
 
 
 class ChatResponse(BaseModel):
