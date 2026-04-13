@@ -1,7 +1,7 @@
 # 📘 SeatNow – Frontend API Reference & Integration Guide
 
 > **Mục đích:** Tài liệu này cung cấp toàn bộ danh sách endpoints, Socket.IO events, và hướng dẫn kết nối frontend cho dự án SeatNow.
-> **Cập nhật lần cuối:** 2026-04-10
+> **Cập nhật lần cuối:** 2026-04-13 (v1.0.9)
 
 ---
 
@@ -714,7 +714,7 @@ Khi người dùng chọn số lượng khách (`numGuests`), Frontend cần tí
 | Method | Endpoint                     | Mô tả                              | Auth              | Role                   |
 | ------ | ---------------------------- | ---------------------------------- | ----------------- | ---------------------- |
 | `PUT`  | `/bookings/:id/confirm`      | Xác nhận booking                   | ✅                | OWNER, ADMIN           |
-| `PUT`  | `/bookings/:id/arrived`      | Check-in (khách đến)               | ✅                | OWNER, ADMIN           |
+| `PUT`  | `/bookings/:id/arrived`      | Check-in (khách đến). **Lưu ý:** Chỉ chấp nhận đơn `CONFIRMED`. | ✅                | OWNER, ADMIN           |
 | `PUT`  | `/bookings/:id/complete`     | Hoàn thành                         | ✅                | OWNER, ADMIN           |
 | `PUT`  | `/bookings/:id/no-show`      | Không đến                          | ✅                | OWNER, ADMIN           |
 | `PUT`  | `/bookings/:id/cancel`       | Hủy booking (Customer/Owner/Admin) | ✅                | CUSTOMER, OWNER, ADMIN |
@@ -1503,11 +1503,25 @@ stateDiagram-v2
 | Trạng thái  | Mô tả                             |
 | ----------- | --------------------------------- |
 | `pending`   | Vừa tạo, chờ xác nhận             |
-| `confirmed` | Owner đã xác nhận                 |
-| `arrived`   | Khách đã đến (Settlement tự động) |
+| `confirmed` | Owner đã xác nhận (Sẵn sàng Check-in) |
+| `arrived`   | Khách đã đến (Chỉ áp dụng cho đơn `confirmed`) |
 | `completed` | Hoàn thành phục vụ                |
 | `cancelled` | Đã hủy                            |
 | `no_show`   | Không đến                         |
+
+---
+
+## 🌍 Quy tắc Múi giờ (Timezone Policy)
+
+Tất cả các tính toán thời gian trong hệ thống được chuẩn hóa theo múi giờ **Việt Nam (UTC+7)**.
+
+1. **Dữ liệu lưu trữ:** 
+   - `bookingDate`: Định dạng `YYYY-MM-DD` (Giờ địa phương).
+   - `bookingTime`: Định dạng `HH:mm` (Giờ địa phương).
+   - `createdAt`, `updatedAt`, `confirmedAt`,...: `DATETIME2` (Giờ quốc tế UTC).
+2. **Logic tính toán (No-show & Refund):**
+   - Hệ thống tự động quy đổi `bookingDate` + `bookingTime` sang UTC (trừ 7 tiếng) trước khi so sánh với thời gian thực của máy chủ.
+   - Các logic "Hủy trước 3 tiếng" hoặc "No-show sau 30 phút" đều được tính toán dựa trên mốc thời gian thực tế tại Việt Nam.
 
 ---
 
@@ -1519,6 +1533,27 @@ stateDiagram-v2
 | **Customer** hủy | ≥ 3 tiếng trước giờ đặt | ✅ Có     | Hệ thống đánh dấu `depositRefunded = true` |
 | **Customer** hủy | < 3 tiếng trước giờ đặt | ❌ Không  | Tiền cọc → Doanh thu nhà hàng              |
 | **No-show**      | –                       | ❌ Không  | Tiền cọc → Doanh thu nhà hàng              |
+
+---
+
+## 🏦 Quy tắc Giải ngân Tiền cọc (Settlement Policy)
+
+Tiền cọc của khách hàng (`Deposit`) được hệ thống "giam" (Escrow) ngay từ lúc thanh toán thành công và sẽ được **giải ngân vào ví nhà hàng** khi có kết quả cuối cùng của buổi đặt bàn:
+
+| Trường hợp (Event) | Trạng thái Booking | Giải ngân? | Ghi chú |
+| :--- | :--- | :--- | :--- |
+| **Check-in thành công** | `ARRIVED` | ✅ Có | Giải ngân ngay khi quét QR hoặc nhấn Arrived |
+| **Bấm Hoàn thành** | `COMPLETED` | ✅ Có | (Nếu bước Arrived bị bỏ qua) |
+| **Khách không đến** | `NO_SHOW` | ✅ Có | Bồi thường cho nhà hàng |
+| **Khách hủy đơn muộn** | `CANCELLED` (< 3h) | ✅ Có | Nhà hàng nhận tiền bồi thường hủy đơn |
+| **Khách hủy đơn đúng hạn**| `CANCELLED` (≥ 3h) | ❌ Không | Tiền được **Hoàn trả** (Refund) cho khách |
+| **Nhà hàng/Admin hủy** | `CANCELLED` | ❌ Không | Tiền được **Hoàn trả** (Refund) cho khách |
+
+### 💰 Công thức tính Tiền thực nhận (Net Revenue)
+Khi thực hiện giải ngân, hệ thống sẽ tự động khấu trừ phí hoa hồng của SeatNow:
+> **Số tiền vào ví (`balance`) = Tiền cọc (`depositAmount`) - Phí hoa hồng (`commissionFee`)**
+
+---
 
 ---
 

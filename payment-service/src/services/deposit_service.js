@@ -52,8 +52,15 @@ async function generateDepositPayment({ bookingId, provider, req }) {
     const referenceCode = generateReferenceCode('DEP');
     const payerType = booking.customerId ? 'CUSTOMER_USER' : 'CUSTOMER_GUEST';
 
+    // Tim vi nha hang de lien ket giao dich ngay tu dau
+    const wallet = await paymentModel.findWalletByRestaurantId(booking.restaurantId);
+    if (!wallet) {
+      console.warn(`[PAYMENT_WARNING] Wallet not found for restaurant ${booking.restaurantId}. Transaction will be created without walletId.`);
+    }
+
     // Tao transaction PENDING trong DB truoc khi goi cong thanh toan
     const tx = await paymentModel.createPendingDepositTransaction({
+      walletId: wallet?.id, // Gan walletId neu co
       bookingId,
       amount,
       currency,

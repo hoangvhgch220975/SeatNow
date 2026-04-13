@@ -70,6 +70,7 @@ async function findPendingDepositByBookingId(bookingId) {
 async function createPendingDepositTransaction(data) {
   const pool = await getPool();
   const rs = await pool.request()
+    .input('walletId', sql.UniqueIdentifier, data.walletId || null)
     .input('bookingId', sql.UniqueIdentifier, data.bookingId)
     .input('type', sql.NVarChar(30), 'DEPOSIT_PAYMENT')
     .input('amount', sql.Decimal(18, 2), data.amount)
@@ -83,13 +84,13 @@ async function createPendingDepositTransaction(data) {
     .input('idempotencyKey', sql.NVarChar(100), data.idempotencyKey || null)
     .query(`
       INSERT INTO dbo.Transactions (
-        bookingId, type, amount, currency, paymentMethod,
+        walletId, bookingId, type, amount, currency, paymentMethod,
         referenceCode, status, payerType, provider,
         description, idempotencyKey, createdAt
       )
       OUTPUT INSERTED.*
       VALUES (
-        @bookingId, @type, @amount, @currency, @paymentMethod,
+        @walletId, @bookingId, @type, @amount, @currency, @paymentMethod,
         @referenceCode, @status, @payerType, @provider,
         @description, @idempotencyKey, SYSUTCDATETIME()
       )
