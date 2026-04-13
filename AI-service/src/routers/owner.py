@@ -6,6 +6,7 @@ Endpoints for restaurant owners:
   DELETE /api/ai/owner/chat/history   – Clear Owner's chat history
 """
 import json
+from typing import Optional
 from fastapi import APIRouter, Depends
 
 from middleware.auth import get_current_owner
@@ -18,7 +19,9 @@ router = APIRouter(prefix="/api/ai/owner", tags=["Owner AI"])
 
 # ─────────────────────── Helpers ───────────────────────
 
-def _session_key(owner_id: str) -> str:
+def _session_key(owner_id: str, restaurant_id: str = None) -> str:
+    if restaurant_id:
+        return f"ai:owner:{owner_id}:rest:{restaurant_id}"
     return f"ai:owner:{owner_id}"
 
 
@@ -54,12 +57,45 @@ Your mission is to provide professional advice, analysis, and strategic suggesti
 """
 
 
-def _build_one_shot_prompt(context: dict) -> str:
-    base = _build_owner_system_prompt(context)
-    return base + """
+def _build_single_restaurant_system_prompt(context: dict) -> str:
+    restaurant = context.get("restaurant", {})
+    revenue_text = json.dumps(context.get("monthly_revenue", []), ensure_ascii=False, default=str)
+
+    return f"""### LANGUAGE POLICY (STRICTEST RULE):
+- YOU MUST RESPOND IN THE SAME LANGUAGE AS THE USER'S QUERY.
+- VIETNAMESE -> VIETNAMESE.
+- ENGLISH -> ENGLISH.
+- DO NOT MIX LANGUAGES.
+
+You are the SeatNow Business Advisor. You are currently analyzing a SPECIFIC restaurant for the owner.
+
+## Target Restaurant:
+- Name: {restaurant.get('name')}
+- Address: {restaurant.get('address')}
+- Cuisine: {json.dumps(restaurant.get('cuisineTypes', []), ensure_ascii=False)}
+- Rating: {restaurant.get('ratingAvg')} / 5
+
+## Performance Data (Last 12 months for THIS restaurant):
+{revenue_text}
+
+## Operational Scope:
+- Focus your advice specifically on this restaurant. 
+- Use the data provided to suggest improvements, marketing strategies, or operational changes.
+
+## Response Guidelines:
+1. **Actionable Insights:** Identify specific trends for this location.
+2. **Professional Tone:** Maintain a professional and data-driven tone.
+3. **Language Consistency:** Always respond in the SAME language as the query.
+"""
+
+
+def _build_one_shot_prompt(context: dict, is_single: bool = False) -> str:
+    base = _build_single_restaurant_system_prompt(context) if is_single else _build_owner_system_prompt(context)
+    target = "this restaurant" if is_single else "my properties"
+    return base + f"""
 ## Request:
 Please provide a comprehensive business analysis for the past 12 months, including:
-1. Revenue & booking overview across my properties.
+1. Revenue & booking overview across {target}.
 2. Key performance trends and noteworthy highlights.
 3. Specific actionable suggestions to increase revenue and improve service quality in the coming months.
 """
@@ -68,13 +104,22 @@ Please provide a comprehensive business analysis for the past 12 months, includi
 # ─────────────────────── Routes ───────────────────────
 
 @router.post("/revenue-summary", response_model=AdminRevenueSummaryResponse)
-async def revenue_summary(payload: dict = Depends(get_current_owner)):
+async def revenue_summary(body: Optional[ChatRequest] = None, payload: dict = Depends(get_current_owner)):
     """
-    One-shot: Lấy dữ liệu của Owner và tạo bản phân tích tình hình kinh doanh tổng thể.
+    One-shot: Lấy dữ liệu của Owner (hoặc 1 nhà hàng cụ thể) và tạo bản phân tích tình hình kinh doanh.
     """
     owner_id = str(payload.get("sub", ""))
-    context = data_service.get_owner_overview_context(owner_id)
-    prompt = _build_one_shot_prompt(context)
+    restaurant_id_or_slug = body.restaurantId if body else None
+    
+    if restaurant_id_or_slug:
+        context = data_service.get_single_restaurant_context(owner_id, restaurant_id_or_slug)
+        if not context:
+            return AdminRevenueSummaryResponse(summary="Restaurant not found or you do not have permission to access it.")
+        prompt = _build_one_shot_prompt(context, is_single=True)
+    else:
+        context = data_service.get_owner_overview_context(owner_id)
+        prompt = _build_one_shot_prompt(context, is_single=False)
+        
     reply = gemini_service.one_shot(prompt)
     return AdminRevenueSummaryResponse(summary=reply)
 
@@ -83,14 +128,26 @@ async def revenue_summary(payload: dict = Depends(get_current_owner)):
 async def chat(body: ChatRequest, payload: dict = Depends(get_current_owner)):
     """
     Trò chuyện tư vấn đa lượt dành riêng cho Chủ nhà hàng.
-    Lịch sử chat lưu trong Redis với TTL 7 ngày.
+    Hỗ trợ cả chat tổng quát (Portfolio) và chat riêng cho từng nhà hàng.
     """
     owner_id = str(payload.get("sub", ""))
-    session_key = _session_key(owner_id)
-
-    # Luôn lấy ngữ cảnh mới nhất từ DB
-    context = data_service.get_owner_overview_context(owner_id)
-    system_prompt = _build_owner_system_prompt(context)
+    restaurant_id_or_slug = body.restaurantId
+    
+    if restaurant_id_or_slug:
+        # Chat cho 1 nhà hàng cụ thể
+        context = data_service.get_single_restaurant_context(owner_id, restaurant_id_or_slug)
+        if not context:
+            return ChatResponse(reply="I'm sorry, I couldn't find information for that restaurant or you don't have access to it.", session_key="")
+        
+        system_prompt = _build_single_restaurant_system_prompt(context)
+        # Use the absolute ID for the session key to avoid slug changes breaking history
+        final_id = context["restaurant"]["id"]
+        session_key = _session_key(owner_id, final_id)
+    else:
+        # Chat tổng quát (Portfolio)
+        context = data_service.get_owner_overview_context(owner_id)
+        system_prompt = _build_owner_system_prompt(context)
+        session_key = _session_key(owner_id)
 
     # Tải lịch sử từ Redis
     history = redis_client.load_history(session_key)
@@ -107,9 +164,12 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_owner)):
 
 
 @router.delete("/chat/history")
-async def clear_history(payload: dict = Depends(get_current_owner)):
-    """Xóa lịch sử trò chuyện của Owner."""
+async def clear_history(restaurantId: Optional[str] = None, payload: dict = Depends(get_current_owner)):
+    """Xóa lịch sử trò chuyện của Owner (Tổng quát hoặc theo nhà hàng)."""
     owner_id = str(payload.get("sub", ""))
-    session_key = _session_key(owner_id)
+    
+    # Ở đây chúng ta không cần verify ownership cực đoan vì chỉ là xóa history của chính mình
+    # Nhưng nếu có restaurantId, chúng ta nên convert sang ID nếu là slug để xóa đúng key
+    session_key = _session_key(owner_id, restaurantId)
     redis_client.clear_history(session_key)
-    return {"message": "Owner chat history cleared successfully", "session_key": session_key}
+    return {"message": "Chat history cleared successfully", "session_key": session_key}

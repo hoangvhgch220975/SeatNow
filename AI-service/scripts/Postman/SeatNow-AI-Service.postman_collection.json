@@ -614,7 +614,7 @@
 			"name": "4. Owner AI",
 			"item": [
 				{
-					"name": "Revenue Summary (One-shot)",
+					"name": "Portfolio Summary (All Restaurants)",
 					"event": [
 						{
 							"listen": "test",
@@ -626,7 +626,7 @@
 									"pm.test('Response has summary field', function () {",
 									"    const res = pm.response.json();",
 									"    pm.expect(res).to.have.property('summary');",
-									"    console.log('Owner Revenue Summary:', res.summary.substring(0, 300) + '...');",
+									"    console.log('Portfolio Summary:', res.summary.substring(0, 300) + '...');",
 									"});"
 								],
 								"type": "text/javascript"
@@ -643,12 +643,12 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "ai", "owner", "revenue-summary"]
 						},
-						"description": "One-shot analysis of the owner's businesses. (Note: ownerToken should have role=restaurant_owner)."
+						"description": "One-shot analysis of the owner's entire portfolio (All restaurants combined)."
 					},
 					"response": []
 				},
 				{
-					"name": "Owner Chat - First Message",
+					"name": "Single Restaurant Summary",
 					"event": [
 						{
 							"listen": "test",
@@ -657,11 +657,48 @@
 									"pm.test('Status code is 200', function () {",
 									"    pm.response.to.have.status(200);",
 									"});",
-									"pm.test('Response has reply and session_key', function () {",
+									"pm.test('Should return summary for one restaurant', function () {",
 									"    const res = pm.response.json();",
-									"    pm.expect(res).to.have.property('reply');",
-									"    pm.expect(res).to.have.property('session_key');",
-									"    console.log('Session handle:', res.session_key);",
+									"    pm.expect(res.summary).to.be.a('string');",
+									"    console.log('Single Restaurant Summary:', res.summary.substring(0, 300) + '...');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{ownerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"restaurantId\": \"REPLACE_WITH_UUID_OR_SLUG\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/owner/revenue-summary",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "owner", "revenue-summary"]
+						},
+						"description": "One-shot analysis for a specific restaurant owned by the user. Pass `restaurantId` (UUID) or `slug` in the body."
+					},
+					"response": []
+				},
+				{
+					"name": "Portfolio Chat (Global Context)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Global session key should not contain rest:', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res.session_key).to.not.include(':rest:');",
 									"});"
 								],
 								"type": "text/javascript"
@@ -683,12 +720,51 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "ai", "owner", "chat"]
 						},
-						"description": "Multi-turn chat for owner consulting."
+						"description": "Multi-turn chat using the owner's entire portfolio as context."
 					},
 					"response": []
 				},
 				{
-					"name": "Clear Owner Chat History",
+					"name": "Single Restaurant Chat",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Session key should contain restaurant id', function () {",
+									"    const res = pm.response.json();",
+									"    pm.expect(res.session_key).to.include(':rest:');",
+									"    console.log('Single Rest Session:', res.session_key);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{ownerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"Why did my revenue drop last month?\",\n  \"restaurantId\": \"REPLACE_WITH_UUID_OR_SLUG\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/ai/owner/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "ai", "owner", "chat"]
+						},
+						"description": "Multi-turn chat for a specific restaurant. Context and history are isolated to this specific location."
+					},
+					"response": []
+				},
+				{
+					"name": "Clear Chat History (Global/Rest)",
 					"event": [
 						{
 							"listen": "test",
@@ -708,11 +784,18 @@
 							{ "key": "Authorization", "value": "Bearer {{ownerToken}}" }
 						],
 						"url": {
-							"raw": "{{baseUrl}}/api/ai/owner/chat/history",
+							"raw": "{{baseUrl}}/api/ai/owner/chat/history?restaurantId=OPTIONAL_UUID_OR_SLUG",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "ai", "owner", "chat", "history"]
+							"path": ["api", "ai", "owner", "chat", "history"],
+							"query": [
+								{
+									"key": "restaurantId",
+									"value": "OPTIONAL_UUID_OR_SLUG",
+									"description": "If provided, clears history for that specific restaurant. Otherwise clears portfolio history."
+								}
+							]
 						},
-						"description": "Clear Redis history for the owner."
+						"description": "Clear Redis history for the owner (Global or specific restaurant)."
 					},
 					"response": []
 				}

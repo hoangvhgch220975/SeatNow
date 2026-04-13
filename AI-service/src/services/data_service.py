@@ -349,6 +349,88 @@ def get_owner_overview_context(owner_id: str) -> dict:
     return data
 
 
+def get_restaurant_monthly_revenue_summary(restaurant_id: str, months: int = 12) -> list[dict]:
+    """
+    Get the monthly revenue summary for a specific restaurant.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            FORMAT(b.bookingDate, 'yyyy-MM') AS month,
+            COUNT(1)                                                           AS totalBookings,
+            SUM(CASE WHEN b.status = 'COMPLETED' THEN 1 ELSE 0 END)           AS completed,
+            SUM(CASE WHEN b.status = 'CANCELLED' THEN 1 ELSE 0 END)           AS cancelled,
+            SUM(CASE WHEN b.status = 'ARRIVED'   THEN 1 ELSE 0 END)           AS arrived,
+            ISNULL(SUM(b.commissionFee), 0)                                   AS totalCommission,
+            ISNULL(SUM(CASE WHEN b.depositPaid = 1 THEN b.depositAmount ELSE 0 END), 0) AS totalDeposit
+        FROM dbo.Bookings b
+        WHERE b.restaurantId = ?
+          AND b.bookingDate >= DATEADD(MONTH, -?, CAST(GETDATE() AS DATE))
+        GROUP BY FORMAT(b.bookingDate, 'yyyy-MM')
+        ORDER BY month DESC
+        """,
+        (restaurant_id, months)
+    )
+    rows = cursor.fetchall()
+    columns = [col[0] for col in cursor.description]
+    cursor.close()
+    conn.close()
+    return [dict(zip(columns, row)) for row in rows]
+
+
+def get_single_restaurant_context(owner_id: str, restaurant_id_or_slug: str) -> dict:
+    """
+    Get context for a single restaurant (with ownership verification).
+    """
+    # 1. Resolve & Verify Ownership
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Check if input is UUID or Slug
+    is_uuid = False
+    try:
+        from uuid import UUID
+        UUID(restaurant_id_or_slug)
+        is_uuid = True
+    except:
+        pass
+
+    if is_uuid:
+        cursor.execute(
+            "SELECT id, name, address, cuisineTypeJson, ratingAvg, status FROM dbo.Restaurants WHERE id = ? AND ownerId = ?",
+            (restaurant_id_or_slug, owner_id)
+        )
+    else:
+        cursor.execute(
+            "SELECT id, name, address, cuisineTypeJson, ratingAvg, status FROM dbo.Restaurants WHERE slug = ? AND ownerId = ?",
+            (restaurant_id_or_slug, owner_id)
+        )
+        
+    row = cursor.fetchone()
+    if not row:
+        cursor.close()
+        conn.close()
+        return None  # Forbidden or Not Found
+        
+    columns = [col[0] for col in cursor.description]
+    restaurant = dict(zip(columns, row))
+    restaurant["cuisineTypes"] = _safe_json(restaurant.get("cuisineTypeJson"), [])
+    del restaurant["cuisineTypeJson"]
+    
+    restaurant_id = restaurant["id"]
+    cursor.close()
+    conn.close()
+
+    # 2. Get Revenue for this specific restaurant
+    data = {
+        "restaurant": restaurant,
+        "monthly_revenue": get_restaurant_monthly_revenue_summary(restaurant_id, 12)
+    }
+    return data
+
+
 # ────────────────── Utilities ──────────────────
 
 def _safe_json(value, default):

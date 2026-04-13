@@ -92,10 +92,12 @@ async function update(req, res) {
       // Logic "Tự khóa/mở": Cho phép Owner chuyển đổi giữa active và suspended
       // Ràng buộc: Không được tự kích hoạt (active) nếu nhà hàng đang ở trạng thái pending (chưa được duyệt)
       if (targetStatus && ['active', 'suspended'].includes(targetStatus)) {
-        const canSelfActivate = existing.status !== 'pending' || targetStatus !== 'active';
-        if (canSelfActivate) {
-          payload.status = targetStatus;
+        if (existing.status === 'pending' && targetStatus === 'active') {
+          return res.status(400).json({ 
+            message: 'Cannot activate a pending restaurant. Please wait for Admin approval.' 
+          });
         }
+        payload.status = targetStatus;
       }
     }
 

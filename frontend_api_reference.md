@@ -1671,9 +1671,15 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 
 ### 🏪 4. Owner AI (Chủ nhà hàng)
 
-- **Phân tích kinh doanh:** `POST /api/v1/ai/owner/revenue-summary`
-- **Tư vấn đa lượt:** `POST /api/v1/ai/owner/chat` (`{ "message": "string" }`)
-- **Xóa lịch sử:** `DELETE /api/v1/ai/owner/chat/history`
+Hệ thống hỗ trợ cả phân tích chuỗi (Portfolio) và phân tích sâu cho từng nhà hàng cụ thể.
+
+- **Phân tích kinh doanh (One-shot):** `POST /api/v1/ai/owner/revenue-summary`
+    - Body: `{ "restaurantId": "UUID_HOAC_SLUG" }` (Optional). Nếu không gửi, AI sẽ phân tích toàn bộ các quán của Owner.
+- **Tư vấn đa lượt (Chat):** `POST /api/v1/ai/owner/chat`
+    - Body: `{ "message": "string", "restaurantId": "UUID_HOAC_SLUG" }` (Optional).
+    - *Lưu ý:* Khi gửi `restaurantId`, AI sẽ sử dụng ngữ cảnh và lịch sử chat riêng biệt cho quán đó.
+- **Xóa lịch sử:** `DELETE /api/v1/ai/owner/chat/history?restaurantId=...`
+    - Query Param: `restaurantId` (Optional).
 
 ---
 

@@ -6,6 +6,7 @@ from typing import Optional
 
 class ChatRequest(BaseModel):
     message: str
+    restaurantId: Optional[str] = None
 
 
 class PublicRecommendRequest(BaseModel):
