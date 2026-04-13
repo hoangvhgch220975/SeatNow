@@ -9,6 +9,66 @@ from config import redis_client
 
 # ────────────────── Customer context ──────────────────
 
+def _safe_json(json_str, default):
+    try:
+        return json.loads(json_str) if json_str else default
+    except:
+        return default
+
+
+def search_restaurants_by_keyword(query: str, limit: int = 20) -> list[dict]:
+    """
+    Search restaurants in the database based on keywords in name, description, address, or cuisine types.
+    """
+    if not query or len(query.strip()) < 2:
+        return []
+
+    # Clean the query: remove common filler words
+    keywords = query.lower().split()
+    fillers = {"cho", "tôi", "nhà", "hàng", "một", "1", "tìm", "giúp", "với", "phát", "ở", "gần", "đây", "có", "nào", "không"}
+    clean_words = [w for w in keywords if w not in fillers and len(w) > 1]
+    
+    if not clean_words:
+        # If all words were fillers (or it's just a short word), use the original query trim
+        clean_words = [query.strip().lower()]
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Construct a query searching for EACH significant keyword
+    conditions = []
+    params = []
+    for word in clean_words:
+        pattern = f"%{word}%"
+        conditions.append("(LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(address) LIKE ? OR LOWER(cuisineTypeJson) LIKE ?)")
+        params.extend([pattern, pattern, pattern, pattern])
+
+    limit_param = limit
+    where_clause = " AND ".join(conditions)
+    sql = f"""
+        SELECT TOP (?)
+            id, name, address, cuisineTypeJson, priceRange, ratingAvg, ratingCount, description
+        FROM dbo.Restaurants
+        WHERE status = 'active'
+          AND ({where_clause})
+        ORDER BY isPremium DESC, ratingAvg DESC
+    """
+    
+    cursor.execute(sql, [limit_param] + params)
+    rows = cursor.fetchall()
+    columns = [col[0] for col in cursor.description]
+    results = []
+    for row in rows:
+        item = dict(zip(columns, row))
+        item["cuisineTypes"] = _safe_json(item.get("cuisineTypeJson"), [])
+        del item["cuisineTypeJson"]
+        results.append(item)
+    
+    cursor.close()
+    conn.close()
+    return results
+
+
 def get_customer_booking_history(customer_id: str, limit: int = 30) -> list[dict]:
     """
     Returns the customer's recent completed/arrived bookings joined with restaurant info.
@@ -432,11 +492,3 @@ def get_single_restaurant_context(owner_id: str, restaurant_id_or_slug: str) -> 
 
 
 # ────────────────── Utilities ──────────────────
-
-def _safe_json(value, default):
-    if not value:
-        return default
-    try:
-        return json.loads(value)
-    except Exception:
-        return default

@@ -23,9 +23,10 @@ def _session_key(customer_id: str) -> str:
     return f"ai:customer:{customer_id}"
 
 
-def _build_system_prompt(booking_history: list[dict], restaurants: list[dict], lang: str = "en") -> str:
+def _build_system_prompt(booking_history: list[dict], restaurants: list[dict], search_results: list[dict] = None, lang: str = "en") -> str:
     history_text = json.dumps(booking_history, ensure_ascii=False, default=str)
     restaurants_text = json.dumps(restaurants, ensure_ascii=False, default=str)
+    search_text = json.dumps(search_results or [], ensure_ascii=False, default=str)
     
     lang_name = "English" if lang == "en" else "Vietnamese"
 
@@ -39,20 +40,23 @@ Your mission is to assist customers in searching for, suggesting restaurants, an
 
 ## Support Scope (CRITICAL):
 - You ONLY answer questions about: restaurant recommendations, menu details, pricing, opening hours, locations, and matters related to making reservations on SeatNow.
-- Strictly DO NOT answer unrelated topics. If asked, respond: "I am sorry, but I am a specialized assistant for SeatNow. I can only help you with searching for and booking restaurants. Would you like me to suggest a great restaurant nearby?"
+- Strictly DO NOT answer unrelated topics. 
 
-## Customer's Booking History (Latest):
+## DATA CONTEXT:
+### Search Results (Matching User Intent - HIGH PRIORITY):
+{search_text}
+
+### Customer's Booking History (Latest):
 {history_text}
 
-## List of Active Restaurants on SeatNow (Context):
+### General List of Active Restaurants (Fallback):
 {restaurants_text}
 
 ## Response Guidelines:
-1. **Direct Suggestions (PRIORITY):** If the user mentions a specific food (e.g., "Phở"), cuisine, or keyword, search the provided list and suggest matching restaurants IMMEDIATELY. 
-2. **No Unnecessary Questions:** If you have enough information to make at least one relevant recommendation from the list, do so immediately. Do not ask follow-up questions before giving options.
-3. **Smart Fallback:** If no exact match is found, suggest the most related ones from the list (e.g., suggest "Vietnamese Cuisine" if they ask for "Phở" and no specific Phở place exists).
-4. **Accuracy:** Use the history to provide personalized suggestions (taste, budget). Never invent information for restaurants that do not exist on the system.
-5. **Tone:** Friendly, polite, and concise.
+1. **Prioritize Search Results:** If `Search Results` contains restaurants that match the user's intent, suggest them first.
+2. **Personalization:** Use the `Booking History` to tailor your tone and suggest similar cuisines if requested.
+3. **No Matches:** If no search results match, use the general list as a fallback.
+4. **Tone:** Friendly, polite, and concise.
 """
 
 
@@ -67,7 +71,9 @@ async def recommend(body: Optional[RevenueSummaryRequest] = None, payload: dict 
     lang = body.lang if body and body.lang else "en"
     
     history = data_service.get_customer_booking_history(customer_id)
-    restaurants = data_service.get_active_restaurants()
+    # For one-shot recommend, we just use high-rated ones as context unless we want to search.
+    # But since there is no 'message' in customer/recommend (it's personal), we use the active list.
+    restaurants = data_service.get_active_restaurants(30)
     
     prompt = _build_system_prompt(history, restaurants, lang=lang)
     
@@ -91,8 +97,12 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_customer))
 
     # Load context from DB
     booking_history = data_service.get_customer_booking_history(customer_id)
-    restaurants = data_service.get_active_restaurants()
-    system_prompt = _build_system_prompt(booking_history, restaurants, lang=lang)
+    
+    # Perform Search based on user message
+    search_results = data_service.search_restaurants_by_keyword(body.message)
+    fallback_restaurants = data_service.get_active_restaurants(20)
+    
+    system_prompt = _build_system_prompt(booking_history, fallback_restaurants, search_results=search_results, lang=lang)
 
     # Load existing chat history
     history = redis_client.load_history(session_key)
