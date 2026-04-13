@@ -17,7 +17,7 @@ if not GEMINI_API_KEY:
 else:
     genai.configure(api_key=GEMINI_API_KEY)
 
-MODEL_NAME = "gemini-2.5-flash-lite"
+MODEL_NAME = "gemini-flash-latest"
 
 
 def _build_contents(history: list[dict], user_message: str) -> list[dict]:

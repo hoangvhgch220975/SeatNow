@@ -107,6 +107,7 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_admin)):
     """
     admin_id = str(payload.get("sub", ""))
     session_key = _session_key(admin_id)
+    session_key = _session_key(admin_id, body.sessionId)
     lang = body.lang or "en"
 
     # Always fetch fresh context from DB
@@ -127,10 +128,19 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_admin)):
     return AdminChatResponse(reply=reply, session_key=session_key)
 
 
+@router.get("/chat/history")
+async def get_history(sessionId: Optional[str] = None, payload: dict = Depends(get_current_admin)):
+    """Fetch admin chat history from Redis."""
+    admin_id = str(payload.get("sub", ""))
+    session_key = _session_key(admin_id, sessionId)
+    history = redis_client.load_history(session_key)
+    return {"history": history, "session_key": session_key}
+
+
 @router.delete("/chat/history")
-async def clear_history(payload: dict = Depends(get_current_admin)):
+async def clear_history(sessionId: Optional[str] = None, payload: dict = Depends(get_current_admin)):
     """Delete admin chat history."""
     admin_id = str(payload.get("sub", ""))
-    session_key = _session_key(admin_id)
+    session_key = _session_key(admin_id, sessionId)
     redis_client.clear_history(session_key)
     return {"message": "Admin chat history cleared successfully", "session_key": session_key}

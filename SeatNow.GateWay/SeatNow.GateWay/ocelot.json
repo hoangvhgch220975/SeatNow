@@ -151,6 +151,21 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/ai/owner/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 3007 }
+      ],
+      "UpstreamPathTemplate": "/api/v1/ai/owner/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "GatewayJwt"
+      },
+      "RouteClaimsRequirement": {
+        "role": "RESTAURANT_OWNER"
+      }
+    },
+    {
       "DownstreamPathTemplate": "/health",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

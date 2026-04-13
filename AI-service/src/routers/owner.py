@@ -157,12 +157,12 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_owner)):
         system_prompt = _build_single_restaurant_system_prompt(context, lang=lang)
         # Use the absolute ID for the session key to avoid slug changes breaking history
         final_id = context["restaurant"]["id"]
-        session_key = _session_key(owner_id, final_id)
+        session_key = _session_key(owner_id, final_id, body.sessionId)
     else:
         # Chat tổng quát (Portfolio)
         context = data_service.get_owner_overview_context(owner_id)
         system_prompt = _build_owner_system_prompt(context, lang=lang)
-        session_key = _session_key(owner_id)
+        session_key = _session_key(owner_id, session_id=body.sessionId)
 
     # Tải lịch sử từ Redis
     history = redis_client.load_history(session_key)
@@ -178,13 +178,22 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_owner)):
     return ChatResponse(reply=reply, session_key=session_key)
 
 
+@router.get("/chat/history")
+async def get_history(sessionId: Optional[str] = None, restaurantId: Optional[str] = None, payload: dict = Depends(get_current_owner)):
+    """Fetch chat history for this owner (General or per restaurant) from Redis."""
+    owner_id = str(payload.get("sub", ""))
+    session_key = _session_key(owner_id, restaurantId, sessionId)
+    history = redis_client.load_history(session_key)
+    return {"history": history, "session_key": session_key}
+
+
 @router.delete("/chat/history")
-async def clear_history(restaurantId: Optional[str] = None, payload: dict = Depends(get_current_owner)):
+async def clear_history(sessionId: Optional[str] = None, restaurantId: Optional[str] = None, payload: dict = Depends(get_current_owner)):
     """Clear Owner's chat history (General or per restaurant)."""
     owner_id = str(payload.get("sub", ""))
     
     # Ở đây chúng ta không cần verify ownership cực đoan vì chỉ là xóa history của chính mình
     # Nhưng nếu có restaurantId, chúng ta nên convert sang ID nếu là slug để xóa đúng key
-    session_key = _session_key(owner_id, restaurantId)
+    session_key = _session_key(owner_id, restaurantId, sessionId)
     redis_client.clear_history(session_key)
     return {"message": "Chat history cleared successfully", "session_key": session_key}

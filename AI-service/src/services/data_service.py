@@ -3,11 +3,13 @@ services/data_service.py
 Fetches business data from MSSQL to provide context for AI prompts.
 """
 import json
+import re
 from config.db import get_connection
+from config.mongo import get_mongo_db
 from config import redis_client
 
 
-# ────────────────── Customer context ──────────────────
+# ────────────────── Helpers ──────────────────
 
 def _safe_json(json_str, default):
     try:
@@ -16,45 +18,120 @@ def _safe_json(json_str, default):
         return default
 
 
+def _to_vietnamese_regex(query: str) -> str:
+    """
+    Converts a plain string into a regex pattern that matches both accented and unaccented Vietnamese.
+    """
+    replacements = {
+        'a': '[aàáảãạăằắẳẵặâầấẩẫậ]',
+        'e': '[eèéẻẽẹêềếểễệ]',
+        'i': '[iìíỉĩị]',
+        'o': '[oòóỏõọôồốổỗộơờớởỡợ]',
+        'u': '[uùúủũụưừứửữự]',
+        'y': '[yỳýỷỹỵ]',
+        'd': '[dđ]',
+    }
+    pattern = ""
+    for char in query.lower():
+        if char in replacements:
+            pattern += replacements[char]
+        else:
+            pattern += re.escape(char)
+    return pattern
+
+
 def search_restaurants_by_keyword(query: str, limit: int = 20) -> list[dict]:
     """
-    Search restaurants in the database based on keywords in name, description, address, or cuisine types.
+    Improved search: 
+    1. MSSQL (Restaurants: Name, Description, Cuisine) with accent-insensitive collation.
+    2. MongoDB (MenuItems: Name, Description) using Regex.
+    3. MongoDB (Reviews: Comment) using Regex.
     """
     if not query or len(query.strip()) < 2:
         return []
 
-    # Clean the query: remove common filler words
+    # Clean the query
     keywords = query.lower().split()
     fillers = {"cho", "tôi", "nhà", "hàng", "một", "1", "tìm", "giúp", "với", "phát", "ở", "gần", "đây", "có", "nào", "không"}
     clean_words = [w for w in keywords if w not in fillers and len(w) > 1]
     
     if not clean_words:
-        # If all words were fillers (or it's just a short word), use the original query trim
         clean_words = [query.strip().lower()]
 
+    matched_ids = set()
+
+    # --- PART 1: MSSQL Search (Restaurants) ---
     conn = get_connection()
     cursor = conn.cursor()
     
-    # Construct a query searching for EACH significant keyword
-    conditions = []
-    params = []
+    mssql_conditions = []
+    mssql_params = []
     for word in clean_words:
         pattern = f"%{word}%"
-        conditions.append("(LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(address) LIKE ? OR LOWER(cuisineTypeJson) LIKE ?)")
-        params.extend([pattern, pattern, pattern, pattern])
+        # We use COLLATE Vietnamese_CI_AI for accent-insensitive and case-insensitive matching
+        mssql_conditions.append("(LOWER(name) COLLATE Vietnamese_CI_AI LIKE ? OR LOWER(description) COLLATE Vietnamese_CI_AI LIKE ? OR LOWER(cuisineTypeJson) COLLATE Vietnamese_CI_AI LIKE ?)")
+        mssql_params.extend([pattern, pattern, pattern])
 
-    limit_param = limit
-    where_clause = " AND ".join(conditions)
-    sql = f"""
+    where_clause = " AND ".join(mssql_conditions)
+    sql_mssql = f"SELECT id FROM dbo.Restaurants WHERE status = 'active' AND ({where_clause})"
+    
+    try:
+        cursor.execute(sql_mssql, mssql_params)
+        for row in cursor.fetchall():
+            matched_ids.add(row[0])
+    except Exception as e:
+        # Fallback if collation is not supported
+        sql_fallback = sql_mssql.replace("COLLATE Vietnamese_CI_AI", "")
+        cursor.execute(sql_fallback, mssql_params)
+        for row in cursor.fetchall():
+            matched_ids.add(row[0])
+
+    # --- PART 2: MongoDB Search (MenuItems & Reviews) ---
+    try:
+        mongo_db = get_mongo_db()
+        regex_patterns = [re.compile(_to_vietnamese_regex(w), re.IGNORECASE) for w in clean_words]
+        
+        # 2a. Search MenuItems
+        menu_matches = mongo_db.menuitems.find({
+            "$and": [
+                {"$or": [{"name": pat}, {"description": pat}, {"category": pat}]}
+                for pat in regex_patterns
+            ]
+        }, {"restaurantId": 1})
+        
+        for doc in menu_matches:
+            if "restaurantId" in doc:
+                matched_ids.add(str(doc["restaurantId"]))
+                
+        # 2b. Search Reviews (Optional but helpful as requested previously)
+        review_matches = mongo_db.reviews.find({
+            "$and": [
+                {"comment": pat} for pat in regex_patterns
+            ]
+        }, {"restaurantId": 1}).limit(50) # Limit reviews to avoid too many IDs
+        
+        for doc in review_matches:
+            if "restaurantId" in doc:
+                matched_ids.add(str(doc["restaurantId"]))
+    except Exception as mongo_err:
+        print(f"Mongo search error: {mongo_err}")
+
+    if not matched_ids:
+        cursor.close()
+        conn.close()
+        return []
+
+    # --- PART 3: Fetch Full Details for Matched IDs ---
+    placeholders = ",".join(["?"] * len(matched_ids))
+    sql_final = f"""
         SELECT TOP (?)
             id, name, address, cuisineTypeJson, priceRange, ratingAvg, ratingCount, description
         FROM dbo.Restaurants
-        WHERE status = 'active'
-          AND ({where_clause})
+        WHERE id IN ({placeholders}) AND status = 'active'
         ORDER BY isPremium DESC, ratingAvg DESC
     """
     
-    cursor.execute(sql, [limit_param] + params)
+    cursor.execute(sql_final, [limit] + list(matched_ids))
     rows = cursor.fetchall()
     columns = [col[0] for col in cursor.description]
     results = []

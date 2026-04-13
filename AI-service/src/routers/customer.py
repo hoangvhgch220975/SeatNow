@@ -118,10 +118,19 @@ async def chat(body: ChatRequest, payload: dict = Depends(get_current_customer))
     return ChatResponse(reply=reply, session_key=session_key)
 
 
+@router.get("/chat/history")
+async def get_history(sessionId: Optional[str] = None, payload: dict = Depends(get_current_customer)):
+    """Fetch all chat history for this customer from Redis."""
+    customer_id = str(payload.get("sub", ""))
+    session_key = _session_key(customer_id, sessionId)
+    history = redis_client.load_history(session_key)
+    return {"history": history, "session_key": session_key}
+
+
 @router.delete("/chat/history")
-async def clear_history(payload: dict = Depends(get_current_customer)):
+async def clear_history(sessionId: Optional[str] = None, payload: dict = Depends(get_current_customer)):
     """Delete all chat history for this customer."""
     customer_id = str(payload.get("sub", ""))
-    session_key = _session_key(customer_id)
+    session_key = _session_key(customer_id, sessionId)
     redis_client.clear_history(session_key)
     return {"message": "Chat history cleared successfully", "session_key": session_key}

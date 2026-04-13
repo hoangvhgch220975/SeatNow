@@ -1655,12 +1655,14 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
 - **Caching Layer (Redis):** Dữ liệu được cache giúp tốc độ phản hồi cực nhanh.
 - **Language Policy (GOLDEN RULE):** AI tuân thủ nghiêm ngặt quy tắc: **"Phản hồi bằng chính ngôn ngữ người dùng yêu cầu"**. 
 - **Target Language:** Hệ thống sử dụng tham số `lang` trong Request Body để xác định ngôn ngữ phản hồi (mặc định là `en`).
+- **Intelligent Search (Database-Level):** Đối với các yêu cầu gợi ý (Public & Customer), hệ thống sẽ tự động bóc tách từ khóa từ tin nhắn (`message`) để tìm kiếm trực tiếp trong Database (Tên, Mô tả, Cuisine). Kết quả khớp từ DB sẽ được AI ưu tiên gợi ý hàng đầu.
 - **Strict Consistency:** Đối với các yêu cầu chat (đa lượt), AI sẽ phản hồi theo ngôn ngữ của câu hỏi cuối cùng nếu không có tham số `lang` ép kiểu. Tuy nhiên, khuyến khích FE luôn gửi `lang` để đảm bảo trải nghiệm đồng nhất.
 
 ### 🌐 1. Public AI (Khách vãng lai)
 
 - **Endpoint:** `POST /api/v1/ai/public/recommend`
 - **Body:** `{ "message": "string", "lang": "string (en|vi)" }`
+- **Lưu ý:** `message` nên chứa từ khóa về món ăn hoặc địa điểm để AI tìm kiếm chính xác hơn trong Database (ví dụ: "Cho tôi nhà hàng phở").
 
 ### 👤 2. Customer AI (Khách hàng)
 
@@ -1668,6 +1670,7 @@ Dịch vụ AI cung cấp khả năng tư vấn nhà hàng, phân tích doanh th
     - Body: `{ "lang": "string (en|vi)" }`
 - **Chat:** `POST /api/v1/ai/customer/chat` 
     - Body: `{ "message": "string", "lang": "string (en|vi)" }`
+    - **Tính năng:** Hỗ trợ tìm kiếm thông minh từ Database dựa trên nội dung chat.
 - **Xóa lịch sử:** `DELETE /api/v1/ai/customer/chat/history`
 
 ### 🛡️ 3. Admin AI (Quản trị viên)

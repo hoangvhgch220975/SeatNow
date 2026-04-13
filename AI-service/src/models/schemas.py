@@ -6,6 +6,7 @@ from typing import Optional
 
 class ChatRequest(BaseModel):
     message: str
+    sessionId: Optional[str] = None
     restaurantId: Optional[str] = None
     lang: Optional[str] = "en"
 
