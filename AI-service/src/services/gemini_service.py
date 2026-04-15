@@ -17,7 +17,7 @@ if not GEMINI_API_KEY:
 else:
     genai.configure(api_key=GEMINI_API_KEY)
 
-MODEL_NAME = "gemini-flash-lite-latest"
+MODEL_NAME = "gemini-flash-latest"
 
 
 def _build_contents(history: list[dict], user_message: str) -> list[dict]:
@@ -59,7 +59,10 @@ def chat(
             system_instruction=system_prompt
         )
         contents = _build_contents(history, user_message)
-        response = model.generate_content(contents)
+        response = model.generate_content(
+            contents,
+            request_options={"timeout": 30}
+        )
         return response.text.strip()
     except Exception as e:
         traceback.print_exc()
@@ -76,7 +79,10 @@ def one_shot(prompt: str) -> str:
 
     try:
         model = genai.GenerativeModel(model_name=MODEL_NAME)
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            request_options={"timeout": 30}
+        )
         return response.text.strip()
     except Exception as e:
         traceback.print_exc()

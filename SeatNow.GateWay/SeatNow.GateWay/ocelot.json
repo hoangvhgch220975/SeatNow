@@ -122,7 +122,7 @@
       ],
       "UpstreamPathTemplate": "/api/v1/ai/public/{everything}",
       "UpstreamHttpMethod": [ "POST", "OPTIONS" ],
-      "HttpHandlerOptions": { "Timeout": 15000 }
+      "HttpHandlerOptions": { "Timeout": 30000 }
     },
     {
       "DownstreamPathTemplate": "/api/ai/customer/{everything}",
@@ -132,7 +132,7 @@
       ],
       "UpstreamPathTemplate": "/api/v1/ai/customer/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
-      "HttpHandlerOptions": { "Timeout": 15000 },
+      "HttpHandlerOptions": { "Timeout": 30000 },
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "GatewayJwt"
       }
@@ -145,7 +145,7 @@
       ],
       "UpstreamPathTemplate": "/api/v1/ai/admin/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
-      "HttpHandlerOptions": { "Timeout": 15000 },
+      "HttpHandlerOptions": { "Timeout": 30000 },
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "GatewayJwt"
       },
@@ -161,7 +161,7 @@
       ],
       "UpstreamPathTemplate": "/api/v1/ai/owner/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
-      "HttpHandlerOptions": { "Timeout": 15000 },
+      "HttpHandlerOptions": { "Timeout": 30000 },
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "GatewayJwt"
       },

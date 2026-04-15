@@ -29,6 +29,40 @@ function formatTime(t) {
   } catch (e) { return String(t); }
 }
 
+// Helper for Safe Notification Queueing with Fallback to DB
+async function safeEnqueueNotification(jobData) {
+  try {
+    await notificationQueue.add(jobData);
+  } catch (err) {
+    console.error(`[NotificationFallback] Queue failed for type ${jobData.type}:`, err.message);
+    if (jobData.type === 'web' && jobData.payload && jobData.payload.userId) {
+      try {
+        const { sql, getPool } = require('../config/db');
+        const pool = await getPool();
+        const p = jobData.payload;
+        const ownerId = p.userId;
+        const type = (p.activityType || p.event || 'SYSTEM').toUpperCase();
+        const title = p.title || p.event || 'Notification';
+        const message = p.message || '';
+        const metadataStr = p.data ? JSON.stringify(p.data) : null;
+        await pool.request()
+          .input('ownerId',  sql.UniqueIdentifier, ownerId)
+          .input('type',     sql.NVarChar(50),     type)
+          .input('title',    sql.NVarChar(255),    title)
+          .input('message',  sql.NVarChar(1000),   message)
+          .input('metadata', sql.NVarChar(sql.MAX), metadataStr)
+          .query(`
+            INSERT INTO dbo.Notifications (ownerId, type, title, message, metadata, isRead, createdAt)
+            VALUES (@ownerId, @type, @title, @message, @metadata, 0, SYSUTCDATETIME())
+          `);
+        console.log(`[NotificationFallback] Successfully saved notification directly to DB as fallback for user ${ownerId}`);
+      } catch (dbErr) {
+        console.error('[NotificationFallback] CRITICAL: DB fallback also failed', dbErr.message);
+      }
+    }
+  }
+}
+
 // Trigger settlement in payment-service
 async function triggerSettlementInternal(bookingId) {
   try {
@@ -192,7 +226,7 @@ async function createBooking({ actor, body }) {
       await availability.invalidateAvailability({ restaurantId: body.restaurantId, bookingDate: body.bookingDate, bookingTime: body.bookingTime });
       
       // Notify Restaurant Owner via Web Socket (Dashboard)
-      notificationQueue.add({
+      await safeEnqueueNotification({
         type: 'web',
         payload: {
           userId: r.ownerId,
@@ -383,7 +417,7 @@ async function confirm(idOrCode) {
     }
 
     if (r && recipientEmail) {
-      notificationQueue.add({
+      await safeEnqueueNotification({
         type: 'email',
         payload: {
           to: recipientEmail,
@@ -403,7 +437,7 @@ async function confirm(idOrCode) {
 
     // Notify Owner dashboard: booking confirmed
     if (r && r.ownerId) {
-      notificationQueue.add({
+      await safeEnqueueNotification({
         type: 'web',
         payload: {
           userId: r.ownerId,
@@ -576,7 +610,7 @@ async function guestCancel(idOrCode, guestPhone, cancellationReason = null) {
     const r = await bookingSql.getRestaurant(updated.restaurantId);
     if (r && r.ownerId) {
       // Nhắc nhở Chủ nhà hàng qua Dashboard
-      notificationQueue.add({
+      await safeEnqueueNotification({
         type: 'web',
         payload: {
           userId: r.ownerId,
@@ -694,7 +728,7 @@ async function cancel(idOrCode, actor = null, cancellationReason = null) {
     if (r) {
       if (actor?.role === 'CUSTOMER') {
         // Notify Owner
-        notificationQueue.add({
+        await safeEnqueueNotification({
           type: 'web',
           payload: {
             userId: r.ownerId,
@@ -715,7 +749,7 @@ async function cancel(idOrCode, actor = null, cancellationReason = null) {
         }
 
         if (recipientEmail) {
-          notificationQueue.add({
+          await safeEnqueueNotification({
             type: 'email',
             payload: {
               to: recipientEmail,
@@ -772,7 +806,7 @@ async function noShow(idOrCode) {
     // Notify Owner dashboard: no-show
     const r = await bookingSql.getRestaurant(updated.restaurantId);
     if (r && r.ownerId) {
-      notificationQueue.add({
+      await safeEnqueueNotification({
         type: 'web',
         payload: {
           userId: r.ownerId,
@@ -918,7 +952,7 @@ async function paymentSuccess(id) {
     // Notify Owner dashboard: deposit received
     const r = await bookingSql.getRestaurant(booking.restaurantId);
     if (r && r.ownerId) {
-      notificationQueue.add({
+      await safeEnqueueNotification({
         type: 'web',
         payload: {
           userId: r.ownerId,

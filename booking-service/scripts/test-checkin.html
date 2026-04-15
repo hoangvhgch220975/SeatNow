@@ -240,18 +240,32 @@
 
     async function fetchAndArrive(id) {
        const base = $('base').value.replace(/\/+$/, '');
-       const token = $('token').value.trim();
+       let token = $('token').value.trim().replace(/^["']+|["']+$/g, '');
+       // Tự động bỏ 'Bearer ' nếu người dùng dán vào cả prefix
+       if (token.toLowerCase().startsWith('bearer ')) {
+           token = token.slice(7).trim();
+       }
        
        $('processStatus').innerHTML = `<div class="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div><span class="text-[10px] font-bold text-indigo-500 uppercase italic">Processing...</span>`;
        $('detectionInfo').innerHTML = `<div class="flex flex-col items-center py-12"><p class="text-xs text-slate-400 font-bold tracking-widest uppercase">Đang tải thông tin & Check-in...</p></div>`;
 
+       // Cache-buster: tránh browser trả 304 Not Modified thay vì 200
+       const cb = `_cb=${Date.now()}`;
+
        try {
           // 1. Fetch info for UI display
-          const resDetail = await fetch(`${base}/bookings/${id}`, {
-             headers: { 'Accept': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) }
+          const resDetail = await fetch(`${base}/bookings/${id}?${cb}`, {
+             headers: {
+               'Accept': 'application/json',
+               'Cache-Control': 'no-cache, no-store',
+               'Pragma': 'no-cache',
+               ...(token && { 'Authorization': `Bearer ${token}` })
+             }
           });
+          // 200 OK hoặc 304 Not Modified đều chấp nhận (304 vẫn có cached data)
+          if (!resDetail.ok && resDetail.status !== 304) throw new Error(`[${resDetail.status}] ${await resDetail.text()}`);
           const detail = await resDetail.json();
-          if (!resDetail.ok) throw new Error(detail.message || 'Mã không tồn tại');
+
 
           renderBookingCard(detail.booking);
           addLog(`Fetched: ${detail.booking.customerName}`, 'info');
@@ -260,8 +274,14 @@
           addLog('Triggering auto-arrive...', 'info');
           const resArrive = await fetch(`${base}/bookings/${id}/arrived`, {
              method: 'PUT',
-             headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) }
+             headers: {
+               'Content-Type': 'application/json',
+               'Cache-Control': 'no-cache, no-store',
+               'Pragma': 'no-cache',
+               ...(token && { 'Authorization': `Bearer ${token}` })
+             }
           });
+          if (!resArrive.ok) throw new Error(`[${resArrive.status}] ${await resArrive.text()}`);
           const result = await resArrive.json();
           
           if (resArrive.ok) {
@@ -278,10 +298,24 @@
        } catch (err) {
           addLog(`FAILED: ${err.message}`, 'error');
           $('processStatus').innerHTML = `<span class="px-2 py-0.5 bg-rose-100 text-rose-700 text-[9px] font-black rounded uppercase">Error</span>`;
+          
+           let alertMsg = err.message;
+           let hint = '';
+           
+           if (err.message.includes('Unauthorized') || err.message.includes('401')) {
+              alertMsg = 'Unauthorized (401) - Xác thực thất bại';
+              hint = '<div class="mt-2 text-[9px] opacity-60 font-medium text-rose-500">Nguyên nhân: Token hết hạn (15p), sai Token hoặc thiếu quyền Owner. Vui lòng lấy Token 24h mới nhất.</div>';
+           } else if (err.message.includes('403')) {
+              alertMsg = 'Forbidden (403) - Không có quyền';
+              hint = '<div class="mt-2 text-[9px] opacity-60 font-medium text-rose-500">Token hợp lệ nhưng không phải chủ sở hữu của nhà hàng hoặc booking này.</div>';
+           } else if (err.message.includes('409') || err.message.toLowerCase().includes('transition')) {
+             hint = '<div class="mt-2 text-[9px] opacity-60 font-medium">Mã QR phải ở trạng thái "CONFIRMED" mới có thể check-in.</div>';
+          }
+
           $('detectionInfo').innerHTML += `
              <div class="mt-4 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-600 text-[11px] font-bold">
-                ⚠️ Lỗi nghiệp vụ: ${err.message}
-                <div class="mt-2 text-[9px] opacity-60 font-medium">Mã QR phải ở trạng thái "CONFIRMED" mới có thể check-in.</div>
+                ⚠️ Lỗi nghiệp vụ: ${alertMsg}
+                ${hint}
              </div>
           `;
        }

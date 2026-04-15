@@ -100,8 +100,9 @@ module.exports = async function processNotification(job) {
               metadata:     payload.data         || null
             });
           } catch (dbErr) {
-            // Lỗi lưu DB không dừng việc gửi socket
-            console.warn('[Worker] Failed to persist notification to DB:', dbErr.message);
+            // Lỗi lưu DB -> Bắt buộc throw để Worker Retry (ngăn mất thông báo vĩnh viễn)
+            console.warn('[Worker] Failed to persist notification to DB. Triggering retry...', dbErr.message);
+            throw new Error(`DB Save Failed: ${dbErr.message}`);
           }
         }
 

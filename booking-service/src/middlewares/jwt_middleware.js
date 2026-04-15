@@ -6,19 +6,31 @@
 const jwt = require('jsonwebtoken');
 
 function _extractUserFromHeaders(req) {
+  if (req.headers['x-user-id']) console.log('[DEBUG_HEADERS] Gateway headers found:', { uid: req.headers['x-user-id'], role: req.headers['x-user-role'] });
   const uid = req.headers['x-user-id'];
   const role = req.headers['x-user-role'];
   if (uid && role) return { id: String(uid), role: String(role) };
   const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  let token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  
+  if (token) {
+    // Clean token from common copy-paste errors (quotes)
+    token = token.trim().replace(/^["']+|["']+$/g, '');
+  }
+  
   if (!token) return null;
   try {
     const p = jwt.verify(token, process.env.JWT_ACCESS_SECRET || '', {
       audience: 'seatnow-client',
       issuer: 'seatnow-auth-service'
     });
+    console.log('[BOOKING] [JWT_SUCCESS] User:', p.sub, 'Role:', p.role);
     return { id: p.sub || p.userId || p.id, role: p.role };
   } catch (e) {
+    console.error('[BOOKING] [JWT_ERROR] Token verify failed:', e.message);
+    if (e.message === 'jwt expired') {
+      console.error('[BOOKING] [JWT_HINT] Your token has expired. Please re-login.');
+    }
     return null;
   }
 }
