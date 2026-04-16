@@ -112,6 +112,20 @@ async function getReviewSummary(restaurantId) {
 
 // Hàm tạo một đánh giá mới cho nhà hàng
 async function createReview(restaurantId, customerId, payload) {
+  // Nếu có bookingId, kiểm tra tính hợp lệ của đơn đặt chỗ
+  if (payload.bookingId) {
+    const { getBookingStatus } = require('../models/booking_sql');
+    const booking = await getBookingStatus(payload.bookingId);
+    
+    if (!booking) {
+      throw new Error('BOOKING_NOT_FOUND');
+    }
+    
+    if (booking.status !== 'COMPLETED') {
+      throw new Error('ONLY_COMPLETED_BOOKINGS_CAN_BE_REVIEWED');
+    }
+  }
+
   const doc = await Review.create({
     ...payload,
     restaurantId,

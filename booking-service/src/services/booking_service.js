@@ -275,11 +275,8 @@ async function myBookings(actor, { limit = 20, offset = 0 }) {
 async function restaurantBookings(restaurantId, actor, filters) {
   const r = await bookingSql.getRestaurant(restaurantId);
   if (!r) { const e = new Error('Restaurant not found'); e.status = 404; throw e; }
-    // Debug: log actor id/role and restaurant ownerId to help diagnose Forbidden cases
-    try { console.log('[restaurantBookings] actor:', actor ? { id: actor.id, role: actor.role } : null, 'restaurantOwnerId:', r.ownerId); } catch (e) {}
   if (actor.role !== 'ADMIN' && String(r.ownerId) !== String(actor.id)) { const e = new Error('Forbidden'); e.status = 403; throw e; }
   return bookingSql.listByRestaurant(restaurantId, filters);
-  
 }
 
 // Kiểm tra actor có quyền owner/admin trên restaurant
