@@ -5,7 +5,7 @@ const Joi = require('joi');
 
 // Schema kiểm tra dữ liệu khi tạo đánh giá nhà hàng
 const createReviewSchema = Joi.object({
-  bookingId: Joi.string().required(),
+  bookingId: Joi.string().optional(),
   rating: Joi.number().integer().min(1).max(5).required(),
   comment: Joi.string().allow('', null),
   images: Joi.array().items(Joi.string().max(2048)).default([]),

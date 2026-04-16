@@ -1,7 +1,7 @@
 # 📘 SeatNow – Frontend API Reference & Integration Guide
 
 > **Mục đích:** Tài liệu này cung cấp toàn bộ danh sách endpoints, Socket.IO events, và hướng dẫn kết nối frontend cho dự án SeatNow.
-> **Cập nhật lần cuối:** 2026-04-14 (v1.1.0)
+> **Cập nhật lần cuối:** 2026-04-15 (v1.2.0)
 
 ---
 
@@ -40,7 +40,18 @@
 - **Roles:** `CUSTOMER`, `RESTAURANT_OWNER`, `ADMIN`
 - Token trả về sau khi login: `{ accessToken: { accessToken, expiresIn }, refreshToken: { refreshToken, expiresIn }, user }`
 
----
+### 🔒 Cơ chế lưu trữ & Đồng bộ (Hybrid Session Sync)
+
+Hệ thống sử dụng cơ chế **Hybrid Sync** để quản lý phiên làm việc giữa các Tab và tự động Logout:
+
+1.  **Token lưu trong Cookies:** `access_token` và `refresh_token` được lưu dưới dạng **Session Cookie** (không có ngày hết hạn). Trình duyệt sẽ tự động xóa các Cookie này khi người dùng tắt hoàn toàn trình duyệt (Window Close).
+2.  **LocalStorage:** Chỉ dùng để lưu thông tin User không nhạy cảm. Thông tin này chỉ hợp lệ khi Cookie chứa Token còn tồn tại.
+3.  **Cross-tab Sync (Ping-Pong):** Khi mở Tab mới, Frontend sẽ phát tín hiệu hỏi các Tab khác xem có phiên làm việc nào đang mở không.
+    *   Nếu có: Tab mới sẽ chia sẻ Token và tiếp tục giữ đăng nhập.
+    *   Nếu không (tất cả tab đã đóng rồi mở lại): Hệ thống tự động xóa sạch các Token rác và yêu cầu đăng nhập lại.
+
+> [!TIP]
+> **Hướng dẫn gỡ lỗi:** Nếu bạn thấy lỗi `401 Unauthorized`, hãy kiểm tra mục **Application -> Cookies** trong DevTools để đảm bảo Token còn tồn tại.
 
 ## 📡 Gateway Routing Map
 
@@ -441,25 +452,31 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 
 ### 3.3 Reviews (MongoDB)
 
-| Method | Endpoint                   | Mô tả        | Auth | Role            |
-| ------ | -------------------------- | ------------ | ---- | --------------- |
-| `GET`  | `/restaurants/:id/reviews` | Xem đánh giá | ❌   | –               |
-| `POST` | `/restaurants/:id/reviews` | Gửi đánh giá | ✅   | CUSTOMER, ADMIN |
+| Method | Endpoint                   | Mô tả        | Auth              | Role        |
+| ------ | -------------------------- | ------------ | ----------------- | ----------- |
+| `GET`  | `/restaurants/:id/reviews` | Xem đánh giá | ❌                | –           |
+| `POST` | `/restaurants/:id/reviews` | Gửi đánh giá | ❌ (Optional JWT) | Any / Guest |
 
 #### Response mẫu (GET Reviews):
+
+> [!TIP]
+> **Hybrid Review System:** Hệ thống hỗ trợ cả đánh giá tự do và đánh giá qua Booking. 
+> - Trường `isVerified: true` nếu đánh giá có gắn kèm `bookingId` hợp lệ.
+> - Trường `customerId` sẽ là `null` và `customerName` là `"Khách vãng lai"` nếu người gửi không đăng nhập.
 
 ```json
 {
   "data": [
     {
       "_id": "65f...",
-      "bookingId": "uuid",
-      "customerId": "uuid",
+      "bookingId": "uuid | null",
+      "customerId": "uuid | null",
       "restaurantId": "uuid",
       "rating": 5,
       "comment": "Ngon quá!",
       "customerName": "Nguyen Van A",
       "customerAvatar": "https://...",
+      "isVerified": true,
       "createdAt": "2026-03-14T..."
     }
   ],
@@ -473,9 +490,14 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 
 #### Body mẫu (Create Review):
 
+> [!NOTE]
+> - `bookingId`: Tùy chọn. Nếu truyền lên, review sẽ được đánh dấu là Verified.
+> - `rating`: Bắt buộc (1-5).
+> - **Spam protection:** Hệ thống cho phép gửi nhiều đánh giá cho cùng một nhà hàng.
+
 ```json
 {
-  "bookingId": "<booking-uuid>",
+  "bookingId": "<booking-uuid-optional>",
   "rating": 5,
   "comment": "Do an ngon, phuc vu tot",
   "foodRating": 5,
@@ -589,8 +611,10 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 | `GET`  | `/bookings/:id/qr`             | Lấy mã QR check-in               | ✅                | OWNER, ADMIN   |
 | `GET`  | `/bookings/:id/payment-status` | Kiểm tra trạng thái cọc          | ✅                | OWNER, ADMIN   |
 
-> [!NOTE]  
 > **QR Code (`GET /bookings/:id/qr`):** Trả về tệp tin hình ảnh trực tiếp (Content-Type: `image/png`). Frontend sử dụng thẻ `<img src=".../qr" />` để hiển thị.
+
+> [!IMPORTANT]
+> **Check-in Authorization:** API Check-in (`PUT /arrived`) yêu cầu Token của **Chủ nhà hàng (Owner)** hoặc **Admin**. Trạng thái booking hiện tại phải là `CONFIRMED`. Nếu Token hết hạn hoặc không có quyền, hệ thống sẽ trả về lỗi `401` hoặc `403` kèm thông báo chi tiết.
 
 #### Response mẫu (Payment Status - 200 OK):
 
@@ -1932,4 +1956,12 @@ socket.on('notification', (data) => {
 > 1. Khi Chủ Quán tải trang Dashboard, Frontend lập tức gọi API `GET /api/v1/owner/activity` để lấy các thông báo cũ/bị lỡ.
 > 2. Khởi tạo Socket.IO kết nối. Khi Event `notification` bắn về, dùng JS để `unshift` append object data mới nhận được lên đầu mảng, đồng thời hiển thị thông báo Toast.
 > 3. Khi Chủ Quán click mở chuông báo, gọi API `read-all` để xóa số lượng đếm (badge) UnreadCount. Mảng hiện tại trên JS cũng cần lặp qua để set lại `isRead = true`.
+
+### 5.3 Cơ chế tin cậy (Reliability & Failover)
+
+Hệ thống thông báo được thiết kế với cơ chế bảo vệ nhiều lớp để đảm bảo không thất thoát dữ liệu quan trọng:
+
+- **Quản lý Hàng đợi (Redis/Bull):** Sử dụng Bull Queue để xử lý bất đồng bộ. Mọi lỗi phát sinh trong quá trình gửi (mail service down, socket lỗi) sẽ được **tự động thử lại 3 lần** với khoảng thời gian chờ tăng dần (Exponential Backoff).
+- **Ghi dữ liệu Tin cậy:** Trong `notification.worker.js`, thông báo web luôn được yêu cầu lưu vào Database SQL trước khi gửi qua Socket. Nếu lưu DB thất bại, worker sẽ chủ động báo lỗi để hàng đợi thực hiện gửi lại sau.
+- **Failover (Dự phòng khẩn cấp):** Tại Service gốc (ví dụ `booking-service`), nếu kết nối tới Redis bị lỗi khiến việc thêm vào hàng đợi (Queue Add) thất bại, hệ thống sẽ **tự động chuyển sang ghi trực tiếp vào bảng `Notifications` trong SQL**. Điều này đảm bảo thông báo luôn được ghi nhận ngay cả khi hạ tầng Redis gặp sự cố.
 

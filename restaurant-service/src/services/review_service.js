@@ -116,7 +116,7 @@ async function createReview(restaurantId, customerId, payload) {
     ...payload,
     restaurantId,
     customerId,
-    isVerified: true
+    isVerified: !!payload.bookingId
   });
   
   // Tính toán lại rating trung bình và cập nhật SQL Server

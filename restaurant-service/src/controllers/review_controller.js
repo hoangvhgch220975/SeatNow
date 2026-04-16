@@ -26,7 +26,7 @@ async function list(req, res) {
 // Hàm tạo đánh giá mới cho một nhà hàng
 async function create(req, res) {
   try {
-    const customerId = req.user?.userId || req.user?.id;
+    const customerId = req.user?.userId || req.user?.id || null;
     const data = await reviewSvc.createReview(req.params.id, customerId, req.body);
     res.status(201).json({ data });
   } catch (e) {

@@ -5,7 +5,7 @@
 const { mongoose } = require('../config/mongo');
 
 const schema = new mongoose.Schema({
-  bookingId: { type: String, required: true, unique: true },
+  bookingId: { type: String, required: false, index: true },
   customerId: { type: String, required: false },
   restaurantId: { type: String, required: true, index: true },
 
