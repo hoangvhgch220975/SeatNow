@@ -491,7 +491,7 @@ Hiện tại, tất cả các API danh sách chính (Nhà hàng, Review, Menu) �
 #### Body mẫu (Create Review):
 
 > [!NOTE]
-> - `bookingId`: Tùy chọn. Nếu truyền lên, review sẽ được đánh dấu là Verified.
+> - `bookingId`: Tùy chọn. Nếu truyền lên, trạng thái của đơn đặt chỗ **bắt buộc phải là `COMPLETED`**.
 > - `rating`: Bắt buộc (1-5).
 > - **Spam protection:** Hệ thống cho phép gửi nhiều đánh giá cho cùng một nhà hàng.
 
