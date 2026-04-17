@@ -163,6 +163,9 @@ async function getRestaurants({ q, status, ownerId, page = 1, limit = 20 } = {})
     WHERE ${where.join(' AND ')}
   `);
 
+  const total = Number(countRs.recordset[0]?.total || 0);
+  const totalPages = Math.ceil(total / safeLimit);
+
   return {
     data: (itemsRs.recordset || []).map(r => {
       // Tu dong parse tat ca cac truong JSON de FE su dung giong het Restaurant Service
@@ -179,7 +182,8 @@ async function getRestaurants({ q, status, ownerId, page = 1, limit = 20 } = {})
     pagination: {
       page: safePage,
       limit: safeLimit,
-      total: Number(countRs.recordset[0]?.total || 0)
+      total: total,
+      totalPages: totalPages
     }
   };
 }
@@ -288,12 +292,16 @@ async function getUsers({ role, keyword, page = 1, limit = 20 } = {}) {
     WHERE ${where.join(' AND ')}
   `);
 
+  const total = Number(countRs.recordset[0]?.total || 0);
+  const totalPages = Math.ceil(total / safeLimit);
+
   return {
     data: itemsRs.recordset || [],
     pagination: {
       page: safePage,
       limit: safeLimit,
-      total: Number(countRs.recordset[0]?.total || 0)
+      total: total,
+      totalPages: totalPages
     }
   };
 }
@@ -365,12 +373,16 @@ async function getBookings({ status, restaurantId, dateFrom, dateTo, page = 1, l
     WHERE ${where.join(' AND ')}
   `);
 
+  const total = Number(countRs.recordset[0]?.total || 0);
+  const totalPages = Math.ceil(total / safeLimit);
+
   return {
     data: itemsRs.recordset || [],
     pagination: {
       page: safePage,
       limit: safeLimit,
-      total: Number(countRs.recordset[0]?.total || 0)
+      total: total,
+      totalPages: totalPages
     }
   };
 }
@@ -447,12 +459,16 @@ async function getTransactions({ type, status, provider, restaurantId, walletId,
     WHERE ${where.join(' AND ')}
   `);
 
+  const total = Number(countRs.recordset[0]?.total || 0);
+  const totalPages = Math.ceil(total / safeLimit);
+
   return {
     data: itemsRs.recordset || [],
     pagination: {
       page: safePage,
       limit: safeLimit,
-      total: Number(countRs.recordset[0]?.total || 0)
+      total: total,
+      totalPages: totalPages
     }
   };
 }
