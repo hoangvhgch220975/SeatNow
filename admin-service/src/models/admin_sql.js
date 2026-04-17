@@ -116,6 +116,72 @@ async function getUserAuthById(userId) {
   return rs.recordset[0] || null;
 }
 
+// Lay danh sach nha hang voi bo loc admin, ho tro tim kiem va thong tin chu so huu.
+async function getRestaurants({ q, status, ownerId, page = 1, limit = 20 } = {}) {
+  const pool = await getPool();
+  const { offset, page: safePage, limit: safeLimit } = buildPagination(page, limit);
+  const req = pool.request()
+    .input('offset', sql.Int, offset)
+    .input('limit', sql.Int, safeLimit);
+
+  const where = ['1=1'];
+  if (status && status !== 'all') {
+    where.push('r.status = @status');
+    req.input('status', sql.NVarChar(30), status);
+  }
+  if (ownerId) {
+    where.push('r.ownerId = @ownerId');
+    req.input('ownerId', sql.UniqueIdentifier, ownerId);
+  }
+  if (q) {
+    where.push('(r.name LIKE @q OR u.name LIKE @q OR u.email LIKE @q)');
+    req.input('q', sql.NVarChar(255), `%${q}%`);
+  }
+
+  const itemsRs = await req.query(`
+    SELECT
+      r.id,
+      r.name,
+      r.ownerId,
+      r.status,
+      r.address,
+      r.phone,
+      r.cuisineTypeJson,
+      r.priceRange,
+      r.createdAt,
+      r.updatedAt,
+      u.name AS ownerName,
+      u.email AS ownerEmail,
+      u.phone AS ownerPhone
+    FROM dbo.Restaurants r
+    LEFT JOIN dbo.Users u ON u.id = r.ownerId
+    WHERE ${where.join(' AND ')}
+    ORDER BY r.createdAt DESC
+    OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+  `);
+
+  const countReq = pool.request();
+  if (status && status !== 'all') countReq.input('status', sql.NVarChar(30), status);
+  if (ownerId) countReq.input('ownerId', sql.UniqueIdentifier, ownerId);
+  if (q) countReq.input('q', sql.NVarChar(255), `%${q}%`);
+
+  const countRs = await countReq.query(`
+    SELECT COUNT(1) AS total
+    FROM dbo.Restaurants r
+    LEFT JOIN dbo.Users u ON u.id = r.ownerId
+    WHERE ${where.join(' AND ')}
+  `);
+
+  return {
+    data: itemsRs.recordset || [],
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total: Number(countRs.recordset[0]?.total || 0)
+    }
+  };
+}
+
 // Doi trang thai nha hang sang active.
 async function approveRestaurant(restaurantId) {
   const pool = await getPool();
@@ -489,6 +555,7 @@ async function updateSystemConfig(key, value) {
 module.exports = {
   getDashboardStats,
   getPendingRestaurants,
+  getRestaurants,
   getUserAuthById,
   getRestaurantById,
   approveRestaurant,

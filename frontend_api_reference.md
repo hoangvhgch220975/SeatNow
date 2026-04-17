@@ -1849,9 +1849,6 @@ Hệ thống hỗ trợ cả phân tích chuỗi (Portfolio) và phân tích sâ
 | DS nhà hàng chờ duyệt | `GET`    | `/api/v1/admin/restaurants/pending`             | |
 | Tạo nhà hàng           | `POST`   | `/api/v1/admin/restaurants`                     | Auto tạo wallet |
 | Cập nhật nhà hàng     | `PUT`    | `/api/v1/admin/restaurants/:id`                 | |
-| Duyệt nhà hàng         | `PUT`    | `/api/v1/admin/restaurants/:id/approve`         | Tạo wallet + email `restaurant_activated` |
-| Mở khóa nhà hàng      | `PUT`    | `/api/v1/admin/restaurants/:id/activate`        | Email `restaurant_reactivated` (không tạo lại wallet) |
-| Tạm ngưng nhà hàng    | `PUT`    | `/api/v1/admin/restaurants/:id/suspend`         | |
 ### 3.10 Quản lý đối tác (Owners) & Nhà hàng
 
 Admin sử dụng các API này để quản lý tài khoản chủ nhà hàng và trạng thái vận hành của nhà hàng.
@@ -1865,18 +1862,15 @@ Admin sử dụng các API này để quản lý tài khoản chủ nhà hàng v
 | Xóa cứng Owner         | `DELETE` | `/api/v1/admin/users/:id`                      | Xóa vĩnh viễn khỏi hệ thống |
 | Reset mật khẩu Owner   | `POST`   | `/api/v1/admin/users/owner/:id/reset-password` | `{ newPassword? }` (Tự sinh nếu trống) |
 | **Quản lý Nhà hàng (Restaurants)** | | | |
-| Danh sách tất cả       | `GET`    | `/api/v1/admin/restaurants`                    | Query: `q`, `status` (active/suspended/all), `page`, `limit` |
+| Danh sách tất cả       | `GET`    | `/api/v1/admin/restaurants`                    | Query: `q`, `status`, `page`, `limit`. Trả về kèm `ownerName`, `ownerEmail`, `cuisineTypeJson` |
 | Danh sách chờ duyệt    | `GET`    | `/api/v1/admin/restaurants/pending`            | Luồng phê duyệt nhà hàng mới |
 | Duyệt nhà hàng         | `PUT`    | `/api/v1/admin/restaurants/:id/approve`        | Kích hoạt + Tạo Wallet |
 | Tạm ngưng (Lock)       | `PUT`    | `/api/v1/admin/restaurants/:id/suspend`        | |
 | Mở khóa (Unlock)       | `PUT`    | `/api/v1/admin/restaurants/:id/activate`       | |
-| **Quản lý yêu cầu làm đối tác** | | | |
+| **Quản lý yêu cầu làm đối tác (Leads)** | | | |
 | Danh sách Lead Request | `GET`    | `/api/v1/admin/partner-requests`               | |
 | Phê duyệt Lead         | `POST`   | `/api/v1/admin/partner-requests/:id/approve`   | Sẽ tự tạo TK Owner và gửi mail |
 | Từ chối Lead          | `POST`   | `/api/v1/admin/partner-requests/:id/reject`    | |
-| DS đối tác (partner)    | `GET`    | `/api/v1/admin/partner-requests`                | |
-| Duyệt đối tác           | `POST`   | `/api/v1/admin/partner-requests/:id/approve`    | Tạo tài khoản Owner + gửi email mật khẩu |
-| Từ chối đối tác         | `POST`   | `/api/v1/admin/partner-requests/:id/reject`     | |
 | Chat AI (Analytics)  | `POST`   | `/api/v1/ai/admin/chat`                         | |
 | Phân tích doanh thu AI | `POST`   | `/api/v1/ai/admin/revenue-summary`              | |
 | Xóa lịch sử AI Admin   | `DELETE` | `/api/v1/ai/admin/chat/history`                 |
