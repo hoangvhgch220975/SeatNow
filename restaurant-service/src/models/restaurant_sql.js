@@ -229,6 +229,7 @@ async function createRestaurant({
   images,
   openingHours,
   status = 'pending',
+  suspendedBy = null,
   commissionRate = 0.1,
   isPremium = false,
   depositEnabled = false,
@@ -250,16 +251,17 @@ async function createRestaurant({
     .input('imagesJson', sql.NVarChar(sql.MAX), JSON.stringify(images || []))
     .input('openingHoursJson', sql.NVarChar(sql.MAX), JSON.stringify(openingHours || {}))
     .input('status', sql.NVarChar(30), status)
+    .input('suspendedBy', sql.NVarChar(20), suspendedBy)
     .input('commissionRate', sql.Float, commissionRate)
     .input('isPremium', sql.Bit, isPremium ? 1 : 0)
     .input('depositEnabled', sql.Bit, depositEnabled ? 1 : 0)
     .input('depositPolicyJson', sql.NVarChar(sql.MAX), depositPolicy ? JSON.stringify(depositPolicy) : null)
     .query(`
       INSERT INTO dbo.Restaurants
-      (ownerId,name,slug,address,latitude,longitude,phone,email,cuisineTypeJson,priceRange,description,imagesJson,openingHoursJson,status,commissionRate,isPremium,depositEnabled,depositPolicyJson)
+      (ownerId,name,slug,address,latitude,longitude,phone,email,cuisineTypeJson,priceRange,description,imagesJson,openingHoursJson,status,suspendedBy,commissionRate,isPremium,depositEnabled,depositPolicyJson)
       OUTPUT INSERTED.*
       VALUES
-      (@ownerId,@name,@slug,@address,@latitude,@longitude,@phone,@email,@cuisineTypeJson,@priceRange,@description,@imagesJson,@openingHoursJson,@status,@commissionRate,@isPremium,@depositEnabled,@depositPolicyJson);
+      (@ownerId,@name,@slug,@address,@latitude,@longitude,@phone,@email,@cuisineTypeJson,@priceRange,@description,@imagesJson,@openingHoursJson,@status,@suspendedBy,@commissionRate,@isPremium,@depositEnabled,@depositPolicyJson);
     `);
 
   return mapJsonFields(rs.recordset[0]);
@@ -282,6 +284,7 @@ async function updateRestaurant(id, patch) {
     priceRange: ['priceRange', sql.Int],
     description: ['description', sql.NVarChar(sql.MAX)],
     status: ['status', sql.NVarChar(30)],
+    suspendedBy: ['suspendedBy', sql.NVarChar(20)],
     commissionRate: ['commissionRate', sql.Float],
     isPremium: ['isPremium', sql.Bit]
   };

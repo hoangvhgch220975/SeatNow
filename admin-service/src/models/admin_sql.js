@@ -124,6 +124,7 @@ async function approveRestaurant(restaurantId) {
     .query(`
       UPDATE dbo.Restaurants
       SET status = 'active',
+          suspendedBy = NULL,
           updatedAt = SYSUTCDATETIME()
       WHERE id = @restaurantId
     `);
@@ -137,6 +138,7 @@ async function suspendRestaurant(restaurantId) {
     .query(`
       UPDATE dbo.Restaurants
       SET status = 'suspended',
+          suspendedBy = 'ADMIN',
           updatedAt = SYSUTCDATETIME()
       WHERE id = @restaurantId
     `);

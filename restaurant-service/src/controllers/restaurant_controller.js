@@ -90,14 +90,29 @@ async function update(req, res) {
       }
 
       // Logic "Tự khóa/mở": Cho phép Owner chuyển đổi giữa active và suspended
-      // Ràng buộc: Không được tự kích hoạt (active) nếu nhà hàng đang ở trạng thái pending (chưa được duyệt)
       if (targetStatus && ['active', 'suspended'].includes(targetStatus)) {
         if (existing.status === 'pending' && targetStatus === 'active') {
           return res.status(400).json({ 
             message: 'Cannot activate a pending restaurant. Please wait for Admin approval.' 
           });
         }
+
+        // Ràng buộc mới: Nếu Admin khóa (suspendedBy === 'ADMIN'), Owner không được tự mở
+        if (targetStatus === 'active' && existing.suspendedBy === 'ADMIN') {
+          return res.status(403).json({ 
+            message: 'Nhà hàng đã bị Admin khóa. Vui lòng liên hệ bộ phận hỗ trợ để được mở lại.' 
+          });
+        }
+
         payload.status = targetStatus;
+        payload.suspendedBy = (targetStatus === 'suspended') ? 'OWNER' : null;
+      }
+    } else if (role === 'ADMIN') {
+      // Nếu là ADMIN, cập nhật suspendedBy tương ứng với status
+      if (payload.status === 'suspended') {
+        payload.suspendedBy = 'ADMIN';
+      } else if (payload.status === 'active') {
+        payload.suspendedBy = null;
       }
     }
 
