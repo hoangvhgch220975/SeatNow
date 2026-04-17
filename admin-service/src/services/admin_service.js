@@ -283,6 +283,32 @@ async function activateRestaurant(restaurantId) {
   if (!restaurant) throw createHttpError('Restaurant not found', 404);
 
   await adminModel.approveRestaurant(restaurantId);
+
+  // Gửi email thông báo mở khóa cho chủ nhà hàng (ví đã tồn tại, không tạo lại)
+  try {
+    const owner = await adminModel.getUserAuthById(restaurant.ownerId);
+    if (owner && owner.email) {
+      const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+      await fetch(`${notificationUrl}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'email',
+          payload: {
+            to: owner.email,
+            templateType: 'restaurant_reactivated',
+            data: {
+              ownerName: owner.fullName || owner.name || 'Owner',
+              restaurantName: restaurant.name
+            }
+          }
+        })
+      }).catch(err => console.error('Failed to notify owner of restaurant reactivation:', err.message));
+    }
+  } catch (notifyErr) {
+    console.warn('Non-blocking error during owner reactivation notification:', notifyErr.message);
+  }
+
   return {
     restaurantId,
     status: 'active'

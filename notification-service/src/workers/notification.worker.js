@@ -62,6 +62,9 @@ module.exports = async function processNotification(job) {
         } else if (templateType === 'restaurant_activated') {
           html = templates.getRestaurantActivatedTemplate(data);
           subject = subject || `[SeatNow] Your restaurant "${data.restaurantName}" is now active!`;
+        } else if (templateType === 'restaurant_reactivated') {
+          html = templates.getRestaurantReactivatedTemplate(data);
+          subject = subject || `[SeatNow] Your restaurant "${data.restaurantName}" has been reactivated!`;
         }
 
         return await emailService.sendEmailNotification(to, subject, html);

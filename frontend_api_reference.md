@@ -1,7 +1,7 @@
 # 📘 SeatNow – Frontend API Reference & Integration Guide
 
 > **Mục đích:** Tài liệu này cung cấp toàn bộ danh sách endpoints, Socket.IO events, và hướng dẫn kết nối frontend cho dự án SeatNow.
-> **Cập nhật lần cuối:** 2026-04-15 (v1.2.0)
+> **Cập nhật lần cuối:** 2026-04-18 (v1.3.0)
 
 ---
 
@@ -1841,22 +1841,37 @@ Hệ thống hỗ trợ cả phân tích chuỗi (Portfolio) và phân tích sâ
 
 ### 🛡️ Admin
 
-| Chức năng            | Method   | Endpoint (qua Gateway)                       |
-| -------------------- | -------- | -------------------------------------------- |
-| Thống kê tổng quan   | `GET`    | `/api/v1/admin/dashboard/stats`              |
-| Duyệt nhà hàng       | `PUT`    | `/api/v1/admin/restaurants/:idOrSlug/approve`|
-| Tạm ngưng nhà hàng   | `PUT`    | `/api/v1/admin/restaurants/:idOrSlug/suspend`|
-| Tạo Owner            | `POST`   | `/api/v1/admin/users/restaurant-owner`       |
-| DS người dùng        | `GET`    | `/api/v1/admin/users`                        |
-| DS giao dịch         | `GET`    | `/api/v1/admin/transactions`                 |
-| Quản lý Đối tác      | `GET`    | `/api/v1/admin/partner-requests`             |
-| Duyệt đối tác        | `POST`   | `/api/v1/admin/partner-requests/:id/approve` |
-| Từ chối đối tác      | `DELETE` | `/api/v1/admin/partner-requests/:id/reject`  |
-| Đối soát hoa hồng    | `POST`   | `/api/v1/admin/commissions/settle-quarter`   |
-| Duyệt rút tiền       | `POST`   | `/api/v1/admin/withdrawals/:id/approve`      |
-| Chat AI (Analytics)  | `POST`   | `/api/v1/ai/admin/chat`                      |
-| Xóa lịch sử AI Admin | `DELETE` | `/api/v1/ai/admin/chat/history`              |
-| Phân tích doanh thu  | `POST`   | `/api/v1/ai/admin/revenue-summary`           |
+| Chức năng              | Method   | Endpoint (qua Gateway)                          | Ghi chú |
+| -------------------- | -------- | ----------------------------------------------- | ------- |
+| Thống kê tổng quan   | `GET`    | `/api/v1/admin/dashboard/stats`                 | |
+| Thống kê doanh thu     | `GET`    | `/api/v1/admin/dashboard/revenue-stats`         | `?period=month` |
+| DS tất cả nhà hàng   | `GET`    | `/api/v1/admin/restaurants`                     | `?q=&status=all&ownerId=&page=&limit=` |
+| DS nhà hàng chờ duyệt | `GET`    | `/api/v1/admin/restaurants/pending`             | |
+| Tạo nhà hàng           | `POST`   | `/api/v1/admin/restaurants`                     | Auto tạo wallet |
+| Cập nhật nhà hàng     | `PUT`    | `/api/v1/admin/restaurants/:id`                 | |
+| Duyệt nhà hàng         | `PUT`    | `/api/v1/admin/restaurants/:id/approve`         | Tạo wallet + email `restaurant_activated` |
+| Mở khóa nhà hàng      | `PUT`    | `/api/v1/admin/restaurants/:id/activate`        | Email `restaurant_reactivated` (không tạo lại wallet) |
+| Tạm ngưng nhà hàng    | `PUT`    | `/api/v1/admin/restaurants/:id/suspend`         | |
+| Tạo Owner              | `POST`   | `/api/v1/admin/users/restaurant-owner`          | |
+| Reset mật khẩu Owner  | `POST`   | `/api/v1/admin/users/owner/:id/reset-password`  | |
+| DS người dùng          | `GET`    | `/api/v1/admin/users`                           | `?role=&keyword=&page=&limit=` |
+| DS bookings            | `GET`    | `/api/v1/admin/bookings`                        | `?status=&restaurantId=&dateFrom=&dateTo=` |
+| DS giao dịch           | `GET`    | `/api/v1/admin/transactions`                    | `?type=&status=&provider=&restaurantId=` |
+| Thu hoa hồng (manual) | `POST`   | `/api/v1/admin/commissions/collect`             | Hỗ trợ `dryRun` |
+| Đối soát theo quý      | `POST`   | `/api/v1/admin/commissions/settle-quarter`      | `{ year, quarter, dryRun }` |
+| Duyệt rút tiền         | `POST`   | `/api/v1/admin/withdrawals/:id/approve`         | |
+| Từ chối rút tiền       | `POST`   | `/api/v1/admin/withdrawals/:id/reject`          | |
+| DS đối tác (partner)    | `GET`    | `/api/v1/admin/partner-requests`                | |
+| Duyệt đối tác           | `POST`   | `/api/v1/admin/partner-requests/:id/approve`    | Tạo tài khoản Owner + gửi email mật khẩu |
+| Từ chối đối tác         | `POST`   | `/api/v1/admin/partner-requests/:id/reject`     | |
+| Chat AI (Analytics)  | `POST`   | `/api/v1/ai/admin/chat`                         | |
+| Phân tích doanh thu AI | `POST`   | `/api/v1/ai/admin/revenue-summary`              | |
+| Xóa lịch sử AI Admin   | `DELETE` | `/api/v1/ai/admin/chat/history`                 |
+
+> [!IMPORTANT]
+> **Email Notifications (Admin actions):**
+> - `approve` → email `restaurant_activated`: Chúc mừng, thông báo tạo wallet thành công.
+> - `activate` → email `restaurant_reactivated`: Thông báo mở khóa lại, không đề cập wallet (vì đã tồn tại).
 
 ### 💎 Loyalty Point Policy (Chính sách điểm thưởng)
 

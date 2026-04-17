@@ -125,9 +125,36 @@ function getRestaurantActivatedTemplate(data) {
   return baseTemplate('Restaurant Activated', 'Your restaurant is now live!', content);
 }
 
+function getRestaurantReactivatedTemplate(data) {
+  const { ownerName, restaurantName } = data;
+  const content = `
+    <p style="color: #4a5568; font-size: 16px; line-height: 1.6;">Hello <strong>${ownerName}</strong>,</p>
+    <p style="color: #4a5568; font-size: 16px; line-height: 1.6;">Great news! Your restaurant <strong>${restaurantName}</strong> has been <strong>reactivated</strong> on SeatNow and is now visible to customers again.</p>
+
+    <div style="margin: 32px 0; padding: 24px; background-color: #f0fff4; border-radius: 12px; border: 1px solid #c6f6d5;">
+      <h3 style="color: #2f855a; font-size: 14px; margin: 0 0 16px 0; text-transform: uppercase; letter-spacing: 1px;">What this means</h3>
+      <ul style="color: #2d3748; font-size: 14px; margin: 0; padding-left: 20px; line-height: 1.8;">
+        <li>Your restaurant listing is live and searchable.</li>
+        <li>Customers can discover and book tables again.</li>
+        <li>Your existing wallet and balance remain unchanged.</li>
+      </ul>
+    </div>
+
+    <div style="text-align: center; margin-bottom: 32px;">
+      <a href="http://localhost:5173/owner" style="display: inline-block; background-color: #6f42c1; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 700; box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);">Go to Dashboard</a>
+    </div>
+
+    <div style="background-color: #ebf8ff; border-left: 4px solid #3182ce; padding: 16px; margin-bottom: 24px;">
+      <p style="color: #2c5282; font-size: 14px; margin: 0; line-height: 1.5;">If you believe this reactivation was made in error, please contact SeatNow support immediately.</p>
+    </div>
+  `;
+  return baseTemplate('Restaurant Reactivated', 'Your restaurant is live again!', content);
+}
+
 module.exports = {
   getBookingConfirmedTemplate,
   getBookingCancelledTemplate,
   getPromotionTemplate,
-  getRestaurantActivatedTemplate
+  getRestaurantActivatedTemplate,
+  getRestaurantReactivatedTemplate
 };
