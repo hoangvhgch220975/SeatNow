@@ -8,6 +8,7 @@ const morgan = require('morgan');
 const adminRoute = require('./routes/admin_route');
 const { getPool } = require('./config/sql');
 const { errorMiddleware } = require('./middlewares/error_middleware');
+const { initCommissionWorker } = require('./workers/commission_worker');
 
 const app = express();
 
@@ -37,6 +38,9 @@ app.use(errorMiddleware);
 
 async function bootstrap() {
 	await getPool();
+	
+	// Khoi tao worker chay ngam
+	initCommissionWorker();
 
 	const port = process.env.PORT || 3006;
 	app.listen(port, () => {

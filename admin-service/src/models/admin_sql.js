@@ -11,27 +11,55 @@ function buildPagination(page, limit) {
   };
 }
 
-// Lay so lieu tong quan cho dashboard admin.
-async function getDashboardStats() {
+// Lay so lieu tong quan cho dashboard admin, hỗ trợ lọc theo thời gian.
+async function getDashboardStats({ dateFrom, dateTo } = {}) {
   const pool = await getPool();
-  const rs = await pool.request().query(`
+  const req = pool.request();
+
+  let dateFilterBookings = '';
+  let dateFilterTransactions = '';
+  let dateFilterUsers = '';
+  let dateFilterRestaurants = '';
+
+  if (dateFrom) {
+    req.input('df', sql.DateTime, dateFrom);
+    dateFilterBookings += ' AND bookingDate >= @df';
+    dateFilterTransactions += ' AND createdAt >= @df';
+    dateFilterUsers += ' AND createdAt >= @df';
+    dateFilterRestaurants += ' AND createdAt >= @df';
+  }
+  if (dateTo) {
+    req.input('dt', sql.DateTime, dateTo);
+    dateFilterBookings += ' AND bookingDate <= @dt';
+    dateFilterTransactions += ' AND createdAt <= @dt';
+    dateFilterUsers += ' AND createdAt <= @dt';
+    dateFilterRestaurants += ' AND createdAt <= @dt';
+  }
+
+  const rs = await req.query(`
     SELECT
+      -- Global Stats (Snapshot)
       (SELECT COUNT(1) FROM dbo.Users) AS totalUsers,
-      (SELECT COUNT(1) FROM dbo.Users WHERE role = 'CUSTOMER') AS totalCustomers,
-      (SELECT COUNT(1) FROM dbo.Users WHERE role = 'RESTAURANT_OWNER') AS totalOwners,
       (SELECT COUNT(1) FROM dbo.Restaurants) AS totalRestaurants,
       (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'pending') AS pendingRestaurants,
-      (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'active') AS activeRestaurants,
-      (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'suspended') AS suspendedRestaurants,
-      (SELECT COUNT(1) FROM dbo.Bookings) AS totalBookings,
-      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'PENDING') AS pendingBookings,
-      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'CONFIRMED') AS confirmedBookings,
-      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED') AS completedBookings,
-      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('CANCELLED', 'NO_SHOW')) AS cancelledBookings,
-      (SELECT COUNT(1) FROM dbo.Transactions) AS totalTransactions,
-      (SELECT COUNT(1) FROM dbo.Transactions WHERE UPPER(ISNULL(type, '')) = 'DEPOSIT_PAYMENT') AS totalDepositTransactions,
-      (SELECT COUNT(1) FROM dbo.Transactions WHERE UPPER(ISNULL(type, '')) IN ('TOP_UP', 'TOPUP')) AS totalTopupTransactions,
-      (SELECT ISNULL(SUM(balance), 0) FROM dbo.Wallets) AS totalWalletBalance
+      (SELECT ISNULL(SUM(balance), 0) FROM dbo.Wallets) AS totalWalletBalance,
+
+      -- Periodic Stats (Filtered)
+      (SELECT COUNT(1) FROM dbo.Users WHERE 1=1 ${dateFilterUsers}) AS newUsers,
+      (SELECT COUNT(1) FROM dbo.Users WHERE role = 'RESTAURANT_OWNER' ${dateFilterUsers}) AS newOwners,
+      (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'active' ${dateFilterRestaurants}) AS newActiveRestaurants,
+      
+      (SELECT COUNT(1) FROM dbo.Bookings WHERE 1=1 ${dateFilterBookings}) AS totalBookings,
+      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'PENDING' ${dateFilterBookings}) AS pendingBookings,
+      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'CONFIRMED' ${dateFilterBookings}) AS confirmedBookings,
+      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED' ${dateFilterBookings}) AS completedBookings,
+      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('CANCELLED', 'NO_SHOW') ${dateFilterBookings}) AS cancelledBookings,
+      
+      (SELECT ISNULL(SUM(commissionFee), 0) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED' ${dateFilterBookings}) AS totalCommission,
+      (SELECT ISNULL(SUM(depositAmount), 0) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED' ${dateFilterBookings}) AS totalDeposit,
+
+      (SELECT COUNT(1) FROM dbo.Transactions WHERE 1=1 ${dateFilterTransactions}) AS totalTransactions,
+      (SELECT COUNT(1) FROM dbo.Transactions WHERE UPPER(ISNULL(type, '')) = 'DEPOSIT_PAYMENT' ${dateFilterTransactions}) AS totalDepositTransactions
   `);
 
   return rs.recordset[0] || {};

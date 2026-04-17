@@ -27,7 +27,8 @@ router.get('/users', controller.getUsers);
 router.get('/bookings', controller.getBookings);
 router.get('/transactions', controller.getTransactions);
 
-// Quy trinh doi soat commission theo quy
+// Quy trinh doi soat commission
+router.post('/commissions/collect', controller.collectCommissions);
 router.post('/commissions/settle-quarter', controller.settleQuarterCommission);
 
 // Quy trinh duyet / tu choi rut tien

@@ -357,6 +357,27 @@
       "name": "5. Financials & Settlements",
       "item": [
         {
+          "name": "Manual Collect Commission (Flexible)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from\": \"2026-04-01T00:00:00Z\",\n  \"to\": \"2026-04-15T23:59:59Z\",\n  \"description\": \"Mid-month collection test\",\n  \"dryRun\": false\n}"
+            },
+            "url": "{{baseUrl}}/commissions/collect"
+          }
+        },
+        {
           "name": "Settle Quarter Commission (Dry Run)",
           "request": {
             "method": "POST",

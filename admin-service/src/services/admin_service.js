@@ -157,8 +157,57 @@ async function resetOwnerPassword({ ownerId, authorization }) {
 
 
 // Lay thong ke dashboard tu SQL model.
-async function getStats() {
-  return adminModel.getDashboardStats();
+async function getStats(query = {}) {
+  const { from, to, period } = query;
+  let dateFrom = from;
+  let dateTo = to;
+
+  if (period) {
+    const range = getPeriodRange(period);
+    dateFrom = range.from;
+    dateTo = range.to;
+  }
+
+  return adminModel.getDashboardStats({ dateFrom, dateTo });
+}
+
+// Helper: Chuyen doi period thanh khoang ngay bat dau va ket thuc.
+function getPeriodRange(period) {
+  const now = new Date();
+  const from = new Date();
+  const to = new Date();
+
+  // Reset gio/phut/giay ve dau/cuoi ngay.
+  from.setHours(0, 0, 0, 0);
+  to.setHours(23, 59, 59, 999);
+
+  switch (period.toLowerCase()) {
+    case 'today':
+      break;
+    case 'this_week':
+    case 'week':
+      // Lay ngay dau tuan (giả sử Thứ 2).
+      const day = from.getDay();
+      const diff = from.getDate() - day + (day === 0 ? -6 : 1);
+      from.setDate(diff);
+      break;
+    case 'this_month':
+    case 'month':
+      from.setDate(1);
+      break;
+    case 'quarterly':
+    case 'quarter':
+      const currentMonth = from.getMonth();
+      const quarterStartMonth = Math.floor(currentMonth / 3) * 3;
+      from.setMonth(quarterStartMonth, 1);
+      break;
+    case 'yearly':
+    case 'year':
+      from.setMonth(0, 1);
+      break;
+  }
+
+  return { from, to };
 }
 
 // Lay thong ke doanh thu theo thoi gian cho admin
@@ -339,27 +388,28 @@ async function postJson(url, body, headers = {}) {
 // 2) Gom theo nha hang
 // 3) Charge commission
 // 4) Danh dau booking da thanh toan commission
-async function settleQuarterCommission({ year, quarter, adminUserId, restaurantIds, dryRun, minAgeMinutes }) {
+// Ham dung chung thuc hien thu phi hoa hong cho mot tap hop cac don hang.
+async function collectCommissions({ from, to, adminUserId, restaurantIds, dryRun, minAgeMinutes, description, contextKey }) {
   if (!adminUserId) throw createHttpError('adminUserId is required', 422);
 
-  const { start, end } = quarterRange(year, quarter);
   const bookingBase = process.env.BOOKING_SERVICE_URL || 'http://localhost:3004/api/v1';
   const paymentBase = process.env.PAYMENT_SERVICE_URL || 'http://localhost:3005/api/v1/payment';
   const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
-
   const headers = internalToken ? { 'x-internal-token': internalToken } : {};
-  const preview = await postJson(
+
+  // 1) Lay cac don hang ung vien de thu phi
+  const candidatesResponse = await postJson(
     `${bookingBase}/internal/commissions/candidates`,
     {
-      from: start.toISOString(),
-      to: end.toISOString(),
+      from: from instanceof Date ? from.toISOString() : from,
+      to: to instanceof Date ? to.toISOString() : to,
       minAgeMinutes: Number(minAgeMinutes || 0),
       restaurantIds: normalizeIdList(restaurantIds)
     },
     headers
   );
 
-  const items = preview?.data?.items || [];
+  const items = candidatesResponse?.data?.items || [];
   const group = new Map();
   for (const x of items) {
     const rid = String(x.restaurantId);
@@ -367,52 +417,44 @@ async function settleQuarterCommission({ year, quarter, adminUserId, restaurantI
     group.get(rid).push(x);
   }
 
-  const restaurants = [];
-  let totalCharged = 0;
-  let totalMarked = 0;
+  const results = [];
+  let totalChargedOverall = 0;
+  let totalMarkedOverall = 0;
   const isDryRun = normalizeBoolean(dryRun);
 
   for (const [restaurantId, rows] of group.entries()) {
     const amount = rows.reduce((sum, x) => sum + Number(x.commissionFee || 0), 0);
     const bookingIds = rows.map((x) => x.id);
-    const idempotencyKey = buildQuarterCommissionKey({ year, quarter, restaurantId });
+    
+    // Tao idempotency key neu khong truyen vao
+    const idempotencyKey = contextKey ? `coll:${contextKey}:${restaurantId}` : `coll:auto:${Date.now()}:${restaurantId}`;
 
     if (amount <= 0) {
-      restaurants.push({
-        restaurantId,
-        bookingCount: rows.length,
-        amount,
-        idempotencyKey,
-        status: 'skipped'
-      });
+      results.push({ restaurantId, bookingCount: rows.length, amount, status: 'skipped' });
       continue;
     }
 
     if (isDryRun) {
-      restaurants.push({
-        restaurantId,
-        bookingCount: rows.length,
-        amount,
-        idempotencyKey,
-        status: 'preview'
-      });
+      results.push({ restaurantId, bookingCount: rows.length, amount, status: 'preview' });
       continue;
     }
 
     try {
+      // 2) Charge tien tu vi nha hang
       await postJson(
         `${paymentBase}/wallet/commission/charge`,
         {
           restaurantId,
           adminUserId,
           amount,
-          description: `Quarterly commission settlement Q${quarter}/${year}`,
+          description: description || 'Commission settlement',
           idempotencyKey
         },
         headers
       );
 
-      const marked = await postJson(
+      // 3) Danh dau cac don hang nay da thanh toan phi
+      const markResponse = await postJson(
         `${bookingBase}/internal/commissions/mark-paid`,
         {
           bookingIds,
@@ -421,68 +463,79 @@ async function settleQuarterCommission({ year, quarter, adminUserId, restaurantI
         headers
       );
 
-      const markedCount = Number(marked?.data?.affectedCount || 0);
-      totalCharged += amount;
-      totalMarked += markedCount;
-      restaurants.push({
+      const markedCount = Number(markResponse?.data?.affectedCount || 0);
+      totalChargedOverall += amount;
+      totalMarkedOverall += markedCount;
+      
+      results.push({
         restaurantId,
         bookingCount: rows.length,
         amount,
-        idempotencyKey,
         markedCount,
         status: 'settled'
       });
 
-      // Notify restaurant owner: commission settled
-      try {
-        const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
-        // Lấy ownerId từ restaurant-service
-        const restBase = getRestaurantServiceBaseUrl();
-        const restData = await requestJson('GET', `${restBase}/restaurants/${restaurantId}`, undefined).catch(() => null);
-        const ownerId = restData?.data?.ownerId || restData?.ownerId;
-        if (ownerId) {
-          fetch(`${notificationUrl}/test`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'web',
-              payload: {
-                userId: ownerId,
-                restaurantId,
-                event: 'COMMISSION_SETTLED',
-                message: `Commission settled for Q${quarter}/${year}: ${Number(amount).toLocaleString('vi-VN')} VND (${markedCount} bookings)`,
-                data: { restaurantId, amount, quarter, year, bookingCount: markedCount }
-              }
-            })
-          }).catch(err => console.error('[Commission] Notify owner failed:', err.message));
-        }
-      } catch (notifErr) {
-        console.error('[Commission] Notification error:', notifErr.message);
-      }
-    } catch (e) {
-      restaurants.push({
-        restaurantId,
-        bookingCount: rows.length,
-        amount,
-        idempotencyKey,
-        status: 'failed',
-        error: e.message
-      });
+      // 4) Thong bao cho chu nha hang (Optional/Async)
+      notifyOwnerCommissionSettled(restaurantId, amount).catch(console.error);
+
+    } catch (err) {
+      console.error(`Failed to settle commission for restaurant ${restaurantId}:`, err.message);
+      results.push({ restaurantId, amount, status: 'error', error: err.message });
     }
   }
 
   return {
-    year: Number(year),
-    quarter: Number(quarter),
-    from: start.toISOString(),
-    to: end.toISOString(),
-    dryRun: isDryRun,
-    candidateBookings: items.length,
-    candidateRestaurants: group.size,
-    totalCharged,
-    restaurants
+    totalCharged: totalChargedOverall,
+    totalMarked: totalMarkedOverall,
+    restaurants: results
   };
 }
+
+// Ham ho tro thong bao (internal)
+async function notifyOwnerCommissionSettled(restaurantId, amount) {
+  try {
+    const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+    const restBase = getRestaurantServiceBaseUrl();
+    const restData = await requestJson('GET', `${restBase}/restaurants/${restaurantId}`, undefined).catch(() => null);
+    const ownerId = restData?.data?.ownerId || restData?.ownerId;
+    
+    if (ownerId) {
+      await fetch(`${notificationUrl}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'web',
+          payload: {
+            userId: ownerId,
+            title: 'Commission Settled',
+            message: `Hệ thống đã thực hiện thu phí hoa hồng số tiền ${amount.toLocaleString()} VND.`,
+            type: 'COMMISSION_SETTLED'
+          }
+        })
+      });
+    }
+  } catch (err) {
+    // Ignore error
+  }
+}
+
+// Quy trinh doi soat commission theo quy (Refactor de su dung collectCommissions)
+async function settleQuarterCommission({ year, quarter, adminUserId, restaurantIds, dryRun, minAgeMinutes }) {
+  const { start, end } = quarterRange(year, quarter);
+  const contextKey = `q${quarter}:${year}`;
+  
+  return await collectCommissions({
+    from: start,
+    to: end,
+    adminUserId,
+    restaurantIds,
+    dryRun,
+    minAgeMinutes,
+    description: `Quarterly commission settlement Q${quarter}/${year}`,
+    contextKey
+  });
+}
+
 
 // Admin duyệt yêu cầu rút tiền của nhà hàng
 async function approveWithdrawal(transactionId, payload, authorization) {
@@ -606,6 +659,7 @@ module.exports = {
   getPartnerRequests,
   approvePartnerRequest,
   rejectPartnerRequest,
-  getRestaurants
+  getRestaurants,
+  collectCommissions
 };
 

@@ -1221,6 +1221,10 @@ Các API này yêu cầu Header `x-internal-token` và không được tiếp c�
 | `GET`  | `/dashboard/stats`         | Thống kê tổng quan       |
 | `GET`  | `/dashboard/revenue-stats` | Thống kê doanh thu Admin |
 
+> **Tham số query cho GET /dashboard/stats**:
+> - `period`: Lọc nhanh theo kỳ (`today`, `week`, `month`, `quarter`, `year`).
+> - `from`, `to`: Lọc chính xác theo dải ngày (ISO Date).
+
 ### 6.2 Quản lý Nhà hàng
 
 | Method | Endpoint                    | Mô tả                              |
@@ -1230,6 +1234,12 @@ Các API này yêu cầu Header `x-internal-token` và không được tiếp c�
 | `GET`  | `/restaurants`              | Danh sách tất cả nhà hàng (search) |
 | `GET`  | `/restaurants/pending`      | Danh sách nhà hàng chờ duyệt       |
 | `PUT`  | `/restaurants/:id/approve`  | Duyệt mới → `active` + tạo Wallet  |
+
+> **Tham số query cho GET /restaurants**:
+> - `q`: Tìm kiếm theo tên hoặc địa chỉ nhà hàng.
+> - `status`: Lọc theo trạng thái (`active`, `pending`, `suspended`, `all`). Mặc định: `all`.
+> - `ownerId`: Lọc nhà hàng của một chủ sở hữu cụ thể (UUID).
+> - `page`, `limit`: Phân trang.
 | `PUT`  | `/restaurants/:id/activate` | Mở khóa lại (Active) nhà hàng      |
 | `PUT`  | `/restaurants/:id/suspend`  | Tạm ngưng nhà hàng                 |
 
@@ -1241,6 +1251,16 @@ Các API này yêu cầu Header `x-internal-token` và không được tiếp c�
 | `POST`   | `/users/owner/:id/reset-password` | Reset mật khẩu Owner                                                      |
 | `GET`    | `/users`                          | Danh sách người dùng                                                      |
 | `GET`    | `/bookings`                       | Danh sách tất cả booking                                                  |
+
+> **Tham số query cho GET /users**:
+> - `keyword`: Tìm kiếm theo tên, email hoặc số điện thoại.
+> - `role`: Lọc theo vai trò (`CUSTOMER`, `RESTAURANT_OWNER`, `OWNER`, `ADMIN`).
+>
+> **Tham số query cho GET /bookings**:
+> - `status`: Lọc theo trạng thái booking (`pending`, `confirmed`, `arrived`, `completed`, `cancelled`, `no_show`).
+> - `restaurantId`: Xem booking của một nhà hàng cụ thể.
+> - `dateFrom`, `dateTo`: Lọc theo khoảng thời gian đặt bàn.
+
 | `GET`    | `/transactions`                   | Danh sách giao dịch                                                       |
 | `GET`    | `/partner-requests`               | Lấy danh sách yêu cầu trở thành đối tác                                   |
 | `POST`   | `/partner-requests/:id/approve`   | Duyệt đối tác (hệ thống tự tạo tài khoản Owner và gửi mật khẩu qua email) |
@@ -1250,9 +1270,39 @@ Các API này yêu cầu Header `x-internal-token` và không được tiếp c�
 
 | Method | Endpoint                      | Mô tả                      |
 | ------ | ----------------------------- | -------------------------- |
-| `POST` | `/commissions/settle-quarter` | Đối soát hoa hồng theo quý |
+| `POST` | `/commissions/collect`       | Thu phí hoa hồng linh hoạt (tùy chọn date range) |
+| `POST` | `/commissions/settle-quarter` | Đối soát hoa hồng theo quý                        |
 | `POST` | `/withdrawals/:id/approve`    | Duyệt lệnh rút tiền        |
 | `POST` | `/withdrawals/:id/reject`     | Từ chối lệnh rút tiền      |
+
+#### 💸 Thu phí hoa hồng linh hoạt (`POST /commissions/collect`):
+Cho phép Admin thu phí bất cứ lúc nào cho một khoảng thời gian tự chọn.
+
+**Body mẫu:**
+```json
+{
+  "from": "2026-04-01T00:00:00Z",
+  "to": "2026-04-15T23:59:59Z",
+  "restaurantIds": ["uuid1", "uuid2"], // Tùy chọn, nếu không gửi sẽ thu toàn bộ quán
+  "description": "Thu phí đợt đầu tháng 4",
+  "dryRun": false, // Nếu true thì chỉ xem trước kết quả, không trừ tiền
+  "minAgeMinutes": 0 // Chỉ thu các đơn đã hoàn thành ít nhất X phút trước
+}
+```
+**Response mẫu:**
+```json
+{
+  "success": true,
+  "data": {
+    "totalCharged": 1500000.0,
+    "totalMarked": 45, // Tổng số đơn đã chốt
+    "restaurants": [
+       { "restaurantId": "uuid", "amount": 250000, "status": "settled" },
+       ...
+    ]
+  }
+}
+```
 
 ### 6.5 Cấu hình hệ thống (System Config)
 

@@ -56,7 +56,7 @@ async function updateRestaurant(req, res, next) {
 // Lay thong ke tong quan cho dashboard admin.
 async function getStats(req, res, next) {
   try {
-    const stats = await adminService.getStats();
+    const stats = await adminService.getStats(req.query);
     return res.json({ success: true, data: stats });
   } catch (err) {
     next(err);
@@ -153,6 +153,31 @@ async function getTransactions(req, res, next) {
   }
 }
 
+// Thu phi hoa hong linh hoat (Manual Collect)
+async function collectCommissions(req, res, next) {
+  try {
+    const { from, to, restaurantIds, dryRun, minAgeMinutes, description, adminUserId } = req.body;
+    
+    // Su dung adminUserId tu body hoac tu token neu co
+    const effectiveAdminUserId = adminUserId || req.user?.id;
+
+    const result = await adminService.collectCommissions({
+      from,
+      to,
+      adminUserId: effectiveAdminUserId,
+      restaurantIds,
+      dryRun,
+      minAgeMinutes,
+      description: description || 'Manual commission collection',
+      contextKey: `manual:${Date.now()}`
+    });
+
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Chay doi soat commission theo quy, ho tro dry-run va real-run.
 async function settleQuarterCommission(req, res, next) {
   try {
@@ -240,5 +265,6 @@ module.exports = {
   getPartnerRequests,
   approvePartnerRequest,
   rejectPartnerRequest,
-  getRestaurants
+  getRestaurants,
+  collectCommissions
 };
