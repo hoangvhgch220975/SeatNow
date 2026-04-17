@@ -221,6 +221,40 @@
             },
             "url": "{{baseUrl}}/users/owner/{{userId}}/reset-password"
           }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Owner Name\",\n  \"phone\": \"+84988888888\",\n  \"email\": \"updated_owner@example.com\"\n}"
+            },
+            "url": "{{baseUrl}}/users/{{userId}}"
+          }
+        },
+        {
+          "name": "Delete User (Hard Delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/users/{{userId}}"
+          }
         }
       ]
     },
@@ -480,7 +514,7 @@
         {
           "name": "Reject Partner Request",
           "request": {
-            "method": "DELETE",
+            "method": "POST",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/partner-requests/{{requestId}}/reject",

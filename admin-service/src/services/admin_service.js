@@ -155,6 +155,51 @@ async function resetOwnerPassword({ ownerId, authorization }) {
   return result?.data ?? result;
 }
 
+// Cap nhat thong tin user (Owner)
+async function updateUser({ userId, payload, authorization }) {
+  if (!userId) throw createHttpError('userId is required', 422);
+  if (!payload || typeof payload !== 'object') throw createHttpError('payload is required', 422);
+
+  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1/auth').replace(/\/+$/, '');
+  const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+  const headers = internalToken ? { 'x-internal-token': internalToken } : {};
+
+  if (authorization) {
+    headers['Authorization'] = authorization;
+  }
+
+  const result = await requestJson(
+    'PUT',
+    `${authBaseUrl}/internal/users/${userId}`,
+    payload,
+    headers
+  );
+
+  return result?.data ?? result;
+}
+
+// Xoa cung user (Owner)
+async function deleteUser({ userId, authorization }) {
+  if (!userId) throw createHttpError('userId is required', 422);
+
+  const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1/auth').replace(/\/+$/, '');
+  const internalToken = process.env.INTERNAL_SERVICE_TOKEN;
+  const headers = internalToken ? { 'x-internal-token': internalToken } : {};
+
+  if (authorization) {
+    headers['Authorization'] = authorization;
+  }
+
+  const result = await requestJson(
+    'DELETE',
+    `${authBaseUrl}/internal/users/${userId}`,
+    undefined,
+    headers
+  );
+
+  return result?.data ?? result;
+}
+
 
 // Lay thong ke dashboard tu SQL model.
 async function getStats(query = {}) {
@@ -696,6 +741,9 @@ module.exports = {
   approvePartnerRequest,
   rejectPartnerRequest,
   getRestaurants,
-  collectCommissions
+  collectCommissions,
+  getUsers,
+  updateUser,
+  deleteUser
 };
 

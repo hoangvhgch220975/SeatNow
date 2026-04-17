@@ -127,7 +127,7 @@ async function register({ phone, email, name, password, accountType }) {
 }
 
 // ====== INTERNAL / ADMIN API ======
-async function createRestaurantOwnerByAdmin({ phone, email, name }) {
+async function createRestaurantOwnerByAdmin({ phone, email, name, avatar }) {
   // check tồn tại (phone/email unique)
   const byPhone = await UserModel.findByPhoneOrEmail({ phone });
   if (byPhone) throw Object.assign(new Error('PHONE_ALREADY_EXISTS'), { status: 409 });
@@ -143,7 +143,7 @@ async function createRestaurantOwnerByAdmin({ phone, email, name }) {
   const newRawPassword = generateRandomPassword(10);
   const passwordHash = await bcrypt.hash(newRawPassword, 10);
 
-  const user = await UserModel.createUser({ phone, email, name, passwordHash, role: 'RESTAURANT_OWNER' });
+  const user = await UserModel.createUser({ phone, email, name, passwordHash, role: 'RESTAURANT_OWNER', avatar });
 
   await sendWelcomeOwnerEmail(email, name, phone, newRawPassword);
 
@@ -551,6 +551,33 @@ async function deletePartnerRequest(id) {
   return { success: true };
 }
 
+// ====== INTERNAL USER MANAGEMENT ======
+async function updateUserInternal(userId, data) {
+  const user = await UserModel.findById(userId);
+  if (!user) throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
+
+  // If email or phone is changing, check for uniqueness
+  if (data.email && data.email !== user.email) {
+    const existing = await UserModel.findByPhoneOrEmail({ email: data.email });
+    if (existing) throw Object.assign(new Error('EMAIL_ALREADY_EXISTS'), { status: 409 });
+  }
+  if (data.phone && data.phone !== user.phone) {
+    const existing = await UserModel.findByPhoneOrEmail({ phone: data.phone });
+    if (existing) throw Object.assign(new Error('PHONE_ALREADY_EXISTS'), { status: 409 });
+  }
+
+  const updated = await UserModel.updateProfileById(userId, data);
+  return updated;
+}
+
+async function deleteUserInternal(userId) {
+  const user = await UserModel.findById(userId);
+  if (!user) throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
+
+  await UserModel.deleteById(userId);
+  return { success: true, message: 'USER_HARD_DELETED' };
+}
+
 module.exports = {
   register,
   login,
@@ -566,5 +593,7 @@ module.exports = {
   resetPasswordOwnerByAdmin,
   submitPartnerRequest,
   getPartnerRequests,
-  deletePartnerRequest
+  deletePartnerRequest,
+  updateUserInternal,
+  deleteUserInternal
 };

@@ -67,7 +67,7 @@ async function updatePasswordById(userId, passwordHash) {
     `);
 }
 
-async function updateProfileById(userId, { name, email, avatar, role }) {
+async function updateProfileById(userId, { name, email, avatar, role, phone }) {
   const pool = await getPool();
   const req = pool.request().input('id', sql.UniqueIdentifier, userId);
 
@@ -75,6 +75,7 @@ async function updateProfileById(userId, { name, email, avatar, role }) {
   if (email !== undefined) req.input('email', sql.NVarChar(255), email);
   if (avatar !== undefined) req.input('avatar', sql.NVarChar(1024), avatar);
   if (role !== undefined) req.input('role', sql.NVarChar(30), role);
+  if (phone !== undefined) req.input('phone', sql.NVarChar(20), phone);
 
   // Build SET clause dynamically to avoid overwriting with NULLs
   const sets = [];
@@ -82,6 +83,7 @@ async function updateProfileById(userId, { name, email, avatar, role }) {
   if (email !== undefined) sets.push('email = @email');
   if (avatar !== undefined) sets.push('avatar = @avatar');
   if (role !== undefined) sets.push('role = @role');
+  if (phone !== undefined) sets.push('phone = @phone');
 
   if (sets.length === 0) return await findById(userId);
 
@@ -94,6 +96,14 @@ async function updateProfileById(userId, { name, email, avatar, role }) {
 
   const res = await req.query(sqlQuery);
   return res.recordset[0] || null;
+}
+
+async function deleteById(userId) {
+  const pool = await getPool();
+  await pool.request()
+    .input('id', sql.UniqueIdentifier, userId)
+    .query('DELETE FROM dbo.Users WHERE id = @id');
+  return true;
 }
 
 async function incrementLoyaltyPoints(userId, delta = 1) {
@@ -119,5 +129,6 @@ module.exports = {
   createUser,
   updatePasswordById,
   updateProfileById,
-  incrementLoyaltyPoints
+  incrementLoyaltyPoints,
+  deleteById
 };

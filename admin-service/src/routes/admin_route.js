@@ -24,6 +24,8 @@ router.put('/restaurants/:id/suspend', controller.suspendRestaurant);
 router.post('/users/restaurant-owner', controller.createRestaurantOwner);
 router.post('/users/owner/:id/reset-password', controller.resetOwnerPassword);
 router.get('/users', controller.getUsers);
+router.put('/users/:id', controller.updateUser);
+router.delete('/users/:id', controller.deleteUser);
 router.get('/bookings', controller.getBookings);
 router.get('/transactions', controller.getTransactions);
 
@@ -36,6 +38,7 @@ router.post('/withdrawals/:id/approve', controller.approveWithdrawal);
 router.post('/withdrawals/:id/reject', controller.rejectWithdrawal);
 
 // Quan ly partner requests
+// Quan ly partner requests (Doi tac dang ky moi)
 router.get('/partner-requests', controller.getPartnerRequests);
 router.post('/partner-requests/:id/approve', controller.approvePartnerRequest);
 router.post('/partner-requests/:id/reject', controller.rejectPartnerRequest);

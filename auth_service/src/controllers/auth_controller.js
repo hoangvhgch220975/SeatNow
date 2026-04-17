@@ -137,3 +137,21 @@ exports.deletePartnerRequest = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.updateUserInternal = async (req, res, next) => {
+  try {
+    const data = await AuthService.updateUserInternal(req.params.id, req.body);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.deleteUserInternal = async (req, res, next) => {
+  try {
+    const data = await AuthService.deleteUserInternal(req.params.id);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};

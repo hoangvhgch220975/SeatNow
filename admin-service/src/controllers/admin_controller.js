@@ -26,6 +26,33 @@ async function resetOwnerPassword(req, res, next) {
   }
 }
 
+// Cap nhat thong tin user (Admin)
+async function updateUser(req, res, next) {
+  try {
+    const data = await adminService.updateUser({
+      userId: req.params.id,
+      payload: req.body,
+      authorization: req.headers.authorization
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Xoa user (Admin)
+async function deleteUser(req, res, next) {
+  try {
+    const data = await adminService.deleteUser({
+      userId: req.params.id,
+      authorization: req.headers.authorization
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Tao nha hang qua admin-service, sau do forward sang restaurant-service.
 async function createRestaurant(req, res, next) {
   try {
@@ -266,5 +293,7 @@ module.exports = {
   approvePartnerRequest,
   rejectPartnerRequest,
   getRestaurants,
-  collectCommissions
+  collectCommissions,
+  updateUser,
+  deleteUser
 };

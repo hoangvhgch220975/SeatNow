@@ -1854,6 +1854,8 @@ Hệ thống hỗ trợ cả phân tích chuỗi (Portfolio) và phân tích sâ
 | Tạm ngưng nhà hàng    | `PUT`    | `/api/v1/admin/restaurants/:id/suspend`         | |
 | Tạo Owner              | `POST`   | `/api/v1/admin/users/restaurant-owner`          | |
 | Reset mật khẩu Owner  | `POST`   | `/api/v1/admin/users/owner/:id/reset-password`  | |
+| Cập nhật Owner         | `PUT`    | `/api/v1/admin/users/:id`                       | |
+| Xóa cứng Owner         | `DELETE` | `/api/v1/admin/users/:id`                       | Xóa vĩnh viễn tài khoản |
 | DS người dùng          | `GET`    | `/api/v1/admin/users`                           | `?role=&keyword=&page=&limit=` |
 | DS bookings            | `GET`    | `/api/v1/admin/bookings`                        | `?status=&restaurantId=&dateFrom=&dateTo=` |
 | DS giao dịch           | `GET`    | `/api/v1/admin/transactions`                    | `?type=&status=&provider=&restaurantId=` |

@@ -18,6 +18,8 @@ router.put('/change-password', requireAuth, c.changePassword);
 // Internal API for Admin service
 router.post('/internal/users/restaurant-owner', c.createRestaurantOwner);
 router.post('/internal/users/:id/reset-password', c.resetPasswordOwnerByAdmin);
+router.put('/internal/users/:id', c.updateUserInternal);
+router.delete('/internal/users/:id', c.deleteUserInternal);
 
 // Partner Request APIs
 router.post('/partner-request', c.submitPartnerRequest);

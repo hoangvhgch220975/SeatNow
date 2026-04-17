@@ -201,6 +201,7 @@ async function getUsers({ role, keyword, page = 1, limit = 20 } = {}) {
       email,
       phone,
       role,
+      avatar,
       CAST(0 AS bit) AS isDeleted,
       createdAt,
       updatedAt
