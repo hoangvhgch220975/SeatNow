@@ -92,7 +92,7 @@ exports.createRestaurantOwner = async (req, res, next) => {
 
 exports.resetPasswordOwnerByAdmin = async (req, res, next) => {
   try {
-    const data = await AuthService.resetPasswordOwnerByAdmin(req.params.id);
+    const data = await AuthService.resetPasswordOwnerByAdmin(req.params.id, req.body);
     res.json(data);
   } catch (err) {
     next(err);

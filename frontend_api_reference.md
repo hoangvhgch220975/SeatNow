@@ -1852,17 +1852,28 @@ Hệ thống hỗ trợ cả phân tích chuỗi (Portfolio) và phân tích sâ
 | Duyệt nhà hàng         | `PUT`    | `/api/v1/admin/restaurants/:id/approve`         | Tạo wallet + email `restaurant_activated` |
 | Mở khóa nhà hàng      | `PUT`    | `/api/v1/admin/restaurants/:id/activate`        | Email `restaurant_reactivated` (không tạo lại wallet) |
 | Tạm ngưng nhà hàng    | `PUT`    | `/api/v1/admin/restaurants/:id/suspend`         | |
-| Tạo Owner              | `POST`   | `/api/v1/admin/users/restaurant-owner`          | |
-| Reset mật khẩu Owner  | `POST`   | `/api/v1/admin/users/owner/:id/reset-password`  | |
-| Cập nhật Owner         | `PUT`    | `/api/v1/admin/users/:id`                       | |
-| Xóa cứng Owner         | `DELETE` | `/api/v1/admin/users/:id`                       | Xóa vĩnh viễn tài khoản |
-| DS người dùng          | `GET`    | `/api/v1/admin/users`                           | `?role=&keyword=&page=&limit=` |
-| DS bookings            | `GET`    | `/api/v1/admin/bookings`                        | `?status=&restaurantId=&dateFrom=&dateTo=` |
-| DS giao dịch           | `GET`    | `/api/v1/admin/transactions`                    | `?type=&status=&provider=&restaurantId=` |
-| Thu hoa hồng (manual) | `POST`   | `/api/v1/admin/commissions/collect`             | Hỗ trợ `dryRun` |
-| Đối soát theo quý      | `POST`   | `/api/v1/admin/commissions/settle-quarter`      | `{ year, quarter, dryRun }` |
-| Duyệt rút tiền         | `POST`   | `/api/v1/admin/withdrawals/:id/approve`         | |
-| Từ chối rút tiền       | `POST`   | `/api/v1/admin/withdrawals/:id/reject`          | |
+### 3.10 Quản lý đối tác (Owners) & Nhà hàng
+
+Admin sử dụng các API này để quản lý tài khoản chủ nhà hàng và trạng thái vận hành của nhà hàng.
+
+| Chức năng              | Method   | Endpoint                                       | Tham số/Ghi chú |
+| :--------------------- | :------- | :--------------------------------------------- | :-------------- |
+| **Quản lý Đối tác (Owners)** | | | |
+| Danh sách đối tác      | `GET`    | `/api/v1/admin/users`                          | Query: `role=RESTAURANT_OWNER`, `page`, `limit`, `keyword` |
+| Thêm Owner trực tiếp   | `POST`   | `/api/v1/admin/users/restaurant-owner`         | `{ name, email, phone, avatar }` |
+| Cập nhật Owner         | `PUT`    | `/api/v1/admin/users/:id`                      | `{ name, email, phone, avatar, role }` |
+| Xóa cứng Owner         | `DELETE` | `/api/v1/admin/users/:id`                      | Xóa vĩnh viễn khỏi hệ thống |
+| Reset mật khẩu Owner   | `POST`   | `/api/v1/admin/users/owner/:id/reset-password` | `{ newPassword? }` (Tự sinh nếu trống) |
+| **Quản lý Nhà hàng (Restaurants)** | | | |
+| Danh sách tất cả       | `GET`    | `/api/v1/admin/restaurants`                    | Query: `q`, `status` (active/suspended/all), `page`, `limit` |
+| Danh sách chờ duyệt    | `GET`    | `/api/v1/admin/restaurants/pending`            | Luồng phê duyệt nhà hàng mới |
+| Duyệt nhà hàng         | `PUT`    | `/api/v1/admin/restaurants/:id/approve`        | Kích hoạt + Tạo Wallet |
+| Tạm ngưng (Lock)       | `PUT`    | `/api/v1/admin/restaurants/:id/suspend`        | |
+| Mở khóa (Unlock)       | `PUT`    | `/api/v1/admin/restaurants/:id/activate`       | |
+| **Quản lý yêu cầu làm đối tác** | | | |
+| Danh sách Lead Request | `GET`    | `/api/v1/admin/partner-requests`               | |
+| Phê duyệt Lead         | `POST`   | `/api/v1/admin/partner-requests/:id/approve`   | Sẽ tự tạo TK Owner và gửi mail |
+| Từ chối Lead          | `POST`   | `/api/v1/admin/partner-requests/:id/reject`    | |
 | DS đối tác (partner)    | `GET`    | `/api/v1/admin/partner-requests`                | |
 | Duyệt đối tác           | `POST`   | `/api/v1/admin/partner-requests/:id/approve`    | Tạo tài khoản Owner + gửi email mật khẩu |
 | Từ chối đối tác         | `POST`   | `/api/v1/admin/partner-requests/:id/reject`     | |

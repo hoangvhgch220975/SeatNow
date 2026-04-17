@@ -18,6 +18,7 @@ async function resetOwnerPassword(req, res, next) {
   try {
     const data = await adminService.resetOwnerPassword({
       ownerId: req.params.id,
+      payload: req.body,
       authorization: req.headers.authorization
     });
     return res.json({ success: true, data });

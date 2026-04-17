@@ -449,26 +449,21 @@ async function changePassword({ userId, oldPassword, newPassword, confirmPasswor
 
 
 
-async function resetPasswordOwnerByAdmin(userId) {
-  const user = await UserModel.findById(userId);
-  if (!user) {
-    throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
-  }
+async function resetPasswordOwnerByAdmin(id, { newPassword } = {}) {
+  const user = await UserModel.findById(id);
+  if (!user) throw Object.assign(new Error('USER_NOT_FOUND'), { status: 404 });
 
-  if (user.role !== 'RESTAURANT_OWNER') {
-    throw Object.assign(new Error('USER_IS_NOT_OWNER'), { status: 400 });
-  }
+  // Nếu Admin không nhập mật khẩu, hệ thống tự sinh ngẫu nhiên
+  const passwordToSend = newPassword || generateRandomPassword(10);
+  const passwordHash = await bcrypt.hash(passwordToSend, 10);
 
-  const newRawPassword = generateRandomPassword(8);
-  const passwordHash = await bcrypt.hash(newRawPassword, 10);
-
-  await UserModel.updatePasswordById(user.id, passwordHash);
+  await UserModel.updatePasswordById(id, passwordHash);
 
   if (user.email) {
-    await sendNewPasswordEmail(user.email, newRawPassword);
+    await sendNewPasswordEmail(user.email, passwordToSend);
   }
 
-  return { success: true, message: 'OWNER_PASSWORD_RESET_SUCCESSFULLY', email: user.email };
+  return { success: true, message: 'OWNER_PASSWORD_RESET_SUCCESSFULLY', email: user.email, hasCustomPassword: !!newPassword };
 }
 
 // ====== PARTNER REQUESTS (REDIS) ======

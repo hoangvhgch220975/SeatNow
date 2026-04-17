@@ -134,7 +134,7 @@ async function createRestaurantOwner({ payload, authorization }) {
 }
 
 // Admin reset mat khau cho restaurant owner
-async function resetOwnerPassword({ ownerId, authorization }) {
+async function resetOwnerPassword({ ownerId, payload, authorization }) {
   if (!ownerId) throw createHttpError('ownerId is required', 422);
 
   const authBaseUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1/auth').replace(/\/+$/, '');
@@ -148,7 +148,7 @@ async function resetOwnerPassword({ ownerId, authorization }) {
   const result = await requestJson(
     'POST',
     `${authBaseUrl}/internal/users/${ownerId}/reset-password`,
-    {},
+    payload,
     headers
   );
 
@@ -375,15 +375,22 @@ async function suspendRestaurant(restaurantId) {
 // Lay tat ca nha hàng (proxy sang restaurant-service) ho tro tim kiem va loc cho Admin.
 async function getRestaurants(query = {}) {
   const restBase = getRestaurantServiceBaseUrl();
-  // Mac dinh admin co the xem tat ca (status=all)
+  
+  // Chuan hoa phan trang (page -> offset) vi restaurant-service dung offset
+  const page = Math.max(1, parseInt(query.page || '1', 10));
+  const limit = Math.max(1, Math.min(100, parseInt(query.limit || '20', 10)));
+  const offset = (page - 1) * limit;
+
   const qs = new URLSearchParams();
   if (query.q) qs.append('q', query.q);
-  if (query.status) qs.append('status', query.status);
-  else qs.append('status', 'all');
+  
+  // Admin xem status mac dinh la all
+  const status = query.status || 'all';
+  qs.append('status', status);
+
   if (query.ownerId) qs.append('ownerId', query.ownerId);
-  if (query.page) qs.append('page', query.page);
-  if (query.limit) qs.append('limit', query.limit);
-  if (query.offset) qs.append('offset', query.offset);
+  qs.append('limit', limit.toString());
+  qs.append('offset', offset.toString());
 
   const result = await requestJson(
     'GET',

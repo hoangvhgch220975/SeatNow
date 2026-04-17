@@ -217,7 +217,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{}"
+              "raw": "{\n  \"newPassword\": \"admin123@\"\n}"
             },
             "url": "{{baseUrl}}/users/owner/{{userId}}/reset-password"
           }
