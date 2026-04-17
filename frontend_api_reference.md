@@ -1240,8 +1240,8 @@ Các API này yêu cầu Header `x-internal-token` và không được tiếp c�
 > - `status`: Lọc theo trạng thái (`active`, `pending`, `suspended`, `all`). Mặc định: `all`.
 > - `ownerId`: Lọc nhà hàng của một chủ sở hữu cụ thể (UUID).
 > - `page`, `limit`: Phân trang.
-| `PUT`  | `/restaurants/:id/activate` | Mở khóa lại (Active) nhà hàng      |
-| `PUT`  | `/restaurants/:id/suspend`  | Tạm ngưng nhà hàng                 |
+| `PUT`  | `/restaurants/:id/activate` | Mở khóa lại nhà hàng (Owner không thể mở nếu Admin đã khóa) |
+| `PUT`  | `/restaurants/:id/suspend`  | Tạm ngưng nhà hàng (Xác định ai khóa qua trường `suspendedBy`) |
 
 ### 6.3 Quản lý Người dùng & Đối tác
 
