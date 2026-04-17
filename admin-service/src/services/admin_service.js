@@ -372,33 +372,18 @@ async function suspendRestaurant(restaurantId) {
   };
 }
 
-// Lay tat ca nha hàng (proxy sang restaurant-service) ho tro tim kiem va loc cho Admin.
+// Lay tat ca nha hàng (dung SQL de JOIN thong tin owner)
 async function getRestaurants(query = {}) {
-  const restBase = getRestaurantServiceBaseUrl();
-  
-  // Chuan hoa phan trang (page -> offset) vi restaurant-service dung offset
-  const page = Math.max(1, parseInt(query.page || '1', 10));
-  const limit = Math.max(1, Math.min(100, parseInt(query.limit || '20', 10)));
-  const offset = (page - 1) * limit;
+  const page = parseInt(query.page || '1', 10);
+  const limit = parseInt(query.limit || '20', 10);
 
-  const qs = new URLSearchParams();
-  if (query.q) qs.append('q', query.q);
-  
-  // Admin xem status mac dinh la all
-  const status = query.status || 'all';
-  qs.append('status', status);
-
-  if (query.ownerId) qs.append('ownerId', query.ownerId);
-  qs.append('limit', limit.toString());
-  qs.append('offset', offset.toString());
-
-  const result = await requestJson(
-    'GET',
-    `${restBase}/restaurants?${qs.toString()}`,
-    undefined
-  );
-
-  return result;
+  return adminModel.getRestaurants({
+    q: query.q,
+    status: query.status,
+    ownerId: query.ownerId,
+    page,
+    limit
+  });
 }
 
 // Lay danh sach user cho man hinh admin.

@@ -1,8 +1,8 @@
 {
   "info": {
     "name": "SeatNow - Admin Service",
-    "_postman_id": "admin-service-v4",
-    "description": "Collection for Admin Service: Dashboard, User Management, Restaurant Management, Financials.\nBase URL: http://localhost:3006\nSetup: Run 'Login Admin' first to automatically set {{token}} and {{userId}} variables.",
+    "_postman_id": "admin-service-v5",
+    "description": "Collection for Admin Service: Dashboard, User Management, Restaurant Management, Financials.\nBase URL: http://localhost:3006\n\nLƯU Ý QUAN TRỌNG: Admin Service chạy ở cổng 3006. Hãy đảm bảo {{baseUrl}} trỏ đúng về cổng này để thấy dữ liệu Rich Owner.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -38,6 +38,15 @@
     }
   ],
   "item": [
+    {
+      "name": "Check Service Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "http://localhost:3006/health",
+        "description": "Kiểm tra xem Admin Service có đang chạy đúng ở cổng 3006 hay không. Phản hồi phải là { success: true, service: 'admin-service' }"
+      }
+    },
     {
       "name": "0. Auth",
       "item": [
@@ -564,7 +573,7 @@
                 "value": "Bearer {{token}}"
               }
             ],
-            "url": "http://localhost:3006/api/v1/admin/configs/commission",
+            "url": "{{baseUrl}}/configs/commission",
             "description": "Lấy cấu hình thu phí hoa hồng tự động hiện tại (autoEnabled, interval, updatedAt)."
           }
         },
@@ -602,7 +611,7 @@
               "mode": "raw",
               "raw": "{\n  \"autoEnabled\": true,\n  \"interval\": \"MONTH\"\n}"
             },
-            "url": "http://localhost:3006/api/v1/admin/configs/commission",
+            "url": "{{baseUrl}}/configs/commission",
             "description": "Bật tính năng thu phí tự động theo chu kỳ MONTH (Mùng 1 hàng tháng). Các giá trị interval hợp lệ: DAY, WEEK, MONTH, QUARTER, YEAR."
           }
         },
@@ -624,7 +633,7 @@
               "mode": "raw",
               "raw": "{\n  \"autoEnabled\": false\n}"
             },
-            "url": "http://localhost:3006/api/v1/admin/configs/commission",
+            "url": "{{baseUrl}}/configs/commission",
             "description": "Tắt tính năng thu phí tự động. Khi tắt, phí hoa hồng sẽ tích lũy trong lockedAmount cho đến khi Admin thu thủ công."
           }
         },

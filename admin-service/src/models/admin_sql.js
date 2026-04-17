@@ -140,16 +140,7 @@ async function getRestaurants({ q, status, ownerId, page = 1, limit = 20 } = {})
 
   const itemsRs = await req.query(`
     SELECT
-      r.id,
-      r.name,
-      r.ownerId,
-      r.status,
-      r.address,
-      r.phone,
-      r.cuisineTypeJson,
-      r.priceRange,
-      r.createdAt,
-      r.updatedAt,
+      r.*,
       u.name AS ownerName,
       u.email AS ownerEmail,
       u.phone AS ownerPhone
@@ -174,11 +165,14 @@ async function getRestaurants({ q, status, ownerId, page = 1, limit = 20 } = {})
 
   return {
     data: (itemsRs.recordset || []).map(r => {
-      // Tu dong parse cac truong JSON de FE de su dung
+      // Tu dong parse tat ca cac truong JSON de FE su dung giong het Restaurant Service
       try {
         r.cuisineTypes = r.cuisineTypeJson ? JSON.parse(r.cuisineTypeJson) : [];
+        r.images = r.imagesJson ? JSON.parse(r.imagesJson) : [];
+        r.openingHours = r.openingHoursJson ? JSON.parse(r.openingHoursJson) : {};
+        r.depositPolicy = r.depositPolicyJson ? JSON.parse(r.depositPolicyJson) : {};
       } catch (e) {
-        r.cuisineTypes = [];
+        console.warn(`Failed to parse JSON for restaurant ${r.id}:`, e.message);
       }
       return r;
     }),
