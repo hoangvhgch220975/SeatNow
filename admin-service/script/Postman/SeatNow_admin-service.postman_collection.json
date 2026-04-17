@@ -228,6 +228,47 @@
       "name": "3. Restaurant Management",
       "item": [
         {
+          "name": "Search All Restaurants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants?q=Sushi&status=all&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "Sushi",
+                  "description": "Keyword search (name/address)"
+                },
+                {
+                  "key": "status",
+                  "value": "all",
+                  "description": "all, active, pending, suspended"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "Get Pending Restaurants",
           "request": {
             "method": "GET",

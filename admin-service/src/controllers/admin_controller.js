@@ -73,6 +73,16 @@ async function getAdminRevenueStats(req, res, next) {
   }
 }
 
+// Lay danh sach tat ca nha hang voi bo loc admin (tim kiem ten, id owner...).
+async function getRestaurants(req, res, next) {
+  try {
+    const data = await adminService.getRestaurants(req.query);
+    return res.json({ success: true, ...data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Lay danh sach nha hang dang cho duyet.
 async function getPendingRestaurants(req, res, next) {
   try {
@@ -229,5 +239,6 @@ module.exports = {
   resetOwnerPassword,
   getPartnerRequests,
   approvePartnerRequest,
-  rejectPartnerRequest
+  rejectPartnerRequest,
+  getRestaurants
 };

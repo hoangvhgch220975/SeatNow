@@ -242,6 +242,28 @@ async function suspendRestaurant(restaurantId) {
   };
 }
 
+// Lay tat ca nha hàng (proxy sang restaurant-service) ho tro tim kiem va loc cho Admin.
+async function getRestaurants(query = {}) {
+  const restBase = getRestaurantServiceBaseUrl();
+  // Mac dinh admin co the xem tat ca (status=all)
+  const qs = new URLSearchParams();
+  if (query.q) qs.append('q', query.q);
+  if (query.status) qs.append('status', query.status);
+  else qs.append('status', 'all');
+  if (query.ownerId) qs.append('ownerId', query.ownerId);
+  if (query.page) qs.append('page', query.page);
+  if (query.limit) qs.append('limit', query.limit);
+  if (query.offset) qs.append('offset', query.offset);
+
+  const result = await requestJson(
+    'GET',
+    `${restBase}/restaurants?${qs.toString()}`,
+    undefined
+  );
+
+  return result;
+}
+
 // Lay danh sach user cho man hinh admin.
 async function getUsers(query = {}) {
   const paging = buildPaging(query, 20);
@@ -583,6 +605,7 @@ module.exports = {
   resetOwnerPassword,
   getPartnerRequests,
   approvePartnerRequest,
-  rejectPartnerRequest
+  rejectPartnerRequest,
+  getRestaurants
 };
 

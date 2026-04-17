@@ -14,6 +14,7 @@ router.get('/dashboard/revenue-stats', controller.getAdminRevenueStats);
 // Quan ly nha hang
 router.post('/restaurants', controller.createRestaurant);
 router.put('/restaurants/:id', controller.updateRestaurant);
+router.get('/restaurants', controller.getRestaurants);
 router.get('/restaurants/pending', controller.getPendingRestaurants);
 router.put('/restaurants/:id/approve', controller.approveRestaurant);
 router.put('/restaurants/:id/activate', controller.activateRestaurant);

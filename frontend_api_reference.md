@@ -1227,6 +1227,7 @@ Các API này yêu cầu Header `x-internal-token` và không được tiếp c�
 | ------ | --------------------------- | ---------------------------------- |
 | `POST` | `/restaurants`              | Tạo nhà hàng (trạng thái `active`) |
 | `PUT`  | `/restaurants/:id`          | Cập nhật nhà hàng                  |
+| `GET`  | `/restaurants`              | Danh sách tất cả nhà hàng (search) |
 | `GET`  | `/restaurants/pending`      | Danh sách nhà hàng chờ duyệt       |
 | `PUT`  | `/restaurants/:id/approve`  | Duyệt mới → `active` + tạo Wallet  |
 | `PUT`  | `/restaurants/:id/activate` | Mở khóa lại (Active) nhà hàng      |
