@@ -55,8 +55,12 @@ async function getDashboardStats({ dateFrom, dateTo } = {}) {
       (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED' ${dateFilterBookings}) AS completedBookings,
       (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('CANCELLED', 'NO_SHOW') ${dateFilterBookings}) AS cancelledBookings,
       
-      (SELECT ISNULL(SUM(commissionFee), 0) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED' ${dateFilterBookings}) AS totalCommission,
-      (SELECT ISNULL(SUM(depositAmount), 0) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED' ${dateFilterBookings}) AS totalDeposit,
+      (SELECT ISNULL(SUM(CASE 
+        WHEN UPPER(ISNULL(status, '')) IN ('ARRIVED', 'COMPLETED', 'NO_SHOW', 'CONFIRMED') THEN ISNULL(commissionFee, 0)
+        WHEN UPPER(ISNULL(status, '')) = 'CANCELLED' AND ISNULL(depositRefunded, 0) = 0 THEN ISNULL(depositAmount, 0)
+        ELSE 0 
+      END), 0) FROM dbo.Bookings WHERE 1=1 ${dateFilterBookings}) AS totalCommission,
+      (SELECT ISNULL(SUM(depositAmount), 0) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('ARRIVED', 'COMPLETED', 'NO_SHOW', 'CONFIRMED') ${dateFilterBookings}) AS totalDeposit,
 
       (SELECT COUNT(1) FROM dbo.Transactions WHERE 1=1 ${dateFilterTransactions}) AS totalTransactions,
       (SELECT COUNT(1) FROM dbo.Transactions WHERE UPPER(ISNULL(type, '')) = 'DEPOSIT_PAYMENT' ${dateFilterTransactions}) AS totalDepositTransactions
@@ -439,7 +443,11 @@ async function getAdminRevenueStats({ period = 'month', from, to } = {}) {
     SELECT
       ${selectTimeExpr} AS timePeriod,
       COUNT(b.id) AS totalBookings,
-      ISNULL(SUM(b.commissionFee), 0) AS totalAdminCommission,
+      ISNULL(SUM(CASE 
+        WHEN UPPER(ISNULL(b.status, '')) IN ('ARRIVED', 'COMPLETED', 'NO_SHOW', 'CONFIRMED') THEN ISNULL(b.commissionFee, 0)
+        WHEN UPPER(ISNULL(b.status, '')) = 'CANCELLED' AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0)
+        ELSE 0 
+      END), 0) AS totalAdminCommission,
       ISNULL(SUM(b.depositAmount), 0) AS totalPlatformDeposit
     FROM TimeSeries ts
     LEFT JOIN dbo.Bookings b ON ${joinOnExpr} 
