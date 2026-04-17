@@ -173,7 +173,15 @@ async function getRestaurants({ q, status, ownerId, page = 1, limit = 20 } = {})
   `);
 
   return {
-    data: itemsRs.recordset || [],
+    data: (itemsRs.recordset || []).map(r => {
+      // Tu dong parse cac truong JSON de FE de su dung
+      try {
+        r.cuisineTypes = r.cuisineTypeJson ? JSON.parse(r.cuisineTypeJson) : [];
+      } catch (e) {
+        r.cuisineTypes = [];
+      }
+      return r;
+    }),
     pagination: {
       page: safePage,
       limit: safeLimit,
