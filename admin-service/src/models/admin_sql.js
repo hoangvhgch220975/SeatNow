@@ -55,11 +55,7 @@ async function getDashboardStats({ dateFrom, dateTo } = {}) {
       (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED' ${dateFilterBookings}) AS completedBookings,
       (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('CANCELLED', 'NO_SHOW') ${dateFilterBookings}) AS cancelledBookings,
       
-      (SELECT ISNULL(SUM(CASE 
-        WHEN UPPER(ISNULL(status, '')) IN ('ARRIVED', 'COMPLETED', 'NO_SHOW', 'CONFIRMED') THEN ISNULL(commissionFee, 0)
-        WHEN UPPER(ISNULL(status, '')) = 'CANCELLED' AND ISNULL(depositRefunded, 0) = 0 THEN ISNULL(depositAmount, 0)
-        ELSE 0 
-      END), 0) FROM dbo.Bookings WHERE 1=1 ${dateFilterBookings}) AS totalCommission,
+      (SELECT ISNULL(SUM(amount), 0) FROM dbo.Transactions WHERE walletId = '6EDEC0B0-EA2C-46CB-B940-C8A1A357A0C9' AND status = 'COMPLETED' ${dateFilterTransactions}) AS totalCommission,
       (SELECT ISNULL(SUM(depositAmount), 0) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('ARRIVED', 'COMPLETED', 'NO_SHOW', 'CONFIRMED') ${dateFilterBookings}) AS totalDeposit,
 
       (SELECT COUNT(1) FROM dbo.Transactions WHERE 1=1 ${dateFilterTransactions}) AS totalTransactions,
@@ -442,21 +438,21 @@ async function getAdminRevenueStats({ period = 'month', from, to } = {}) {
     ${cteQuery}
     SELECT
       ${selectTimeExpr} AS timePeriod,
-      COUNT(b.id) AS totalBookings,
-      ISNULL(SUM(CASE 
-        WHEN UPPER(ISNULL(b.status, '')) IN ('ARRIVED', 'COMPLETED', 'NO_SHOW', 'CONFIRMED') THEN ISNULL(b.commissionFee, 0)
-        WHEN UPPER(ISNULL(b.status, '')) = 'CANCELLED' AND ISNULL(b.depositRefunded, 0) = 0 THEN ISNULL(b.depositAmount, 0)
-        ELSE 0 
-      END), 0) AS totalAdminCommission,
-      ISNULL(SUM(b.depositAmount), 0) AS totalPlatformDeposit
+      (
+        SELECT COUNT(1) FROM dbo.Bookings b 
+        WHERE ${isToday ? 'DATEPART(HOUR, b.bookingDate) = ts.h AND b.bookingDate >= @from AND b.bookingDate <= @to' : 'CAST(b.bookingDate AS DATE) = ts.d'}
+      ) AS totalBookings,
+      (
+        SELECT ISNULL(SUM(t.amount), 0) FROM dbo.Transactions t 
+        WHERE t.walletId = '6EDEC0B0-EA2C-46CB-B940-C8A1A357A0C9' AND t.status = 'COMPLETED'
+          AND ${isToday ? 'DATEPART(HOUR, t.createdAt) = ts.h AND t.createdAt >= @from AND t.createdAt <= @to' : 'CAST(t.createdAt AS DATE) = ts.d'}
+      ) AS totalAdminCommission,
+      (
+        SELECT ISNULL(SUM(b.depositAmount), 0) FROM dbo.Bookings b 
+        WHERE ${isToday ? 'DATEPART(HOUR, b.bookingDate) = ts.h AND b.bookingDate >= @from AND b.bookingDate <= @to' : 'CAST(b.bookingDate AS DATE) = ts.d'}
+          AND b.status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED', 'NO_SHOW')
+      ) AS totalPlatformDeposit
     FROM TimeSeries ts
-    LEFT JOIN dbo.Bookings b ON ${joinOnExpr} 
-      AND (
-        b.status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED', 'NO_SHOW') 
-        OR (b.status = 'CANCELLED' AND ISNULL(b.depositRefunded, 0) = 0)
-      )
-      AND ISNULL(b.commissionFee, 0) > 0
-    GROUP BY ${isToday ? 'ts.h' : 'ts.d'}
     ORDER BY ${isToday ? 'ts.h' : 'ts.d'} ASC
     OPTION (MAXRECURSION 366);
   `;
