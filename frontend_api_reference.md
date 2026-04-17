@@ -1219,11 +1219,28 @@ Các API này yêu cầu Header `x-internal-token` và không được tiếp c�
 | Method | Endpoint                   | Mô tả                    |
 | ------ | -------------------------- | ------------------------ |
 | `GET`  | `/dashboard/stats`         | Thống kê tổng quan       |
-| `GET`  | `/dashboard/revenue-stats` | Thống kê doanh thu Admin |
+| `GET`  | `/dashboard/revenue-stats` | Thống kê doanh thu Admin (Hỗ trợ Zero-filling) |
 
 > **Tham số query cho GET /dashboard/stats**:
 > - `period`: Lọc nhanh theo kỳ (`today`, `week`, `month`, `quarter`, `year`).
 > - `from`, `to`: Lọc chính xác theo dải ngày (ISO Date).
+
+#### 📈 Thống kê doanh thu (`GET /dashboard/revenue-stats`):
+Hệ thống sử dụng kỹ thuật **Zero-filling** để đảm bảo biểu đồ luôn đầy đủ các mốc thời gian ngay cả khi không có doanh thu.
+
+**Đặc điểm dữ liệu:**
+- **Today**: Trả về đúng 24 điểm dữ liệu (tương ứng 24 giờ trong ngày).
+- **Week**: Trả về 7 điểm dữ liệu (tương ứng 7 ngày gần nhất).
+- **ISO Format**: `timePeriod` luôn trả về định dạng ISO chuẩn (ví dụ: `2026-04-17T01:00:00Z`).
+
+**Response mẫu:**
+```json
+[
+  { "timePeriod": "2026-04-17T00:00:00Z", "totalAdminCommission": 0, "totalBookings": 0 },
+  { "timePeriod": "2026-04-17T01:00:00Z", "totalAdminCommission": 25000, "totalBookings": 1 },
+  ...
+]
+```
 
 ### 6.2 Quản lý Nhà hàng
 

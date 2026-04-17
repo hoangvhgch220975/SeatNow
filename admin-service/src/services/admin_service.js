@@ -212,10 +212,20 @@ function getPeriodRange(period) {
 
 // Lay thong ke doanh thu theo thoi gian cho admin
 async function getAdminRevenueStats(query = {}) {
+  const { period, from, to } = query;
+  let dateFrom = from;
+  let dateTo = to;
+
+  if (period && (!dateFrom || !dateTo)) {
+    const range = getPeriodRange(period);
+    dateFrom = range.from;
+    dateTo = range.to;
+  }
+
   return adminModel.getAdminRevenueStats({
-    period: query.period,
-    from: query.from,
-    to: query.to
+    period: period || 'month',
+    from: dateFrom,
+    to: dateTo
   });
 }
 

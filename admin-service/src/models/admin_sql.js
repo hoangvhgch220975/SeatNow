@@ -388,46 +388,69 @@ async function getTransactions({ type, status, provider, restaurantId, walletId,
   };
 }
 
-// Thống kê doanh thu toàn hệ thống cho Admin (Hoa hồng)
+// Thống kê doanh thu toàn hệ thống cho Admin (Hoa hồng) - Hỗ trợ Zero-filling
 async function getAdminRevenueStats({ period = 'month', from, to } = {}) {
   const pool = await getPool();
   const req = pool.request();
 
-  let periodExpr = "FORMAT(bookingDate, 'yyyy-MM-dd')"; // day
-  if (period === 'week') {
-    periodExpr = "CONCAT(YEAR(bookingDate), '-W', RIGHT('0' + CAST(DATEPART(iso_week, bookingDate) AS VARCHAR(2)), 2))";
-  } else if (period === 'month') {
-    periodExpr = "FORMAT(bookingDate, 'yyyy-MM')";
-  } else if (period === 'quarter') {
-    periodExpr = "CONCAT(YEAR(bookingDate), '-Q', DATEPART(quarter, bookingDate))";
-  } else if (period === 'year') {
-    periodExpr = "FORMAT(bookingDate, 'yyyy')";
-  }
+  // Đảm bảo có giá trị mặc định cho from/to nếu bị thiếu
+  const dFrom = from ? new Date(from) : new Date();
+  const dTo = to ? new Date(to) : new Date();
 
-  const where = [
-    "(status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED', 'NO_SHOW') OR (status = 'CANCELLED' AND ISNULL(depositRefunded, 0) = 0))",
-    "ISNULL(commissionFee, 0) > 0"
-  ];
+  req.input('from', sql.DateTime, dFrom);
+  req.input('to', sql.DateTime, dTo);
 
-  if (from) {
-    where.push('bookingDate >= @from');
-    req.input('from', sql.Date, from);
-  }
-  if (to) {
-    where.push('bookingDate <= @to');
-    req.input('to', sql.Date, to);
+  let cteQuery = '';
+  let selectTimeExpr = '';
+  let joinOnExpr = '';
+
+  const isToday = period.toLowerCase() === 'today' || period.toLowerCase() === 'day';
+
+  if (isToday) {
+    // Zero-filling theo Giờ (24 điểm) cho Today
+    cteQuery = `
+      WITH TimeSeries AS (
+        SELECT 0 AS h
+        UNION ALL
+        SELECT h + 1 FROM TimeSeries WHERE h < 23
+      )
+    `;
+    // Tạo ISO string cho từng mốc giờ dựa trên ngày 'from'
+    const dateStr = dFrom.toISOString().split('T')[0];
+    req.input('dateStr', sql.NVarChar(10), dateStr);
+    
+    selectTimeExpr = `CONCAT(@dateStr, 'T', RIGHT('0' + CAST(ts.h AS VARCHAR(2)), 2), ':00:00Z')`;
+    joinOnExpr = `DATEPART(HOUR, b.bookingDate) = ts.h AND b.bookingDate >= @from AND b.bookingDate <= @to`;
+  } else {
+    // Zero-filling theo Ngày cho Week/Month
+    cteQuery = `
+      WITH TimeSeries AS (
+        SELECT CAST(@from AS DATE) AS d
+        UNION ALL
+        SELECT DATEADD(DAY, 1, d) FROM TimeSeries WHERE d < CAST(@to AS DATE)
+      )
+    `;
+    selectTimeExpr = `FORMAT(ts.d, 'yyyy-MM-ddT00:00:00Z')`;
+    joinOnExpr = `CAST(b.bookingDate AS DATE) = ts.d`;
   }
 
   const query = `
+    ${cteQuery}
     SELECT
-      ${periodExpr} AS timePeriod,
-      COUNT(id) AS totalBookings,
-      ISNULL(SUM(depositAmount), 0) AS totalPlatformDeposit,
-      ISNULL(SUM(commissionFee), 0) AS totalAdminCommission
-    FROM dbo.Bookings
-    WHERE ${where.join(' AND ')}
-    GROUP BY ${periodExpr}
-    ORDER BY ${periodExpr} ASC
+      ${selectTimeExpr} AS timePeriod,
+      COUNT(b.id) AS totalBookings,
+      ISNULL(SUM(b.commissionFee), 0) AS totalAdminCommission,
+      ISNULL(SUM(b.depositAmount), 0) AS totalPlatformDeposit
+    FROM TimeSeries ts
+    LEFT JOIN dbo.Bookings b ON ${joinOnExpr} 
+      AND (
+        b.status IN ('CONFIRMED', 'ARRIVED', 'COMPLETED', 'NO_SHOW') 
+        OR (b.status = 'CANCELLED' AND ISNULL(b.depositRefunded, 0) = 0)
+      )
+      AND ISNULL(b.commissionFee, 0) > 0
+    GROUP BY ${isToday ? 'ts.h' : 'ts.d'}
+    ORDER BY ${isToday ? 'ts.h' : 'ts.d'} ASC
+    OPTION (MAXRECURSION 366);
   `;
 
   const rs = await req.query(query);
