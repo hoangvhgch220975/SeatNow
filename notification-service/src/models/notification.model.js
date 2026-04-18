@@ -120,4 +120,74 @@ async function markAllAsRead(ownerId) {
   return rs.rowsAffected[0];
 }
 
-module.exports = { saveNotification, getOwnerActivity, markAsRead, markAllAsRead };
+/**
+ * Lấy danh sách hoạt động hệ thống cho Admin (ownerId IS NULL)
+ * @param {number} limit
+ * @param {number} offset
+ * @param {string} type
+ */
+async function getAdminActivity({ limit = 20, offset = 0, type = null } = {}) {
+  const pool = await getPool();
+  const req = pool.request()
+    .input('limit',   sql.Int, limit)
+    .input('offset',  sql.Int, offset);
+
+  const typeFilter = type ? 'AND type = @type' : '';
+  if (type) req.input('type', sql.NVarChar(50), type);
+
+  const rs = await req.query(`
+    SELECT
+      id,
+      ownerId,
+      restaurantId,
+      type,
+      title,
+      message,
+      metadata,
+      isRead,
+      createdAt
+    FROM dbo.Notifications
+    WHERE ownerId IS NULL ${typeFilter}
+    ORDER BY createdAt DESC
+    OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+  `);
+
+  const countReq = pool.request();
+  if (type) countReq.input('type', sql.NVarChar(50), type);
+
+  const countRs = await countReq.query(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN isRead = 0 THEN 1 ELSE 0 END) AS unreadCount
+    FROM dbo.Notifications
+    WHERE ownerId IS NULL ${typeFilter}
+  `);
+
+  const { total, unreadCount } = countRs.recordset[0];
+
+  return {
+    total: Number(total || 0),
+    unreadCount: Number(unreadCount || 0),
+    items: rs.recordset.map(row => ({
+      ...row,
+      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      isRead: row.isRead === true || row.isRead === 1
+    }))
+  };
+}
+
+/**
+ * Đánh dấu TẤT CẢ thông báo Admin là đã đọc
+ */
+async function markAllAdminAsRead() {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .query(`
+      UPDATE dbo.Notifications
+      SET isRead = 1
+      WHERE ownerId IS NULL AND isRead = 0
+    `);
+  return rs.rowsAffected[0];
+}
+
+module.exports = { saveNotification, getOwnerActivity, getAdminActivity, markAsRead, markAllAsRead, markAllAdminAsRead };

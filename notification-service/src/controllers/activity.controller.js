@@ -58,4 +58,36 @@ async function markAllAsRead(req, res) {
   }
 }
 
-module.exports = { getOwnerActivity, markAsRead, markAllAsRead };
+/**
+ * Lấy danh sách hoạt động hệ thống cho Admin
+ * GET /api/v1/admin/activity
+ */
+async function getAdminActivity(req, res) {
+  try {
+    const limit  = Math.min(parseInt(req.query.limit  || '20', 10), 100);
+    const offset = parseInt(req.query.offset || '0', 10);
+    const type   = req.query.type || null;
+
+    const result = await notificationModel.getAdminActivity({ limit, offset, type });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('[getAdminActivity] Error:', err.message);
+    res.status(500).json({ message: 'Failed to fetch admin activity feed.' });
+  }
+}
+
+/**
+ * Đánh dấu TẤT CẢ thông báo hệ thống là đã đọc
+ * PUT /api/v1/admin/activity/read-all
+ */
+async function markAllAdminAsRead(req, res) {
+  try {
+    const updatedCount = await notificationModel.markAllAdminAsRead();
+    res.json({ success: true, updatedCount, message: `${updatedCount} admin notifications marked as read.` });
+  } catch (err) {
+    console.error('[markAllAdminAsRead] Error:', err.message);
+    res.status(500).json({ message: 'Failed to mark all admin notifications as read.' });
+  }
+}
+
+module.exports = { getOwnerActivity, markAsRead, markAllAsRead, getAdminActivity, markAllAdminAsRead };

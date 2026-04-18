@@ -106,9 +106,9 @@ module.exports = async function processNotification(job) {
           );
         }
 
-        // 2. Automatically save to DB if ownerId is present
+        // 2. Automatically save to DB if ownerId is present OR if it is a global admin notification
         // Wrap in try-catch so DB errors (SQL Constraints) don't break Real-time delivery
-        if (resolvedUserId) {
+        if (resolvedUserId || payload.role === 'ADMIN') {
           try {
             // Ensure link is persisted in metadata for activity feed retrieval
             const metadata = { 
@@ -117,7 +117,7 @@ module.exports = async function processNotification(job) {
             };
 
             await notificationModel.saveNotification({
-              ownerId:      resolvedUserId,
+              ownerId:      resolvedUserId || null,
               restaurantId: payload.restaurantId || null,
               type:         (payload.activityType || payload.event || 'SYSTEM').toUpperCase(),
               title:        payload.title        || notifTitles[payload.event] || payload.event || 'Notification',

@@ -1590,10 +1590,26 @@ API cung cấp dữ liệu bền vững (persistent) cho bảng "Recent Global A
 > [!TIP]
 > **Chuẩn hóa Tiêu đề (Standardized Titles):** Kể từ bản cập nhật 2026-04-12, Server đã tự động tra cứu và gán `title` thân thiện (ví dụ: "Booking Confirmed" cho `BOOKING_CONFIRMED`) trước khi lưu vào DB và gửi qua Socket. Frontend có thể sử dụng trực tiếp trường `title` để hiển thị trên UI mà không cần logic ánh xạ thủ công.
 >
+### 8.1 Activity Feed (Lịch sử hoạt động)
+Dịch vụ thông báo hiện hỗ trợ lưu trữ và truy vấn lịch sử cho cả Owner và Admin.
+
+#### 8.1.1 Owner Activity Feed
+| API | Mô tả |
+| :-- | :--- |
+| `GET /api/v1/owner/activity` | Lấy danh sách hoạt động cá nhân. Query: `limit`, `offset`, `type`. |
+| `PUT /api/v1/owner/activity/:id/read` | Đánh dấu 1 tin nhắn là đã đọc. |
+| `PUT /api/v1/owner/activity/read-all` | Đánh dấu tất cả tin nhắn cá nhân là đã đọc. |
+
+#### 8.1.2 Admin Activity Feed (NEW)
+| API | Mô tả |
+| :-- | :--- |
+| `GET /api/v1/admin/activity` | Lấy danh sách hoạt động toàn hệ thống (ownerId IS NULL). Query: `limit`, `offset`, `type`. |
+| `PUT /api/v1/admin/activity/read-all` | Đánh dấu tất cả tin nhắn hệ thống là đã đọc. |
+
+> [!TIP]
 > **Tích hợp Socket + API (Recommended Pattern):**
-> 1. **Khi tải trang:** Gọi `GET /api/v1/owner/activity` để hiển thị danh sách ban đầu (bao gồm lịch sử offline).
+> 1. **Khi tải trang:** Gọi API `activity` tương ứng để hiển thị danh sách ban đầu (Offline History).
 > 2. **Real-time:** Lắng nghe socket event `notification` để đẩy thêm mục mới lên đầu danh sách mà không cần reload.
-> 3. **Phân trang:** Khi người dùng cuộn xuống, gọi lại API với `offset` tăng dần.
 
 ### 8.2 Socket.IO – Web Notifications
 

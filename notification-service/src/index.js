@@ -59,6 +59,7 @@ app.post('/api/v1/notifications', async (req, res) => {
 // ─── Owner Activity Feed Routes ───────────────────────────────────────────────
 // Gắn toàn bộ các route activity vào prefix /api/v1/owner/activity
 app.use('/api/v1/owner/activity', activityRouter);
+app.use('/api/v1/admin/activity', adminActivityRouter);
 
 // Attach Worker to Queue
 notificationQueue.process(notificationWorker);
