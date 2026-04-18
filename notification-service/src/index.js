@@ -41,8 +41,8 @@ app.get('/health', (req, res) => {
   res.json({ status: 'up', service: 'notification-service' });
 });
 
-// Test Endpoint to trigger notifications via HTTP (for Postman/Internal use)
-app.post('/api/v1/notifications/test', async (req, res) => {
+// Trigger notifications via HTTP (Internal Service Use)
+app.post('/api/v1/notifications', async (req, res) => {
   const { type, payload } = req.body;
   if (!type || !payload) {
     return res.status(400).json({ error: 'Missing type or payload' });

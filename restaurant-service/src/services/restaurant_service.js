@@ -71,7 +71,7 @@ async function createRestaurant(payload) {
   // Notify Admin
   try {
     const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
-    fetch(`${notificationUrl}/test`, {
+    fetch(notificationUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -80,6 +80,7 @@ async function createRestaurant(payload) {
           role: 'ADMIN',
           event: 'RESTAURANT_CREATED',
           message: `New restaurant created: ${payload.name} (Pending Approval)`,
+          link: '/audit-requests',
           data: {
             restaurantId: result.id || result.insertedId || null,
             name: payload.name

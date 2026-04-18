@@ -491,12 +491,13 @@ async function submitPartnerRequest({ name, phone, email, documentUrl }) {
   // Notify Admin
   try {
     const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
-    await axios.post(`${notificationUrl}/test`, {
+    await axios.post(notificationUrl, {
       type: 'web',
       payload: {
         role: 'ADMIN',
         event: 'PARTNER_REQUEST_SUBMITTED',
         message: `New partner request received from ${name} (${phone})`,
+        link: '/audit-requests',
         data: requestObj
       }
     });

@@ -1,7 +1,7 @@
 # 📘 SeatNow – Frontend API Reference & Integration Guide
 
 > **Mục đích:** Tài liệu này cung cấp toàn bộ danh sách endpoints, Socket.IO events, và hướng dẫn kết nối frontend cho dự án SeatNow.
-> **Cập nhật lần cuối:** 2026-04-18 (v1.3.1)
+> **Cập nhật lần cuối:** 2026-04-18 (v1.3.2)
 
 ---
 
@@ -1508,10 +1508,10 @@ Dành cho Role `RESTAURANT_OWNER`. AI sẽ phân tích dữ liệu kinh doanh c�
 
 **Base path:** `/api/v1/notifications`
 
-| Method | Endpoint         | Mô tả                     | Auth |
-| ------ | ---------------- | ------------------------- | ---- |
-| `GET`  | `/health` (root) | Health check              | ❌   |
-| `POST` | `/test`          | Trigger test notification | ❌   |
+| Method | Endpoint | Mô tả                                       | Auth |
+| ------ | -------- | ------------------------------------------ | ---- |
+| `GET`  | `/health`| Health check                               | ❌   |
+| `POST` | `/`       | Trigger notification (Internal Service Use)| ❌   |
 
 ### 🔔 8.1 Owner Activity Feed (Lịch sử hoạt động)
 
@@ -1616,8 +1616,8 @@ Notification Service gửi push notification qua Socket.IO theo 2 cấp độ:
 | **`RESTAURANT_SUSPENDED`**  | `{ message, data: { restaurantId } }`           | `OWNER`        | Khi Admin tạm ngưng hoạt động nhà hàng (Khoá).                            |
 | `bookingChanged`            | `{ type, booking }`                             | OWNER, ADMIN   | Kích hoạt khi có thay đổi trạng thái đặt bàn (created, confirmed, cancelled, ...). Dùng để refresh Dashboard realtime. |
 | **`WITHDRAWAL_REQUESTED`**  | `{ message, data: { restaurantName, amount } }` | `role:ADMIN`   | Kích hoạt ngay lập tức khi một Owner nộp đơn yêu cầu Rút tiền thành công. |
-| **`PARTNER_REQUEST_SUBMITTED`**| `{ message, data: { ...requestData } }`         | `role:ADMIN`   | Kích hoạt khi partner hoàn tất form "Be my member" (Trở thành đối tác).   |
-| **`RESTAURANT_CREATED`**    | `{ message, data: { restaurantId, name } }`     | `role:ADMIN`   | Kích hoạt khi Owner tạo nhà hàng mới và chờ duyệt.                        |
+| **`PARTNER_REQUEST_SUBMITTED`**| `{ message, link, data: { ...requestData } }` | `role:ADMIN`   | Kích hoạt khi partner hoàn tất form "Be my member". Có kèm `link: '/audit-requests'`. |
+| **`RESTAURANT_CREATED`**    | `{ message, link, data: { restaurantId, name } }` | `role:ADMIN`   | Kích hoạt khi Owner tạo nhà hàng mới và chờ duyệt. Có kèm `link: '/audit-requests'`. |
 | **`TRANSACTION_TOPUP`**     | `{ message, data: { amount, ... } }`            | `role:ADMIN`   | Thông báo khi nhà hàng nạp tiền thành công.                               |
 | **`COMMISSION_SETTLED`**    | `{ message, data: { amount, ... } }`            | `role:ADMIN`   | Thông báo khi hệ thống thực hiện thu phí hoa hồng.                        |
 
