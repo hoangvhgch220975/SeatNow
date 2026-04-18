@@ -1520,6 +1520,9 @@ API cung cấp dữ liệu bền vững (persistent) cho bảng "Recent Global A
 | `TRANSACTION_WITHDRAW_APPROVED`| Admin duyệt yêu cầu rút tiền                         |
 | `REVIEW_NEW`                   | Nhận được đánh giá mới                               |
 | `COMMISSION_SETTLED`           | Phí hoa hồng tháng đã được khấu trừ                  |
+| `RESTAURANT_APPROVED`         | Nhà hàng được Admin phê duyệt (Approve)             |
+| `RESTAURANT_ACTIVATED`        | Nhà hàng được mở khóa hoạt động lại                 |
+| `RESTAURANT_SUSPENDED`        | Nhà hàng bị Admin tạm ngưng hoạt động               |
 
 #### Response mẫu (GET /api/v1/owner/activity - 200 OK):
 
@@ -1580,7 +1583,10 @@ Notification Service gửi push notification qua Socket.IO theo 2 cấp độ:
 
 | Event                       | Payload                                         | Đối tượng nhận | Mô tả                                                                     |
 | --------------------------- | ----------------------------------------------- | -------------- | ------------------------------------------------------------------------- |
-| `notification`              | `{ title, message, data }`                      | Any            | Sự kiện gửi notification chung cơ bản. Tiêu đề (`title`) hiện được tự động chuẩn hóa cho các sự kiện hệ thống. |
+| `notification`              | `{ title, message, data }`                      | ANY            | Sự kiện gửi notification chung cơ bản. Tiêu đề (`title`) hiện được tự động chuẩn hóa cho các sự kiện hệ thống. |
+| **`RESTAURANT_APPROVED`**   | `{ message, data: { restaurantId } }`           | `OWNER`        | Khi Admin nhấn "Approve" hồ sơ nhà hàng của bạn.                          |
+| **`RESTAURANT_ACTIVATED`**  | `{ message, data: { restaurantId } }`           | `OWNER`        | Khi Admin mở khóa hoạt động cho nhà hàng.                                 |
+| **`RESTAURANT_SUSPENDED`**  | `{ message, data: { restaurantId } }`           | `OWNER`        | Khi Admin tạm ngưng hoạt động nhà hàng (Khoá).                            |
 | `bookingChanged`            | `{ type, booking }`                             | OWNER, ADMIN   | Kích hoạt khi có thay đổi trạng thái đặt bàn (created, confirmed, cancelled, ...). Dùng để refresh Dashboard realtime. |
 | **`WITHDRAWAL_REQUESTED`**  | `{ message, data: { restaurantName, amount } }` | `role:ADMIN`   | Kích hoạt ngay lập tức khi một Owner nộp đơn yêu cầu Rút tiền thành công. |
 | **`PARTNER_REQUEST_SUBMITTED`**| `{ message, data: { ...requestData } }`         | `role:ADMIN`   | Kích hoạt khi partner hoàn tất form "Be my member" (Trở thành đối tác).   |

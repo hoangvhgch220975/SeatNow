@@ -310,6 +310,22 @@ async function approveRestaurant(restaurantId) {
           }
         })
       }).catch(err => console.error('Failed to notify owner of restaurant activation:', err.message));
+
+      // Gửi Web notification (Real-time)
+      await fetch(`${notificationUrl}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'web',
+          payload: {
+            userId: restaurant.ownerId,
+            restaurantId: restaurant.id,
+            title: 'Chúc mừng! Nhà hàng đã được duyệt',
+            message: `Nhà hàng "${restaurant.name}" của bạn đã được Admin phê duyệt và hiện đã có thể hoạt động.`,
+            event: 'RESTAURANT_APPROVED'
+          }
+        })
+      }).catch(() => {});
     }
   } catch (notifyErr) {
     console.warn('Non-blocking error during owner notification:', notifyErr.message);
@@ -349,6 +365,22 @@ async function activateRestaurant(restaurantId) {
           }
         })
       }).catch(err => console.error('Failed to notify owner of restaurant reactivation:', err.message));
+
+      // Gửi Web notification (Real-time)
+      await fetch(`${notificationUrl}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'web',
+          payload: {
+            userId: restaurant.ownerId,
+            restaurantId: restaurant.id,
+            title: 'Nhà hàng đã được mở khóa',
+            message: `Nhà hàng "${restaurant.name}" của bạn đã được Admin mở khóa và hoạt động trở lại.`,
+            event: 'RESTAURANT_ACTIVATED'
+          }
+        })
+      }).catch(() => {});
     }
   } catch (notifyErr) {
     console.warn('Non-blocking error during owner reactivation notification:', notifyErr.message);
@@ -366,6 +398,48 @@ async function suspendRestaurant(restaurantId) {
   if (!restaurant) throw createHttpError('Restaurant not found', 404);
 
   await adminModel.suspendRestaurant(restaurantId);
+  
+  // Thông báo khóa nhà hàng
+  try {
+    const owner = await adminModel.getUserAuthById(restaurant.ownerId);
+    const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+    
+    // 1. Gửi Email (Nếu có email)
+    if (owner && owner.email) {
+      await fetch(`${notificationUrl}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'email',
+          payload: {
+            to: owner.email,
+            subject: `[SeatNow] Nhà hàng "${restaurant.name}" đã bị tạm ngưng`,
+            html: `<p>Chào ${owner.fullName || 'Owner'},</p><p>Nhà hàng <b>${restaurant.name}</b> của bạn đã bị Admin tạm ngưng hoạt động. Vui lòng liên hệ bộ phận hỗ trợ để biết thêm chi tiết.</p>`
+          }
+        })
+      }).catch(() => {});
+    }
+
+    // 2. Gửi Web Notification
+    await fetch(`${notificationUrl}/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'web',
+        payload: {
+          userId: restaurant.ownerId,
+          restaurantId: restaurant.id,
+          title: 'Nhà hàng bị tạm ngưng',
+          message: `Nhà hàng "${restaurant.name}" của bạn đã bị Admin tạm ngưng hoạt động.`,
+          event: 'RESTAURANT_SUSPENDED'
+        }
+      })
+    }).catch(() => {});
+
+  } catch (notifyErr) {
+    console.warn('Non-blocking error during owner suspension notification:', notifyErr.message);
+  }
+
   return {
     restaurantId,
     status: 'suspended'
