@@ -231,7 +231,9 @@ async function createBooking({ actor, body }) {
         payload: {
           userId: r.ownerId,
           event: 'BOOKING_NEW',
+          title: 'New Booking Received',
           message: `New order: ${row.bookingCode}`,
+          link: '/restaurant/bookings',
           data: { booking: row, restaurant: r }
         }
       });
@@ -439,7 +441,9 @@ async function confirm(idOrCode) {
         payload: {
           userId: r.ownerId,
           event: 'BOOKING_CONFIRMED',
+          title: 'Booking Confirmed',
           message: `Confirmed booking: ${updated.bookingCode}`,
+          link: '/restaurant/bookings',
           data: { booking: updated }
         }
       });
@@ -612,9 +616,11 @@ async function guestCancel(idOrCode, guestPhone, cancellationReason = null) {
         payload: {
           userId: r.ownerId,
           event: 'BOOKING_CANCELLED',
+          title: 'Booking Cancelled',
           message: updated.depositRefunded 
               ? `Guest cancelled: ${updated.bookingCode}. REFUND REQUIRED: ${updated.depositAmount} ${updated.currency || 'VND'}`
               : `Guest cancelled: ${updated.bookingCode}`,
+          link: '/restaurant/bookings',
           data: { booking: updated }
         }
       });
@@ -730,9 +736,11 @@ async function cancel(idOrCode, actor = null, cancellationReason = null) {
           payload: {
             userId: r.ownerId,
             event: 'BOOKING_CANCELLED',
+            title: 'Booking Cancelled',
             message: updated.depositRefunded 
               ? `Customer cancelled: ${updated.bookingCode}. REFUND REQUIRED: ${updated.depositAmount} ${updated.currency || 'VND'}`
               : `Customer cancelled: ${updated.bookingCode}`,
+            link: '/restaurant/bookings',
             data: { booking: updated }
           }
         });
@@ -808,7 +816,9 @@ async function noShow(idOrCode) {
         payload: {
           userId: r.ownerId,
           event: 'BOOKING_NO_SHOW',
+          title: 'Guest No-Show Detected',
           message: `No-show recorded: ${updated.bookingCode}`,
+          link: '/restaurant/bookings',
           data: { booking: updated }
         }
       });
@@ -954,7 +964,9 @@ async function paymentSuccess(id) {
         payload: {
           userId: r.ownerId,
           event: 'TRANSACTION_DEPOSIT',
+          title: 'Deposit Payment Received',
           message: `Deposit received for booking: ${booking.bookingCode} - ${booking.depositAmount} VND`,
+          link: '/restaurant/bookings',
           data: { booking }
         }
       });

@@ -141,7 +141,7 @@ async function createReview(restaurantId, customerId, payload) {
     const restaurant = await restaurantSql.findById(restaurantId);
     if (restaurant && restaurant.ownerId) {
       const notifUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
-      fetch(`${notifUrl}/test`, {
+      fetch(notifUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,7 +150,9 @@ async function createReview(restaurantId, customerId, payload) {
             userId: restaurant.ownerId,
             restaurantId,
             event: 'REVIEW_NEW',
+            title: 'New Review Received',
             message: `New ${payload.rating}-star review for ${restaurant.name}`,
+            link: '/restaurant/reviews',
             data: {
               restaurantId,
               restaurantName: restaurant.name,

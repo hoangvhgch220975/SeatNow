@@ -119,7 +119,7 @@ async function processProviderResult({ provider, payload, verifySignature = true
           const topupData = { referenceCode, amount: tx.amount, walletId: tx.walletId };
 
           // 1. Notify restaurant owner (resolve userId từ walletId trong worker)
-          fetch(`${notifUrl}/test`, {
+          fetch(notifUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -127,14 +127,16 @@ async function processProviderResult({ provider, payload, verifySignature = true
               payload: {
                 walletId: tx.walletId,
                 event: 'TRANSACTION_TOPUP',
+                title: 'Wallet Top-up Successful',
                 message: topupMsg,
+                link: '/restaurant/wallet',
                 data: topupData
               }
             })
           }).catch(err => console.error('[Webhook] Failed to notify owner TOPUP:', err.message));
 
           // 2. Notify ADMIN real-time: restaurant đã nạp tiền
-          fetch(`${notifUrl}/test`, {
+          fetch(notifUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -142,7 +144,9 @@ async function processProviderResult({ provider, payload, verifySignature = true
               payload: {
                 role: 'ADMIN',
                 event: 'TRANSACTION_TOPUP',
+                title: 'Restaurant Top-up Detected',
                 message: `[Admin] Restaurant wallet top-up: ${Number(tx.amount || 0).toLocaleString('vi-VN')} VND (Ref: ${referenceCode})`,
+                link: '/audit-requests',
                 data: topupData
               }
             })

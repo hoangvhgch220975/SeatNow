@@ -64,12 +64,14 @@ async function createWithdrawal({ idOrSlug, amount, description, withdrawMethod,
     // Notify Admin via notification service
     try {
       const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
-      await axios.post(`${notificationUrl}/test`, {
+      await axios.post(notificationUrl, {
         type: 'web',
         payload: {
           role: 'ADMIN',
           event: 'WITHDRAWAL_REQUESTED',
+          title: 'Withdrawal Requested',
           message: `Restaurant ${restaurantName} requested withdrawal of ${normalizedAmount} VND`,
+          link: '/audit-requests',
           data: {
             restaurantId,
             restaurantName,
@@ -98,7 +100,7 @@ async function approveWithdrawal({ transactionId, providerTxnId, metadataJson })
     const tx = await paymentModel.findTransactionById(transactionId);
     if (tx && tx.walletId) {
       const notifUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
-      fetch(`${notifUrl}/test`, {
+      fetch(notifUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -106,7 +108,9 @@ async function approveWithdrawal({ transactionId, providerTxnId, metadataJson })
           payload: {
             walletId: tx.walletId,
             event: 'TRANSACTION_WITHDRAW_APPROVED',
+            title: 'Withdrawal Approved',
             message: `Withdrawal approved: ${Number(tx.amount || 0).toLocaleString('vi-VN')} VND`,
+            link: '/restaurant/wallet',
             data: { transactionId, amount: tx.amount, referenceCode: tx.referenceCode }
           }
         })

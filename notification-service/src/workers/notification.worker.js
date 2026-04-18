@@ -110,13 +110,19 @@ module.exports = async function processNotification(job) {
         // Wrap in try-catch so DB errors (SQL Constraints) don't break Real-time delivery
         if (resolvedUserId) {
           try {
+            // Ensure link is persisted in metadata for activity feed retrieval
+            const metadata = { 
+              ...(payload.data || payload.metadata || {}),
+              link: payload.link || null 
+            };
+
             await notificationModel.saveNotification({
               ownerId:      resolvedUserId,
               restaurantId: payload.restaurantId || null,
               type:         (payload.activityType || payload.event || 'SYSTEM').toUpperCase(),
               title:        payload.title        || notifTitles[payload.event] || payload.event || 'Notification',
               message:      payload.message      || '',
-              metadata:     payload.data         || payload.metadata || null
+              metadata:     metadata
             });
           } catch (dbErr) {
             console.error('[Worker] DB Save Failed (Check SQL Constraints):', dbErr.message);

@@ -1,7 +1,7 @@
 # 📘 SeatNow – Frontend API Reference & Integration Guide
 
 > **Mục đích:** Tài liệu này cung cấp toàn bộ danh sách endpoints, Socket.IO events, và hướng dẫn kết nối frontend cho dự án SeatNow.
-> **Cập nhật lần cuối:** 2026-04-18 (v1.3.2)
+> **Cập nhật lần cuối:** 2026-04-18 (v1.3.3)
 
 ---
 
@@ -1610,7 +1610,7 @@ Notification Service gửi push notification qua Socket.IO theo 2 cấp độ:
 
 | Event                       | Payload                                         | Đối tượng nhận | Mô tả                                                                     |
 | --------------------------- | ----------------------------------------------- | -------------- | ------------------------------------------------------------------------- |
-| `notification`              | `{ title, message, data }`                      | ANY            | Sự kiện gửi notification chung cơ bản. Tiêu đề (`title`) hiện được tự động chuẩn hóa cho các sự kiện hệ thống. |
+| `notification`              | `{ title, message, link, data }`                | ANY            | Sự kiện gửi notification chung cơ bản. Tiêu đề (`title`) hiện được tự động chuẩn hóa cho các sự kiện hệ thống. Trường `link` (nếu có) dùng để điều hướng Frontend. |
 | **`RESTAURANT_APPROVED`**   | `{ message, data: { restaurantId } }`           | `OWNER`        | Khi Admin nhấn "Approve" hồ sơ nhà hàng của bạn.                          |
 | **`RESTAURANT_ACTIVATED`**  | `{ message, data: { restaurantId } }`           | `OWNER`        | Khi Admin mở khóa hoạt động cho nhà hàng.                                 |
 | **`RESTAURANT_SUSPENDED`**  | `{ message, data: { restaurantId } }`           | `OWNER`        | Khi Admin tạm ngưng hoạt động nhà hàng (Khoá).                            |

@@ -295,7 +295,7 @@ async function approveRestaurant(restaurantId) {
       const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
       
       // Gửi email thông báo kích hoạt nhà hàng thành công
-      await fetch(`${notificationUrl}/test`, {
+      await fetch(notificationUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -312,7 +312,7 @@ async function approveRestaurant(restaurantId) {
       }).catch(err => console.error('Failed to notify owner of restaurant activation:', err.message));
 
       // Gửi Web notification (Real-time)
-      await fetch(`${notificationUrl}/test`, {
+      await fetch(notificationUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -322,6 +322,7 @@ async function approveRestaurant(restaurantId) {
             restaurantId: restaurant.id,
             title: 'Congratulations! Your restaurant has been approved',
             message: `Your restaurant "${restaurant.name}" has been approved by Admin and is now ready for operations.`,
+            link: '/restaurant/settings',
             event: 'RESTAURANT_APPROVED'
           }
         })
@@ -350,7 +351,7 @@ async function activateRestaurant(restaurantId) {
     const owner = await adminModel.getUserAuthById(restaurant.ownerId);
     if (owner && owner.email) {
       const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
-      await fetch(`${notificationUrl}/test`, {
+      await fetch(notificationUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -367,7 +368,7 @@ async function activateRestaurant(restaurantId) {
       }).catch(err => console.error('Failed to notify owner of restaurant reactivation:', err.message));
 
       // Gửi Web notification (Real-time)
-      await fetch(`${notificationUrl}/test`, {
+      await fetch(notificationUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -377,6 +378,7 @@ async function activateRestaurant(restaurantId) {
             restaurantId: restaurant.id,
             title: 'Restaurant Activated',
             message: `Your restaurant "${restaurant.name}" has been activated by Admin.`,
+            link: '/restaurant/settings',
             event: 'RESTAURANT_ACTIVATED'
           }
         })
@@ -406,7 +408,7 @@ async function suspendRestaurant(restaurantId) {
     
     // 1. Gửi Email (Nếu có email)
     if (owner && owner.email) {
-      await fetch(`${notificationUrl}/test`, {
+      await fetch(notificationUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -421,7 +423,7 @@ async function suspendRestaurant(restaurantId) {
     }
 
     // 2. Gửi Web Notification
-    await fetch(`${notificationUrl}/test`, {
+    await fetch(notificationUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -431,6 +433,7 @@ async function suspendRestaurant(restaurantId) {
           restaurantId: restaurant.id,
           title: 'Restaurant Suspended',
           message: `Your restaurant "${restaurant.name}" has been suspended by Admin.`,
+          link: '/restaurant/settings',
           event: 'RESTAURANT_SUSPENDED'
         }
       })
@@ -648,7 +651,7 @@ async function notifyOwnerCommissionSettled(restaurantId, amount) {
     
     if (ownerId) {
       // 1. Notify Owner
-      await fetch(`${notificationUrl}/test`, {
+      await fetch(notificationUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -657,13 +660,14 @@ async function notifyOwnerCommissionSettled(restaurantId, amount) {
             userId: ownerId,
             title: 'Commission Settled',
             message: `System has collected commission fee of ${amount.toLocaleString()} VND.`,
+            link: '/restaurant/wallet',
             type: 'COMMISSION_SETTLED'
           }
         })
       });
 
       // 2. Notify ADMIN
-      await fetch(`${notificationUrl}/test`, {
+      await fetch(notificationUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -672,6 +676,7 @@ async function notifyOwnerCommissionSettled(restaurantId, amount) {
             role: 'ADMIN',
             title: 'Commission Collected',
             message: `[Admin] has collected commission fee of ${amount.toLocaleString()} VND from restaurant (ID: ${restaurantId}).`,
+            link: '/audit-requests',
             type: 'COMMISSION_SETTLED'
           }
         })
