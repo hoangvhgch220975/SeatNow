@@ -150,6 +150,17 @@ CREATE TABLE dbo.Notifications (
         'RESTAURANT_APPROVED', 'RESTAURANT_ACTIVATED', 'RESTAURANT_SUSPENDED'
     ))
 );
+
+-- Note: Nếu Database cũ không có các type mới, hãy chạy lệnh sau để cập nhật:
+-- ALTER TABLE dbo.Notifications DROP CONSTRAINT CK_Notifications_Type;
+-- ALTER TABLE dbo.Notifications ADD CONSTRAINT CK_Notifications_Type 
+-- CHECK (type IN (
+--     'BOOKING_NEW', 'BOOKING_CONFIRMED', 'BOOKING_CANCELLED', 'BOOKING_NO_SHOW',
+--     'TRANSACTION_DEPOSIT', 'TRANSACTION_TOPUP', 'TRANSACTION_WITHDRAW_APPROVED',
+--     'REVIEW_NEW', 'COMMISSION_SETTLED',
+--     'PARTNER_REQUEST_SUBMITTED', 'RESTAURANT_CREATED', 'WITHDRAWAL_REQUESTED',
+--     'RESTAURANT_APPROVED', 'RESTAURANT_ACTIVATED', 'RESTAURANT_SUSPENDED'
+-- ));
 ```
 
 SELECT TOP (1000) [id], [ownerId], [restaurantId], [type], [title], [message], [metadata], [isRead], [createdAt]

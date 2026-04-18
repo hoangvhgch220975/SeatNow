@@ -375,8 +375,8 @@ async function activateRestaurant(restaurantId) {
           payload: {
             userId: restaurant.ownerId,
             restaurantId: restaurant.id,
-            title: 'Nhà hàng đã được mở khóa',
-            message: `Nhà hàng "${restaurant.name}" của bạn đã được Admin mở khóa và hoạt động trở lại.`,
+            title: 'Restaurant Activated',
+            message: `Your restaurant "${restaurant.name}" has been activated by Admin.`,
             event: 'RESTAURANT_ACTIVATED'
           }
         })
@@ -413,8 +413,8 @@ async function suspendRestaurant(restaurantId) {
           type: 'email',
           payload: {
             to: owner.email,
-            subject: `[SeatNow] Nhà hàng "${restaurant.name}" đã bị tạm ngưng`,
-            html: `<p>Chào ${owner.fullName || 'Owner'},</p><p>Nhà hàng <b>${restaurant.name}</b> của bạn đã bị Admin tạm ngưng hoạt động. Vui lòng liên hệ bộ phận hỗ trợ để biết thêm chi tiết.</p>`
+            subject: `[SeatNow] Restaurant "${restaurant.name}" has been suspended`,
+            html: `<p>Dear ${owner.fullName || 'Owner'},</p><p>Your restaurant <b>${restaurant.name}</b> has been suspended by Admin. Please contact support for more details.</p>`
           }
         })
       }).catch(() => {});
@@ -429,8 +429,8 @@ async function suspendRestaurant(restaurantId) {
         payload: {
           userId: restaurant.ownerId,
           restaurantId: restaurant.id,
-          title: 'Nhà hàng bị tạm ngưng',
-          message: `Nhà hàng "${restaurant.name}" của bạn đã bị Admin tạm ngưng hoạt động.`,
+          title: 'Restaurant Suspended',
+          message: `Your restaurant "${restaurant.name}" has been suspended by Admin.`,
           event: 'RESTAURANT_SUSPENDED'
         }
       })

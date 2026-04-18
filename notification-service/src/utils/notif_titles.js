@@ -22,5 +22,7 @@ module.exports = {
   COMMISSION_SETTLED: "Commission Settled",
   ADMIN_BROADCAST: "System Message",
   RESTAURANT_ACTIVATED: "Restaurant Activated",
-  RESTAURANT_DEACTIVATED: "Restaurant Deactivated"
+  RESTAURANT_DEACTIVATED: "Restaurant Deactivated",
+  RESTAURANT_APPROVED: "Restaurant Approved",
+  RESTAURANT_SUSPENDED: "Restaurant Suspended"
 };

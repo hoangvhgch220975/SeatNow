@@ -91,7 +91,23 @@ module.exports = async function processNotification(job) {
           }
         }
         
-        // Tự động lưu vào DB nếu có đầy đủ thông tin ownerId
+        // 1. Gửi Real-time qua Socket TRƯỚC để user nhận được ngay
+        if (payload.role) {
+          webNotificationService.sendRoleNotification(
+            payload.role,
+            payload.event || 'notification',
+            payload
+          );
+        } else {
+          webNotificationService.sendWebNotification(
+            resolvedUserId || payload.userId,
+            payload.event || 'notification',
+            payload
+          );
+        }
+
+        // 2. Tự động lưu vào DB nếu có đầy đủ thông tin ownerId
+        // Bọc try-catch để nếu lỗi DB (SQL Constraints) thì không làm chết Real-time
         if (resolvedUserId) {
           try {
             await notificationModel.saveNotification({
@@ -100,27 +116,15 @@ module.exports = async function processNotification(job) {
               type:         (payload.activityType || payload.event || 'SYSTEM').toUpperCase(),
               title:        payload.title        || notifTitles[payload.event] || payload.event || 'Notification',
               message:      payload.message      || '',
-              metadata:     payload.data         || null
+              metadata:     payload.data         || payload.metadata || null
             });
           } catch (dbErr) {
-            // Lỗi lưu DB -> Bắt buộc throw để Worker Retry (ngăn mất thông báo vĩnh viễn)
-            console.warn('[Worker] Failed to persist notification to DB. Triggering retry...', dbErr.message);
-            throw new Error(`DB Save Failed: ${dbErr.message}`);
+            console.error('[Worker] DB Save Failed (Check SQL Constraints):', dbErr.message);
+            // Không throw error ở đây để hoàn thành job và không làm mất Real-time
           }
         }
 
-        if (payload.role) {
-          return webNotificationService.sendRoleNotification(
-            payload.role,
-            payload.event || 'notification',
-            payload
-          );
-        }
-        return webNotificationService.sendWebNotification(
-          resolvedUserId || payload.userId,
-          payload.event || 'notification',
-          payload
-        );
+        return { success: true };
       }
 
       default:
