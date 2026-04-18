@@ -10,15 +10,15 @@ const notifTitles = require('../utils/notif_titles');
 
 /**
  * Resolve userId from walletId by querying DB
- * Payment service gửi walletId thay vì userId khi xử lý TOPUP / WITHDRAW
+ * Payment service sends walletId instead of userId when processing TOPUP / WITHDRAW
  */
 async function resolveOwnerIdFromWalletId(walletId) {
   if (!walletId) return null;
   try {
     const { sql, getPool } = require('../config/db');
     const pool = await getPool();
-    // Wallet có thể gắn với Restaurant (restaurantId) hoặc Admin (userId)
-    // Với restaurant wallet: lookup Restaurant.ownerId
+    // Wallet can be attached to a Restaurant (restaurantId) or Admin (userId)
+    // For restaurant wallet: lookup Restaurant.ownerId
     const rs = await pool.request()
       .input('walletId', sql.UniqueIdentifier, walletId)
       .query(`
@@ -82,7 +82,7 @@ module.exports = async function processNotification(job) {
       case 'web': {
         console.log(`Worker: Emitting web notification for event: ${payload.event || 'notification'}`, payload);
 
-        // Nếu không có userId nhưng có walletId → resolve từ DB (TOPUP, WITHDRAW_APPROVED)
+        // If no userId but walletId is present → resolve from DB (TOPUP, WITHDRAW_APPROVED)
         let resolvedUserId = payload.ownerId || payload.userId;
         if (!resolvedUserId && payload.walletId) {
           resolvedUserId = await resolveOwnerIdFromWalletId(payload.walletId);
@@ -91,7 +91,7 @@ module.exports = async function processNotification(job) {
           }
         }
         
-        // 1. Gửi Real-time qua Socket TRƯỚC để user nhận được ngay
+        // 1. Send Real-time via Socket FIRST so user receives it instantly
         if (payload.role) {
           webNotificationService.sendRoleNotification(
             payload.role,
@@ -106,8 +106,8 @@ module.exports = async function processNotification(job) {
           );
         }
 
-        // 2. Tự động lưu vào DB nếu có đầy đủ thông tin ownerId
-        // Bọc try-catch để nếu lỗi DB (SQL Constraints) thì không làm chết Real-time
+        // 2. Automatically save to DB if ownerId is present
+        // Wrap in try-catch so DB errors (SQL Constraints) don't break Real-time delivery
         if (resolvedUserId) {
           try {
             await notificationModel.saveNotification({
@@ -120,7 +120,7 @@ module.exports = async function processNotification(job) {
             });
           } catch (dbErr) {
             console.error('[Worker] DB Save Failed (Check SQL Constraints):', dbErr.message);
-            // Không throw error ở đây để hoàn thành job và không làm mất Real-time
+            // Do not throw error here to complete job and not lose Real-time
           }
         }
 

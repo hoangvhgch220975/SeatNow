@@ -1,7 +1,7 @@
 # 📘 SeatNow – Frontend API Reference & Integration Guide
 
 > **Mục đích:** Tài liệu này cung cấp toàn bộ danh sách endpoints, Socket.IO events, và hướng dẫn kết nối frontend cho dự án SeatNow.
-> **Cập nhật lần cuối:** 2026-04-18 (v1.3.0)
+> **Cập nhật lần cuối:** 2026-04-18 (v1.3.1)
 
 ---
 
@@ -134,6 +134,7 @@ Dưới đây là chi tiết những hành động mà mỗi vai trò (Role) **c
 
 | Method | Endpoint                            | Mô tả                                        | Auth | Request Body                                       |
 | ------ | ----------------------------------- | -------------------------------------------- | ---- | -------------------------------------------------- |
+| `GET`  | `/exists`                          | Kiểm tra tồn tại Email/SĐT                   | ❌   | *Query:* `?email=...&phone=...`                    |
 | `POST` | `/register`                         | Đăng ký tài khoản                            | ❌   | `{ email, password, phone, fullName, otp, role? }` |
 | `POST` | `/login`                            | Đăng nhập                                    | ❌   | `{ email, password }`                              |
 | `POST` | `/logout`                           | Đăng xuất                                    | ❌   | `{ refreshToken }`                                 |
@@ -202,6 +203,32 @@ Chỉ dành cho tài khoản có Role là **`CUSTOMER`**. Các tài khoản **`R
   - **URL:** `POST /api/v1/auth/forgot-password/verify-and-reset`
   - **Body:** `{ "phone": "0912345678", "otp": "123456" }`
   - **Kết quả:** Xác thực OTP thành công, hệ thống tự sinh mật khẩu mới (8 ký tự) và gửi về Email.
+
+---
+
+### 1.3 Kiểm tra tồn tại tài khoản (Availability Check)
+
+Hỗ trợ Frontend kiểm tra Email hoặc Số điện thoại đã được đăng ký trong hệ thống hay chưa trước khi tiến hành tạo tài khoản hoặc duyệt đối tác.
+
+- **URL:** `GET /api/v1/auth/exists`
+- **Authentication:** No
+- **Query Parameters:**
+  - `email` (optional): Email cần kiểm tra.
+  - `phone` (optional): Số điện thoại cần kiểm tra.
+- **Response:**
+  - `200 OK`:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "exists": true,
+        "details": {
+          "email": true,
+          "phone": false
+        }
+      }
+    }
+    ```
 
 ---
 

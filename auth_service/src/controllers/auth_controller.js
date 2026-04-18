@@ -155,3 +155,13 @@ exports.deleteUserInternal = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.checkExists = async (req, res, next) => {
+  try {
+    const { email, phone } = req.query;
+    const data = await AuthService.checkExists({ email, phone });
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};

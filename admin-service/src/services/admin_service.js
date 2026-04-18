@@ -1,20 +1,20 @@
 const adminModel = require('../models/admin_sql');
 
-// Tao loi HTTP de controller xu ly tap trung.
+// Create HTTP error for centralized controller handling.
 function createHttpError(message, status = 400) {
   const err = new Error(message);
   err.status = status;
   return err;
 }
 
-// Chuan hoa so nguyen duong dung cho page, limit.
+// Normalize positive integer for pagination (page, limit).
 function normalizePositiveInt(value, fallback, { min = 1, max = 100 } = {}) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed)) return fallback;
   return Math.min(Math.max(parsed, min), max);
 }
 
-// Chuan hoa danh sach id tu request body.
+// Normalize ID list from request body.
 function normalizeIdList(values) {
   if (!Array.isArray(values)) return [];
   return values
@@ -22,31 +22,31 @@ function normalizeIdList(values) {
     .filter(Boolean);
 }
 
-// Chuyen cac gia tri thong dung ve boolean.
+// Convert common values to boolean.
 function normalizeBoolean(value) {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'string') return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
   return Boolean(value);
 }
 
-// Tao thong tin phan trang mac dinh cho cac API list.
+// Build default paging info for list APIs.
 function buildPaging(query = {}, defaultLimit = 20) {
   const page = normalizePositiveInt(query.page, 1, { min: 1, max: 100000 });
   const limit = normalizePositiveInt(query.limit, defaultLimit, { min: 1, max: 100 });
   return { page, limit };
 }
 
-// Tao idempotency key cho doi soat commission theo quy.
+// Create idempotency key for quarterly commission settlement.
 function buildQuarterCommissionKey({ year, quarter, restaurantId }) {
   return `COMMISSION:Q${quarter}:${year}:${restaurantId}`;
 }
 
-// Lay base URL cua restaurant-service de goi gateway.
+// Get restaurant-service base URL for gateway calls.
 function getRestaurantServiceBaseUrl() {
   return (process.env.RESTAURANT_SERVICE_URL || 'http://localhost:3003/api/v1').replace(/\/+$/, '');
 }
 
-// Goi HTTP JSON dung chung cho gateway create/update restaurant.
+// Common JSON HTTP request helper for gateway calls.
 async function requestJson(method, url, body, headers = {}) {
   const res = await fetch(url, {
     method,
@@ -68,7 +68,7 @@ async function requestJson(method, url, body, headers = {}) {
   return json;
 }
 
-// Tao nha hang bang cach forward request sang restaurant-service.
+// Create restaurant by forwarding request to restaurant-service.
 async function createRestaurant({ payload, authorization }) {
   if (!payload || typeof payload !== 'object') throw createHttpError('payload is required', 422);
 
@@ -88,14 +88,14 @@ async function createRestaurant({ payload, authorization }) {
       await adminModel.ensureRestaurantWallet(newRest.id, newRest.ownerId);
     } catch (err) {
       console.error(`Failed to ensure wallet for new restaurant ${newRest.id}:`, err.message);
-      // Không throw lỗi ở đây để tránh rollback việc tạo nhà hàng, Admin có thể fix sau hoặc hệ thống retry.
+      // Do not throw error here to avoid rolling back restaurant creation; Admin can fix it later or system can retry.
     }
   }
 
   return newRest;
 }
 
-// Cap nhat nha hang bang cach forward request sang restaurant-service.
+// Update restaurant by forwarding request to restaurant-service.
 async function updateRestaurant({ restaurantId, payload, authorization }) {
   if (!restaurantId) throw createHttpError('restaurantId is required', 422);
   if (!payload || typeof payload !== 'object') throw createHttpError('payload is required', 422);
@@ -111,7 +111,7 @@ async function updateRestaurant({ restaurantId, payload, authorization }) {
   return result?.data ?? result;
 }
 
-// Tao tai khoan chu nha hang thong qua auth-service
+// Create restaurant owner account via auth-service
 async function createRestaurantOwner({ payload, authorization }) {
   if (!payload || typeof payload !== 'object') throw createHttpError('payload is required', 422);
 
@@ -133,7 +133,7 @@ async function createRestaurantOwner({ payload, authorization }) {
   return result?.data ?? result;
 }
 
-// Admin reset mat khau cho restaurant owner
+// Admin reset password for restaurant owner
 async function resetOwnerPassword({ ownerId, payload, authorization }) {
   if (!ownerId) throw createHttpError('ownerId is required', 422);
 
@@ -320,8 +320,8 @@ async function approveRestaurant(restaurantId) {
           payload: {
             userId: restaurant.ownerId,
             restaurantId: restaurant.id,
-            title: 'Chúc mừng! Nhà hàng đã được duyệt',
-            message: `Nhà hàng "${restaurant.name}" của bạn đã được Admin phê duyệt và hiện đã có thể hoạt động.`,
+            title: 'Congratulations! Your restaurant has been approved',
+            message: `Your restaurant "${restaurant.name}" has been approved by Admin and is now ready for operations.`,
             event: 'RESTAURANT_APPROVED'
           }
         })

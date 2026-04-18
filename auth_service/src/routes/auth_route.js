@@ -3,6 +3,7 @@ const router = express.Router();
 const c = require('../controllers/auth_controller');
 const { requireAuth } = require('../middlewares/jwt_middleware');
 
+router.get('/exists', c.checkExists);
 router.post('/register', c.register);
 router.post('/login', c.login);
 router.post('/logout', c.logout);

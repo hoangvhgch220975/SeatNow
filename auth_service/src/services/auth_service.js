@@ -573,6 +573,28 @@ async function deleteUserInternal(userId) {
   return { success: true, message: 'USER_HARD_DELETED' };
 }
 
+async function checkExists({ email, phone }) {
+  const details = {
+    email: false,
+    phone: false
+  };
+
+  if (email) {
+    const user = await UserModel.findByPhoneOrEmail({ email });
+    if (user && user.email === email) details.email = true;
+  }
+
+  if (phone) {
+    const user = await UserModel.findByPhoneOrEmail({ phone });
+    if (user && user.phone === phone) details.phone = true;
+  }
+
+  return {
+    exists: details.email || details.phone,
+    details
+  };
+}
+
 module.exports = {
   register,
   login,
@@ -590,5 +612,6 @@ module.exports = {
   getPartnerRequests,
   deletePartnerRequest,
   updateUserInternal,
-  deleteUserInternal
+  deleteUserInternal,
+  checkExists
 };
