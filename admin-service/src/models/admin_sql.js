@@ -42,6 +42,8 @@ async function getDashboardStats({ dateFrom, dateTo } = {}) {
       (SELECT COUNT(1) FROM dbo.Users) AS totalUsers,
       (SELECT COUNT(1) FROM dbo.Restaurants) AS totalRestaurants,
       (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'pending') AS pendingRestaurants,
+      (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'active') AS activeRestaurants,
+      (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'suspended') AS suspendedRestaurants,
       (SELECT ISNULL(SUM(balance), 0) FROM dbo.Wallets) AS totalWalletBalance,
 
       -- Periodic Stats (Filtered)

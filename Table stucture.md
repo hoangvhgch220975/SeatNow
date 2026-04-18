@@ -127,15 +127,31 @@ FROM [SeatNow].[dbo].[Transactions]
 
 ## Bảng Notifications:
 
-SELECT TOP (1000) [id]
-,[ownerId]
-,[restaurantId]
-,[type]
-,[title]
-,[message]
-,[metadata]
-,[isRead]
-,[createdAt]
+
+```sql
+CREATE TABLE dbo.Notifications (
+    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    ownerId UNIQUEIDENTIFIER NOT NULL, -- FK to Users(id)
+    restaurantId UNIQUEIDENTIFIER NULL, -- FK to Restaurants(id) (Optional)
+    type NVARCHAR(50) NOT NULL, -- Enum: BOOKING_NEW, TRANSACTION_TOPUP, etc.
+    title NVARCHAR(255) NOT NULL,
+    message NVARCHAR(1000) NOT NULL,
+    metadata NVARCHAR(MAX) NULL, -- JSON string for dynamic data
+    isRead BIT NOT NULL DEFAULT 0,
+    createdAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+
+    CONSTRAINT FK_Notifications_Owner FOREIGN KEY (ownerId) REFERENCES dbo.Users(id),
+    CONSTRAINT FK_Notifications_Restaurant FOREIGN KEY (restaurantId) REFERENCES dbo.Restaurants(id),
+    CONSTRAINT CK_Notifications_Type CHECK (type IN (
+        'BOOKING_NEW', 'BOOKING_CONFIRMED', 'BOOKING_CANCELLED', 'BOOKING_NO_SHOW',
+        'TRANSACTION_DEPOSIT', 'TRANSACTION_TOPUP', 'TRANSACTION_WITHDRAW_APPROVED',
+        'REVIEW_NEW', 'COMMISSION_SETTLED',
+        'PARTNER_REQUEST_SUBMITTED', 'RESTAURANT_CREATED', 'WITHDRAWAL_REQUESTED'
+    ))
+);
+```
+
+SELECT TOP (1000) [id], [ownerId], [restaurantId], [type], [title], [message], [metadata], [isRead], [createdAt]
 FROM [SeatNow].[dbo].[Notifications]
 
 ## Collections MongoDB:
@@ -306,4 +322,4 @@ Notifications IX_Notifications_ownerId NONCLUSTERED ownerId
 - **Restaurants.status**: `'pending'`, `'active'`, `'suspended'`
 - **Users.role**: `'CUSTOMER'`, `'RESTAURANT_OWNER'`, `'ADMIN'`
 - **Bookings.status**: `'PENDING'`, `'CONFIRMED'`, `'ARRIVED'`, `'COMPLETED'`, `'CANCELLED'`, `'NO_SHOW'`
-- **Notifications.type**: `'BOOKING_NEW'`, `'BOOKING_CONFIRMED'`, `'BOOKING_CANCELLED'`, `'BOOKING_NO_SHOW'`, `'TRANSACTION_DEPOSIT'`, `'TRANSACTION_TOPUP'`, `'TRANSACTION_WITHDRAW_APPROVED'`, `'REVIEW_NEW'`, `'COMMISSION_SETTLED'`, `'ADMIN_BROADCAST'`
+- **Notifications.type**: `'BOOKING_NEW'`, `'BOOKING_CONFIRMED'`, `'BOOKING_CANCELLED'`, `'BOOKING_NO_SHOW'`, `'TRANSACTION_DEPOSIT'`, `'TRANSACTION_TOPUP'`, `'TRANSACTION_WITHDRAW_APPROVED'`, `'REVIEW_NEW'`, `'COMMISSION_SETTLED'`, `'PARTNER_REQUEST_SUBMITTED'`, `'RESTAURANT_CREATED'`, `'WITHDRAWAL_REQUESTED'`

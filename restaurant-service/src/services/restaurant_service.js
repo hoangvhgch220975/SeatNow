@@ -78,7 +78,7 @@ async function createRestaurant(payload) {
         type: 'web',
         payload: {
           role: 'ADMIN',
-          event: 'restaurant_created',
+          event: 'RESTAURANT_CREATED',
           message: `New restaurant created: ${payload.name} (Pending Approval)`,
           data: {
             restaurantId: result.id || result.insertedId || null,

@@ -21,7 +21,7 @@ const createRestaurantSchema = Joi.object({
   openingHours: Joi.object().unknown(true).default({}),
   // Admin-only fields
   status: Joi.string().valid('pending', 'active', 'suspended').default('pending'),
-  commissionRate: Joi.number().min(0).max(1).default(0.1),
+  commissionRate: Joi.number().min(0).max(100).default(10),
   isPremium: Joi.boolean().default(false),
   depositEnabled: Joi.boolean().default(false),
   depositPolicy: Joi.object().unknown(true).allow(null)
@@ -44,7 +44,7 @@ const updateRestaurantSchema = Joi.object({
   openingHours: Joi.object().unknown(true),
   // Admin-only (bị strip trong controller nếu không phải ADMIN)
   status: Joi.string().valid('pending', 'active', 'suspended'),
-  commissionRate: Joi.number().min(0).max(1),
+  commissionRate: Joi.number().min(0).max(100),
   isPremium: Joi.boolean()
 });
 

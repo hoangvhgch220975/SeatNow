@@ -495,7 +495,7 @@ async function submitPartnerRequest({ name, phone, email, documentUrl }) {
       type: 'web',
       payload: {
         role: 'ADMIN',
-        event: 'partner_request_submitted',
+        event: 'PARTNER_REQUEST_SUBMITTED',
         message: `New partner request received from ${name} (${phone})`,
         data: requestObj
       }

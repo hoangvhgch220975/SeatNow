@@ -573,6 +573,7 @@ async function notifyOwnerCommissionSettled(restaurantId, amount) {
     const ownerId = restData?.data?.ownerId || restData?.ownerId;
     
     if (ownerId) {
+      // 1. Notify Owner
       await fetch(`${notificationUrl}/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -581,7 +582,22 @@ async function notifyOwnerCommissionSettled(restaurantId, amount) {
           payload: {
             userId: ownerId,
             title: 'Commission Settled',
-            message: `Hệ thống đã thực hiện thu phí hoa hồng số tiền ${amount.toLocaleString()} VND.`,
+            message: `System has collected commission fee of ${amount.toLocaleString()} VND.`,
+            type: 'COMMISSION_SETTLED'
+          }
+        })
+      });
+
+      // 2. Notify ADMIN
+      await fetch(`${notificationUrl}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'web',
+          payload: {
+            role: 'ADMIN',
+            title: 'Commission Collected',
+            message: `[Admin] has collected commission fee of ${amount.toLocaleString()} VND from restaurant (ID: ${restaurantId}).`,
             type: 'COMMISSION_SETTLED'
           }
         })

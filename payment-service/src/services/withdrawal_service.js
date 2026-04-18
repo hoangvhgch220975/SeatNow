@@ -68,7 +68,7 @@ async function createWithdrawal({ idOrSlug, amount, description, withdrawMethod,
         type: 'web',
         payload: {
           role: 'ADMIN',
-          event: 'withdrawal_requested',
+          event: 'WITHDRAWAL_REQUESTED',
           message: `Restaurant ${restaurantName} requested withdrawal of ${normalizedAmount} VND`,
           data: {
             restaurantId,
