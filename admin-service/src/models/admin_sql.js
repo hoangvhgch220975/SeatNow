@@ -11,8 +11,8 @@ function buildPagination(page, limit) {
   };
 }
 
-// Lay so lieu tong quan cho dashboard admin, hỗ trợ lọc theo thời gian.
-async function getDashboardStats({ dateFrom, dateTo } = {}) {
+// Lay so lieu tong quan cho dashboard admin, hỗ trợ lọc theo thời gian và nhà hàng.
+async function getDashboardStats({ dateFrom, dateTo, restaurantId } = {}) {
   const pool = await getPool();
   const req = pool.request();
 
@@ -20,18 +20,26 @@ async function getDashboardStats({ dateFrom, dateTo } = {}) {
   let dateFilterTransactions = '';
   let dateFilterUsers = '';
   let dateFilterRestaurants = '';
+  let restaurantFilterBookings = '';
+  let restaurantFilterTransactions = '';
+
+  if (restaurantId && restaurantId !== 'all') {
+    req.input('rid', sql.UniqueIdentifier, restaurantId);
+    restaurantFilterBookings = ' AND restaurantId = @rid';
+    restaurantFilterTransactions = ' AND w.restaurantId = @rid';
+  }
 
   if (dateFrom) {
     req.input('df', sql.DateTime, dateFrom);
     dateFilterBookings += ' AND bookingDate >= @df';
-    dateFilterTransactions += ' AND createdAt >= @df';
+    dateFilterTransactions += ' AND t.createdAt >= @df';
     dateFilterUsers += ' AND createdAt >= @df';
     dateFilterRestaurants += ' AND createdAt >= @df';
   }
   if (dateTo) {
     req.input('dt', sql.DateTime, dateTo);
     dateFilterBookings += ' AND bookingDate <= @dt';
-    dateFilterTransactions += ' AND createdAt <= @dt';
+    dateFilterTransactions += ' AND t.createdAt <= @dt';
     dateFilterUsers += ' AND createdAt <= @dt';
     dateFilterRestaurants += ' AND createdAt <= @dt';
   }
@@ -51,17 +59,17 @@ async function getDashboardStats({ dateFrom, dateTo } = {}) {
       (SELECT COUNT(1) FROM dbo.Users WHERE role = 'RESTAURANT_OWNER' ${dateFilterUsers}) AS newOwners,
       (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'active' ${dateFilterRestaurants}) AS newActiveRestaurants,
       
-      (SELECT COUNT(1) FROM dbo.Bookings WHERE 1=1 ${dateFilterBookings}) AS totalBookings,
-      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'PENDING' ${dateFilterBookings}) AS pendingBookings,
-      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'CONFIRMED' ${dateFilterBookings}) AS confirmedBookings,
-      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED' ${dateFilterBookings}) AS completedBookings,
-      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('CANCELLED', 'NO_SHOW') ${dateFilterBookings}) AS cancelledBookings,
+      (SELECT COUNT(1) FROM dbo.Bookings WHERE 1=1 ${dateFilterBookings} ${restaurantFilterBookings}) AS totalBookings,
+      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'PENDING' ${dateFilterBookings} ${restaurantFilterBookings}) AS pendingBookings,
+      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'CONFIRMED' ${dateFilterBookings} ${restaurantFilterBookings}) AS confirmedBookings,
+      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED' ${dateFilterBookings} ${restaurantFilterBookings}) AS completedBookings,
+      (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('CANCELLED', 'NO_SHOW') ${dateFilterBookings} ${restaurantFilterBookings}) AS cancelledBookings,
       
-      (SELECT ISNULL(SUM(amount), 0) FROM dbo.Transactions WHERE walletId = '6EDEC0B0-EA2C-46CB-B940-C8A1A357A0C9' AND status = 'COMPLETED' ${dateFilterTransactions}) AS totalCommission,
-      (SELECT ISNULL(SUM(depositAmount), 0) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('ARRIVED', 'COMPLETED', 'NO_SHOW', 'CONFIRMED') ${dateFilterBookings}) AS totalDeposit,
+      (SELECT ISNULL(SUM(amount), 0) FROM dbo.Transactions t LEFT JOIN dbo.Wallets w ON w.id = t.walletId WHERE t.walletId = '6EDEC0B0-EA2C-46CB-B940-C8A1A357A0C9' AND t.status = 'COMPLETED' ${dateFilterTransactions} ${restaurantFilterTransactions}) AS totalCommission,
+      (SELECT ISNULL(SUM(depositAmount), 0) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('ARRIVED', 'COMPLETED', 'NO_SHOW', 'CONFIRMED') ${dateFilterBookings} ${restaurantFilterBookings}) AS totalDeposit,
 
-      (SELECT COUNT(1) FROM dbo.Transactions WHERE 1=1 ${dateFilterTransactions}) AS totalTransactions,
-      (SELECT COUNT(1) FROM dbo.Transactions WHERE UPPER(ISNULL(type, '')) = 'DEPOSIT_PAYMENT' ${dateFilterTransactions}) AS totalDepositTransactions
+      (SELECT COUNT(1) FROM dbo.Transactions t LEFT JOIN dbo.Wallets w ON w.id = t.walletId WHERE 1=1 ${dateFilterTransactions} ${restaurantFilterTransactions}) AS totalTransactions,
+      (SELECT COUNT(1) FROM dbo.Transactions t LEFT JOIN dbo.Wallets w ON w.id = t.walletId WHERE UPPER(ISNULL(type, '')) = 'DEPOSIT_PAYMENT' ${dateFilterTransactions} ${restaurantFilterTransactions}) AS totalDepositTransactions
   `);
 
   return rs.recordset[0] || {};
@@ -72,12 +80,7 @@ async function getPendingRestaurants() {
   const pool = await getPool();
   const rs = await pool.request().query(`
     SELECT
-      r.id,
-      r.name,
-      r.ownerId,
-      r.status,
-      r.createdAt,
-      r.updatedAt,
+      r.*,
       u.name AS ownerName,
       u.email AS ownerEmail,
       u.phone AS ownerPhone
@@ -87,7 +90,13 @@ async function getPendingRestaurants() {
     ORDER BY r.createdAt DESC
   `);
 
-  return rs.recordset || [];
+  return (rs.recordset || []).map(r => {
+    try {
+      r.cuisineTypes = r.cuisineTypeJson ? JSON.parse(r.cuisineTypeJson) : [];
+      r.images = r.imagesJson ? JSON.parse(r.imagesJson) : [];
+    } catch (e) {}
+    return r;
+  });
 }
 
 // Lay thong tin nha hang theo id de phuc vu duyet/tam ngung.
@@ -119,7 +128,7 @@ async function getUserAuthById(userId) {
 }
 
 // Lay danh sach nha hang voi bo loc admin, ho tro tim kiem va thong tin chu so huu.
-async function getRestaurants({ q, status, ownerId, page = 1, limit = 20 } = {}) {
+async function getRestaurants({ q, status, ownerId, page = 1, limit = 20, sort = 'createdAt' } = {}) {
   const pool = await getPool();
   const { offset, page: safePage, limit: safeLimit } = buildPagination(page, limit);
   const req = pool.request()
@@ -140,6 +149,11 @@ async function getRestaurants({ q, status, ownerId, page = 1, limit = 20 } = {})
     req.input('q', sql.NVarChar(255), `%${q}%`);
   }
 
+  let orderBy = 'r.createdAt DESC';
+  if (sort === 'name') {
+    orderBy = 'r.name ASC';
+  }
+
   const itemsRs = await req.query(`
     SELECT
       r.*,
@@ -149,7 +163,7 @@ async function getRestaurants({ q, status, ownerId, page = 1, limit = 20 } = {})
     FROM dbo.Restaurants r
     LEFT JOIN dbo.Users u ON u.id = r.ownerId
     WHERE ${where.join(' AND ')}
-    ORDER BY r.createdAt DESC
+    ORDER BY ${orderBy}
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
   `);
 

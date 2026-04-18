@@ -203,7 +203,7 @@ async function deleteUser({ userId, authorization }) {
 
 // Lay thong ke dashboard tu SQL model.
 async function getStats(query = {}) {
-  const { from, to, period } = query;
+  const { from, to, period, restaurantId } = query;
   let dateFrom = from;
   let dateTo = to;
 
@@ -213,7 +213,7 @@ async function getStats(query = {}) {
     dateTo = range.to;
   }
 
-  return adminModel.getDashboardStats({ dateFrom, dateTo });
+  return adminModel.getDashboardStats({ dateFrom, dateTo, restaurantId });
 }
 
 // Helper: Chuyen doi period thanh khoang ngay bat dau va ket thuc.
@@ -459,7 +459,8 @@ async function getRestaurants(query = {}) {
     status: query.status,
     ownerId: query.ownerId,
     page,
-    limit
+    limit,
+    sort: query.sort
   });
 }
 

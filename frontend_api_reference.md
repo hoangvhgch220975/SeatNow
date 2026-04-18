@@ -1715,8 +1715,8 @@ Khi thực hiện giải ngân, hệ thống sẽ tự động khấu trừ phí
 - **Giữ bàn tạm (Hold):** Redis Lock 2 phút khi khách chọn bàn trên UI
 - **Giải phóng slot:** Tự động khi booking chuyển `completed` hoặc `cancelled`
 - **Slot hết giờ:** Tự động trống lại sau 2h nếu chưa `completed`
-
----
+- | Thống kê tổng quan   | `GET`    | `/api/v1/admin/dashboard/stats`                | Query: `period` (today, week, month, year), `from`, `to`, `restaurantId` (Lọc số liệu theo nhà hàng) |
+| Biểu đồ doanh thu    | `GET`    | `/api/v1/admin/dashboard/revenue-stats`        | Query: `period`, `from`, `to` |
 
 ## 🔌 Hướng dẫn kết nối Frontend (React/Next.js)
 
@@ -1912,7 +1912,7 @@ Admin sử dụng các API này để quản lý tài khoản chủ nhà hàng v
 | Xóa cứng Owner         | `DELETE` | `/api/v1/admin/users/:id`                      | Xóa vĩnh viễn khỏi hệ thống |
 | Reset mật khẩu Owner   | `POST`   | `/api/v1/admin/users/owner/:id/reset-password` | `{ newPassword? }` (Tự sinh nếu trống) |
 | **Quản lý Nhà hàng (Restaurants)** | | | |
-| Danh sách tất cả       | `GET`    | `/api/v1/admin/restaurants`                    | Query: `q`, `status`, `page`, `limit`. Trả về kèm `ownerName`, `ownerEmail`, `cuisineTypeJson` |
+| Danh sách tất cả       | `GET`    | `/api/v1/admin/restaurants`                    | Query: `q`, `status`, `page`, `limit`, `sort` (`name` để xếp ABC) |
 | Danh sách chờ duyệt    | `GET`    | `/api/v1/admin/restaurants/pending`            | Luồng phê duyệt nhà hàng mới |
 | Duyệt nhà hàng         | `PUT`    | `/api/v1/admin/restaurants/:id/approve`        | Kích hoạt + Tạo Wallet |
 | Từ chối (Reject)       | `POST`   | `/api/v1/admin/restaurants/:id/reject`         | Xóa vĩnh viễn (Hard Delete) hồ sơ pending |
