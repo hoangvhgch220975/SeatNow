@@ -798,6 +798,21 @@ async function rejectPartnerRequest(requestId, authorization) {
   const headers = internalToken ? { 'x-internal-token': internalToken } : {};
   if (authorization) headers['Authorization'] = authorization;
 
+  // 1. Fetch the request details before deleting (to get email and name)
+  let requestDetails = null;
+  try {
+    const fetchResult = await requestJson(
+      'GET',
+      `${authBaseUrl}/internal/partner-requests/${requestId}`,
+      undefined,
+      headers
+    );
+    requestDetails = fetchResult?.data || fetchResult;
+  } catch (err) {
+    console.warn(`Failed to fetch partner request ${requestId} before rejection:`, err.message);
+  }
+
+  // 2. Delete the request
   const result = await requestJson(
     'DELETE',
     `${authBaseUrl}/internal/partner-requests/${requestId}`,
@@ -805,7 +820,74 @@ async function rejectPartnerRequest(requestId, authorization) {
     headers
   );
 
+  // 3. Send Rejection Email Notification
+  if (requestDetails && requestDetails.email) {
+    try {
+      const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+      await fetch(notificationUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'email',
+          payload: {
+            to: requestDetails.email,
+            templateType: 'partner_request_rejected',
+            data: {
+              name: requestDetails.name || 'Partner'
+            }
+          }
+        })
+      });
+    } catch (err) {
+      console.warn('Failed to send rejection email notification:', err.message);
+    }
+  }
+
   return result?.data ?? result;
+}
+
+async function rejectRestaurant(restaurantId) {
+  if (!restaurantId) throw createHttpError('restaurantId is required', 422);
+
+  // 1. Fetch restaurant and owner details before deleting
+  const restaurant = await adminModel.getRestaurantById(restaurantId);
+  if (!restaurant) throw createHttpError('Restaurant not found', 404);
+  
+  // Chi cho phep reject nha hang dang o trang thai pending
+  if (String(restaurant.status).toLowerCase() !== 'pending') {
+    throw createHttpError('Only pending restaurants can be rejected/deleted. Active restaurants should be suspended instead.', 400);
+  }
+
+  const owner = await adminModel.getUserAuthById(restaurant.ownerId);
+
+  // 2. Perform Hard Delete from SQL
+  await adminModel.hardDeleteRestaurant(restaurantId);
+
+  // 3. Send Rejection Email Notification
+  if (owner && owner.email) {
+    try {
+      const notificationUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+      await fetch(notificationUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'email',
+          payload: {
+            to: owner.email,
+            templateType: 'restaurant_rejected',
+            data: {
+              ownerName: owner.fullName || owner.name || 'Owner',
+              restaurantName: restaurant.name
+            }
+          }
+        })
+      });
+    } catch (err) {
+      console.warn('Failed to send restaurant rejection email notification:', err.message);
+    }
+  }
+
+  return { success: true, restaurantId };
 }
 
 module.exports = {
@@ -816,6 +898,7 @@ module.exports = {
   approveRestaurant,
   activateRestaurant,
   suspendRestaurant,
+  rejectRestaurant,
   getBookings,
   getTransactions,
   settleQuarterCommission,

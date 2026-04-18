@@ -14,19 +14,16 @@ function init(socketIoInstance) {
     const { userId, role } = socket.handshake.query;
     
     if (userId) {
-      // Join a room specific to this user/restaurant owner
       socket.join(`user:${userId}`);
-      console.log(`Socket connected: User ${userId} (${role}) joined room user:${userId}`);
+      console.log(`[Socket] ✅ User ${userId} joined room: user:${userId}`);
     }
     
     if (role) {
-      // Join a role-based room (e.g. role:ADMIN)
-      socket.join(`role:${role}`);
-      console.log(`Socket connected: User ${userId} joined role room role:${role}`);
+      const normalizedRole = role.toUpperCase();
+      socket.join(`role:${normalizedRole}`);
     }
 
     socket.on('disconnect', () => {
-      console.log(`Socket disconnected: User ${userId}`);
     });
   });
 }
@@ -60,22 +57,25 @@ function sendWebNotification(userId, event, payload) {
  */
 function sendRoleNotification(role, event, payload) {
   if (!io) {
-    console.warn('Socket.io not initialized. Cannot send role notification.');
+    console.warn('[Socket] ⚠️ Socket.io not initialized. Cannot send role notification.');
     return false;
   }
 
-  io.to(`role:${role}`).emit(event, {
+  const normalizedRole = role.toUpperCase();
+  const roomName = `role:${normalizedRole}`;
+
+  // Emit to specific event
+  io.to(roomName).emit(event, {
     ...payload,
     timestamp: new Date().toISOString()
   });
   
-  // Also emit to generic 'notification' event for broader compatibility
-  io.to(`role:${role}`).emit('notification', {
+  // Also emit to generic 'notification' event
+  io.to(roomName).emit('notification', {
     ...payload,
     timestamp: new Date().toISOString()
   });
   
-  console.log(`Web notification sent to role:${role} - Event: ${event} and 'notification'`);
   return true;
 }
 

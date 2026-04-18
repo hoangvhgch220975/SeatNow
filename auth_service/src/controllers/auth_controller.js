@@ -138,6 +138,16 @@ exports.deletePartnerRequest = async (req, res, next) => {
   }
 };
 
+exports.getPartnerRequestById = async (req, res, next) => {
+  try {
+    const data = await AuthService.getPartnerRequestById(req.params.id);
+    if (!data) return res.status(404).json({ success: false, message: 'PARTNER_REQUEST_NOT_FOUND' });
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.updateUserInternal = async (req, res, next) => {
   try {
     const data = await AuthService.updateUserInternal(req.params.id, req.body);

@@ -540,6 +540,17 @@ async function getPartnerRequests(query = {}) {
   };
 }
 
+async function getPartnerRequestById(id) {
+  const key = `partner_request:${id}`;
+  const raw = await redis.get(key);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
 async function deletePartnerRequest(id) {
   const key = `partner_request:${id}`;
   await redis.del(key);
@@ -611,6 +622,7 @@ module.exports = {
   resetPasswordOwnerByAdmin,
   submitPartnerRequest,
   getPartnerRequests,
+  getPartnerRequestById,
   deletePartnerRequest,
   updateUserInternal,
   deleteUserInternal,

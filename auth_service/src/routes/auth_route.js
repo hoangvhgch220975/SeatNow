@@ -25,6 +25,7 @@ router.delete('/internal/users/:id', c.deleteUserInternal);
 // Partner Request APIs
 router.post('/partner-request', c.submitPartnerRequest);
 router.get('/internal/partner-requests', c.getPartnerRequests);
+router.get('/internal/partner-requests/:id', c.getPartnerRequestById);
 router.delete('/internal/partner-requests/:id', c.deletePartnerRequest);
 
 module.exports = router;

@@ -151,6 +151,16 @@ async function activateRestaurant(req, res, next) {
   }
 }
 
+// Tu choi nha hang (Hard Delete neu dang pending)
+async function rejectRestaurant(req, res, next) {
+  try {
+    const data = await adminService.rejectRestaurant(req.params.id);
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Lay danh sach user theo bo loc va phan trang.
 async function getUsers(req, res, next) {
   try {
@@ -282,6 +292,7 @@ module.exports = {
   approveRestaurant,
   activateRestaurant,
   suspendRestaurant,
+  rejectRestaurant,
   getUsers,
   getBookings,
   getTransactions,

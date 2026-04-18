@@ -11,7 +11,7 @@ async function saveNotification({ ownerId, restaurantId = null, type, title, mes
   const pool = await getPool();
   const metadataStr = metadata ? JSON.stringify(metadata) : null;
 
-  await pool.request()
+  const result = await pool.request()
     .input('ownerId',      sql.UniqueIdentifier, ownerId)
     .input('restaurantId', sql.UniqueIdentifier, restaurantId)
     .input('type',         sql.NVarChar(50),     type)
@@ -20,8 +20,11 @@ async function saveNotification({ ownerId, restaurantId = null, type, title, mes
     .input('metadata',     sql.NVarChar(sql.MAX), metadataStr)
     .query(`
       INSERT INTO dbo.Notifications (ownerId, restaurantId, type, title, message, metadata, isRead, createdAt)
+      OUTPUT INSERTED.id
       VALUES (@ownerId, @restaurantId, @type, @title, @message, @metadata, 0, SYSUTCDATETIME())
     `);
+  
+  return result.recordset[0].id;
 }
 
 /**
@@ -190,4 +193,20 @@ async function markAllAdminAsRead() {
   return rs.rowsAffected[0];
 }
 
-module.exports = { saveNotification, getOwnerActivity, getAdminActivity, markAsRead, markAllAsRead, markAllAdminAsRead };
+/**
+ * Đánh dấu một thông báo Admin là đã đọc
+ * @param {string} notificationId 
+ */
+async function markAdminAsRead(notificationId) {
+  const pool = await getPool();
+  const rs = await pool.request()
+    .input('id', sql.UniqueIdentifier, notificationId)
+    .query(`
+      UPDATE dbo.Notifications
+      SET isRead = 1
+      WHERE id = @id AND ownerId IS NULL
+    `);
+  return rs.rowsAffected[0] > 0;
+}
+
+module.exports = { saveNotification, getOwnerActivity, getAdminActivity, markAsRead, markAllAsRead, markAllAdminAsRead, markAdminAsRead };

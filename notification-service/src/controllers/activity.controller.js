@@ -90,4 +90,22 @@ async function markAllAdminAsRead(req, res) {
   }
 }
 
-module.exports = { getOwnerActivity, markAsRead, markAllAsRead, getAdminActivity, markAllAdminAsRead };
+/**
+ * Đánh dấu một thông báo Admin là đã đọc
+ * PUT /api/v1/admin/activity/:id/read
+ */
+async function markAdminAsRead(req, res) {
+  try {
+    const { id } = req.params;
+    const updated = await notificationModel.markAdminAsRead(id);
+    if (!updated) {
+      return res.status(404).json({ message: 'Admin notification not found.' });
+    }
+    res.json({ success: true, message: 'Admin notification marked as read.' });
+  } catch (err) {
+    console.error('[markAdminAsRead] Error:', err.message);
+    res.status(500).json({ message: 'Failed to mark admin notification as read.' });
+  }
+}
+
+module.exports = { getOwnerActivity, markAsRead, markAllAsRead, getAdminActivity, markAllAdminAsRead, markAdminAsRead };

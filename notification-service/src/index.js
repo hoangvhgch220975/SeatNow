@@ -12,6 +12,7 @@ const webNotificationService = require('./services/web-notification.service');
 const { notificationQueue } = require('./queues/notification.queue');
 const notificationWorker = require('./workers/notification.worker');
 const activityRouter = require('./routes/activity.route');
+const adminActivityRouter = require('./routes/admin_activity.route');
 
 const app = express();
 const server = http.createServer(app);

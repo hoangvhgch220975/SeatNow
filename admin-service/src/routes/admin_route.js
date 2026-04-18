@@ -19,6 +19,7 @@ router.get('/restaurants/pending', controller.getPendingRestaurants);
 router.put('/restaurants/:id/approve', controller.approveRestaurant);
 router.put('/restaurants/:id/activate', controller.activateRestaurant);
 router.put('/restaurants/:id/suspend', controller.suspendRestaurant);
+router.post('/restaurants/:id/reject', controller.rejectRestaurant);
 
 // Quan ly nguoi dung, booking, giao dich
 router.post('/users/restaurant-owner', controller.createRestaurantOwner);

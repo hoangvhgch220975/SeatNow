@@ -12,6 +12,9 @@ router.use(requireAuth, requireRole('ADMIN'));
 // Lấy danh sách hoạt động hệ thống (ownerId IS NULL)
 router.get('/', activityController.getAdminActivity);
 
+// Đánh dấu MỘT thông báo hệ thống là đã đọc
+router.put('/:id/read', activityController.markAdminAsRead);
+
 // Đánh dấu TẤT CẢ thông báo hệ thống là đã đọc
 router.put('/read-all', activityController.markAllAdminAsRead);
 

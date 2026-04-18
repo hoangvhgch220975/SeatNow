@@ -218,6 +218,20 @@ async function suspendRestaurant(restaurantId) {
     `);
 }
 
+// Xoa cung nha hang (Dung khi Admin reject ho so pending).
+async function hardDeleteRestaurant(restaurantId) {
+  const pool = await getPool();
+  // Xoa cac bang lien quan truoc (Tables)
+  await pool.request()
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+    .query('DELETE FROM dbo.Tables WHERE restaurantId = @restaurantId');
+
+  // Xoa nha hang
+  await pool.request()
+    .input('restaurantId', sql.UniqueIdentifier, restaurantId)
+    .query('DELETE FROM dbo.Restaurants WHERE id = @restaurantId');
+}
+
 // Tao wallet cho nha hang neu chua ton tai.
 async function ensureRestaurantWallet(restaurantId, ownerId) {
   const pool = await getPool();
@@ -580,6 +594,7 @@ module.exports = {
   getRestaurantById,
   approveRestaurant,
   suspendRestaurant,
+  hardDeleteRestaurant,
   ensureRestaurantWallet,
   getUsers,
   getBookings,

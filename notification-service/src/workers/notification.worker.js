@@ -65,6 +65,12 @@ module.exports = async function processNotification(job) {
         } else if (templateType === 'restaurant_reactivated') {
           html = templates.getRestaurantReactivatedTemplate(data);
           subject = subject || `[SeatNow] Your restaurant "${data.restaurantName}" has been reactivated!`;
+        } else if (templateType === 'partner_request_rejected') {
+          html = templates.getPartnerRequestRejectedTemplate(data);
+          subject = subject || `[SeatNow] Regarding your partner registration request`;
+        } else if (templateType === 'restaurant_rejected') {
+          html = templates.getRestaurantRejectedTemplate(data);
+          subject = subject || `[SeatNow] Regarding your restaurant profile "${data.restaurantName}"`;
         }
 
         return await emailService.sendEmailNotification(to, subject, html);
@@ -80,7 +86,7 @@ module.exports = async function processNotification(job) {
         );
 
       case 'web': {
-        console.log(`Worker: Emitting web notification for event: ${payload.event || 'notification'}`, payload);
+        console.log(`Worker: Emitting web notification for event: ${payload.event || 'Notification'}`, payload);
 
         // If no userId but walletId is present → resolve from DB (TOPUP, WITHDRAW_APPROVED)
         let resolvedUserId = payload.ownerId || payload.userId;
@@ -91,7 +97,40 @@ module.exports = async function processNotification(job) {
           }
         }
         
-        // 1. Send Real-time via Socket FIRST so user receives it instantly
+        // 0. Ensure a friendly title exists for both DB and Socket
+        const friendlyTitle = payload.title || notifTitles[payload.event] || payload.event || 'Notification';
+        payload.title = friendlyTitle;
+
+        // 1. Automatically save to DB first to get the generated ID
+        // Wrap in try-catch so DB errors (SQL Constraints) don't break Real-time delivery
+        let savedId = null;
+        if (resolvedUserId || payload.role === 'ADMIN') {
+          try {
+            // Ensure link is persisted in metadata for activity feed retrieval
+            const metadata = { 
+              ...(payload.data || payload.metadata || {}),
+              link: payload.link || null 
+            };
+
+            savedId = await notificationModel.saveNotification({
+              ownerId:      resolvedUserId || null,
+              restaurantId: payload.restaurantId || null,
+              type:         (payload.activityType || payload.event || 'SYSTEM').toUpperCase(),
+              title:        friendlyTitle,
+              message:      payload.message      || '',
+              metadata:     metadata
+            });
+          } catch (dbErr) {
+            console.error('[Worker] DB Save Failed (Check SQL Constraints):', dbErr.message);
+          }
+        }
+
+        // 2. Inject the ID into the payload so frontend can deduplicate / sync
+        if (savedId) {
+          payload.id = savedId;
+        }
+
+        // 3. Send Real-time via Socket
         if (payload.role) {
           webNotificationService.sendRoleNotification(
             payload.role,
@@ -104,30 +143,6 @@ module.exports = async function processNotification(job) {
             payload.event || 'notification',
             payload
           );
-        }
-
-        // 2. Automatically save to DB if ownerId is present OR if it is a global admin notification
-        // Wrap in try-catch so DB errors (SQL Constraints) don't break Real-time delivery
-        if (resolvedUserId || payload.role === 'ADMIN') {
-          try {
-            // Ensure link is persisted in metadata for activity feed retrieval
-            const metadata = { 
-              ...(payload.data || payload.metadata || {}),
-              link: payload.link || null 
-            };
-
-            await notificationModel.saveNotification({
-              ownerId:      resolvedUserId || null,
-              restaurantId: payload.restaurantId || null,
-              type:         (payload.activityType || payload.event || 'SYSTEM').toUpperCase(),
-              title:        payload.title        || notifTitles[payload.event] || payload.event || 'Notification',
-              message:      payload.message      || '',
-              metadata:     metadata
-            });
-          } catch (dbErr) {
-            console.error('[Worker] DB Save Failed (Check SQL Constraints):', dbErr.message);
-            // Do not throw error here to complete job and not lose Real-time
-          }
         }
 
         return { success: true };

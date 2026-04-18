@@ -151,10 +151,48 @@ function getRestaurantReactivatedTemplate(data) {
   return baseTemplate('Restaurant Reactivated', 'Your restaurant is live again!', content);
 }
 
+function getPartnerRequestRejectedTemplate(data) {
+  const { name } = data;
+  const content = `
+    <p style="color: #4a5568; font-size: 16px; line-height: 1.6;">Hello <strong>${name}</strong>,</p>
+    <p style="color: #4a5568; font-size: 16px; line-height: 1.6;">Thank you for your interest in partnering with SeatNow. After reviewing your registration request, we regret to inform you that we cannot approve your application at this time.</p>
+    
+    <div style="margin: 32px 0; padding: 24px; background-color: #fff5f5; border-radius: 12px; border: 1px solid #fed7d7;">
+      <h3 style="color: #e53e3e; font-size: 14px; margin: 0 0 16px 0; text-transform: uppercase; letter-spacing: 1px;">Application Review Outcome</h3>
+      <p style="color: #c53030; font-size: 14px; margin: 0; line-height: 1.6;">Your request did not meet our current partnership criteria. This could be due to incomplete documentation, business model mismatch, or our current expansion strategy.</p>
+    </div>
+
+    <p style="color: #718096; font-size: 14px; line-height: 1.6; text-align: center;">We appreciate your time and effort. You are welcome to apply again in the future should your circumstances change.</p>
+  `;
+  return baseTemplate('Application Outcome', 'Your partner registration request outcome', content);
+}
+
+function getRestaurantRejectedTemplate(data) {
+  const { ownerName, restaurantName } = data;
+  const content = `
+    <p style="color: #4a5568; font-size: 16px; line-height: 1.6;">Hello <strong>${ownerName}</strong>,</p>
+    <p style="color: #4a5568; font-size: 16px; line-height: 1.6;">Thank you for submitting your restaurant profile <strong>${restaurantName}</strong> to SeatNow.</p>
+    
+    <div style="margin: 32px 0; padding: 24px; background-color: #fff5f5; border-radius: 12px; border: 1px solid #fed7d7;">
+      <h3 style="color: #e53e3e; font-size: 14px; margin: 0 0 16px 0; text-transform: uppercase; letter-spacing: 1px;">Profile Review Outcome</h3>
+      <p style="color: #c53030; font-size: 14px; margin: 0; line-height: 1.6;">After careful review, we regret to inform you that your restaurant profile does not meet our current requirements for activation on the platform.</p>
+    </div>
+
+    <div style="background-color: #ebf8ff; border-left: 4px solid #3182ce; padding: 16px; margin-bottom: 24px;">
+      <p style="color: #2c5282; font-size: 14px; margin: 0; line-height: 1.5;">Since your profile was not approved, the temporary record has been removed from our system. please ensure all information and images are high-quality and accurate if you decide to try again.</p>
+    </div>
+
+    <p style="color: #718096; font-size: 14px; line-height: 1.6; text-align: center;">We appreciate your interest in SeatNow.</p>
+  `;
+  return baseTemplate('Profile Outcome', 'Your restaurant profile review outcome', content);
+}
+
 module.exports = {
   getBookingConfirmedTemplate,
   getBookingCancelledTemplate,
   getPromotionTemplate,
   getRestaurantActivatedTemplate,
-  getRestaurantReactivatedTemplate
+  getRestaurantReactivatedTemplate,
+  getPartnerRequestRejectedTemplate,
+  getRestaurantRejectedTemplate
 };

@@ -1915,12 +1915,13 @@ Admin sử dụng các API này để quản lý tài khoản chủ nhà hàng v
 | Danh sách tất cả       | `GET`    | `/api/v1/admin/restaurants`                    | Query: `q`, `status`, `page`, `limit`. Trả về kèm `ownerName`, `ownerEmail`, `cuisineTypeJson` |
 | Danh sách chờ duyệt    | `GET`    | `/api/v1/admin/restaurants/pending`            | Luồng phê duyệt nhà hàng mới |
 | Duyệt nhà hàng         | `PUT`    | `/api/v1/admin/restaurants/:id/approve`        | Kích hoạt + Tạo Wallet |
+| Từ chối (Reject)       | `POST`   | `/api/v1/admin/restaurants/:id/reject`         | Xóa vĩnh viễn (Hard Delete) hồ sơ pending |
 | Tạm ngưng (Lock)       | `PUT`    | `/api/v1/admin/restaurants/:id/suspend`        | |
 | Mở khóa (Unlock)       | `PUT`    | `/api/v1/admin/restaurants/:id/activate`       | |
 | **Quản lý yêu cầu làm đối tác (Leads)** | | | |
 | Danh sách Lead Request | `GET`    | `/api/v1/admin/partner-requests`               | |
 | Phê duyệt Lead         | `POST`   | `/api/v1/admin/partner-requests/:id/approve`   | Sẽ tự tạo TK Owner và gửi mail |
-| Từ chối Lead          | `POST`   | `/api/v1/admin/partner-requests/:id/reject`    | |
+| Từ chối Lead          | `POST`   | `/api/v1/admin/partner-requests/:id/reject`    | Sẽ gửi mail thông báo kết quả |
 | Chat AI (Analytics)  | `POST`   | `/api/v1/ai/admin/chat`                         | |
 | Phân tích doanh thu AI | `POST`   | `/api/v1/ai/admin/revenue-summary`              | |
 | Xóa lịch sử AI Admin   | `DELETE` | `/api/v1/ai/admin/chat/history`                 |
@@ -1929,6 +1930,8 @@ Admin sử dụng các API này để quản lý tài khoản chủ nhà hàng v
 > **Email Notifications (Admin actions):**
 > - `approve` → email `restaurant_activated`: Chúc mừng, thông báo tạo wallet thành công.
 > - `activate` → email `restaurant_reactivated`: Thông báo mở khóa lại, không đề cập wallet (vì đã tồn tại).
+> - `reject` (Partner Request) → email `partner_request_rejected`: Thông báo lịch sự về kết quả duyệt hồ sơ.
+> - `reject` (Restaurant Audit) → email `restaurant_rejected`: Thông báo hồ sơ không đạt yêu cầu và đã được gỡ bỏ khỏi hệ thống.
 
 ### 💎 Loyalty Point Policy (Chính sách điểm thưởng)
 
@@ -2058,13 +2061,23 @@ socket.on('notification', (data) => {
 
 ### 5.2 REST APIs theo dõi Activity Feeds (Lịch sử Thông báo)
 
+#### A. Dành cho Chủ nhà hàng (Owner)
+
 | Method | Endpoint (qua Gateway) | Mô tả | Auth | Role |
 | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/owner/activity` | Lấy danh sách lịch sử thông báo | ✅ | OWNER |
 | `PUT` | `/api/v1/owner/activity/:id/read` | Đánh dấu 1 thông báo đã đọc | ✅ | OWNER |
 | `PUT` | `/api/v1/owner/activity/read-all` | Đánh dấu tất cả là đã đọc | ✅ | OWNER |
 
-#### Query params đối với `GET /api/v1/owner/activity`:
+#### B. Dành cho Quản trị viên (Admin)
+
+| Method | Endpoint (qua Gateway) | Mô tả | Auth | Role |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/admin/activity` | Lấy danh sách lịch sử thông báo hệ thống | ✅ | ADMIN |
+| `PUT` | `/api/v1/admin/activity/:id/read` | Đánh dấu 1 thông báo hệ thống đã đọc | ✅ | ADMIN |
+| `PUT` | `/api/v1/admin/activity/read-all` | Đánh dấu tất cả thông báo hệ thống là đã đọc | ✅ | ADMIN |
+
+#### Query params đối với `GET /api/v1/owner/activity` và `GET /api/v1/admin/activity`:
 
 | Param | Type | Mô tả |
 | :--- | :--- | :--- |
