@@ -495,9 +495,12 @@ async function getTransactions(query = {}) {
     provider: query.provider,
     restaurantId: query.restaurantId,
     walletId: query.walletId,
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo,
     ...paging
   });
 }
+
 
 // Tinh moc thoi gian bat dau va ket thuc cua mot quy.
 function quarterRange(year, quarter) {

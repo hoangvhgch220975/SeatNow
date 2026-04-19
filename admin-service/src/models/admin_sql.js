@@ -48,11 +48,13 @@ async function getDashboardStats({ dateFrom, dateTo, restaurantId } = {}) {
     SELECT
       -- Global Stats (Snapshot)
       (SELECT COUNT(1) FROM dbo.Users) AS totalUsers,
+      (SELECT COUNT(1) FROM dbo.Users WHERE role = 'CUSTOMER') AS totalCustomers,
+      (SELECT COUNT(1) FROM dbo.Users WHERE role = 'RESTAURANT_OWNER') AS totalOwners,
       (SELECT COUNT(1) FROM dbo.Restaurants) AS totalRestaurants,
       (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'pending') AS pendingRestaurants,
       (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'active') AS activeRestaurants,
       (SELECT COUNT(1) FROM dbo.Restaurants WHERE LOWER(ISNULL(status, '')) = 'suspended') AS suspendedRestaurants,
-      (SELECT ISNULL(SUM(balance), 0) FROM dbo.Wallets) AS totalWalletBalance,
+      (SELECT ISNULL(SUM(balance), 0) FROM dbo.Wallets WHERE 1=1 ${restaurantId && restaurantId !== 'all' ? ' AND restaurantId = @rid' : ''}) AS totalWalletBalance,
 
       -- Periodic Stats (Filtered)
       (SELECT COUNT(1) FROM dbo.Users WHERE 1=1 ${dateFilterUsers}) AS newUsers,
@@ -65,11 +67,36 @@ async function getDashboardStats({ dateFrom, dateTo, restaurantId } = {}) {
       (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) = 'COMPLETED' ${dateFilterBookings} ${restaurantFilterBookings}) AS completedBookings,
       (SELECT COUNT(1) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('CANCELLED', 'NO_SHOW') ${dateFilterBookings} ${restaurantFilterBookings}) AS cancelledBookings,
       
-      (SELECT ISNULL(SUM(amount), 0) FROM dbo.Transactions t LEFT JOIN dbo.Wallets w ON w.id = t.walletId WHERE t.walletId = '6EDEC0B0-EA2C-46CB-B940-C8A1A357A0C9' AND t.status = 'COMPLETED' ${dateFilterTransactions} ${restaurantFilterTransactions}) AS totalCommission,
+      (SELECT ISNULL(SUM(t.amount), 0) 
+       FROM dbo.Transactions t 
+       LEFT JOIN dbo.Bookings b ON b.id = t.bookingId 
+       WHERE t.walletId = '6EDEC0B0-EA2C-46CB-B940-C8A1A357A0C9' 
+       AND t.status = 'COMPLETED' 
+       ${dateFilterTransactions} 
+       ${restaurantId && restaurantId !== 'all' ? ' AND b.restaurantId = @rid' : ''}) AS totalCommission,
+
+      (SELECT ISNULL(SUM(lockedAmount), 0) 
+       FROM dbo.Wallets 
+       WHERE restaurantId IS NOT NULL 
+       ${restaurantId && restaurantId !== 'all' ? ' AND restaurantId = @rid' : ''}) AS totalUncollectedCommission,
+       
       (SELECT ISNULL(SUM(depositAmount), 0) FROM dbo.Bookings WHERE UPPER(ISNULL(status, '')) IN ('ARRIVED', 'COMPLETED', 'NO_SHOW', 'CONFIRMED') ${dateFilterBookings} ${restaurantFilterBookings}) AS totalDeposit,
 
-      (SELECT COUNT(1) FROM dbo.Transactions t LEFT JOIN dbo.Wallets w ON w.id = t.walletId WHERE 1=1 ${dateFilterTransactions} ${restaurantFilterTransactions}) AS totalTransactions,
-      (SELECT COUNT(1) FROM dbo.Transactions t LEFT JOIN dbo.Wallets w ON w.id = t.walletId WHERE UPPER(ISNULL(type, '')) = 'DEPOSIT_PAYMENT' ${dateFilterTransactions} ${restaurantFilterTransactions}) AS totalDepositTransactions
+      (SELECT COUNT(1) 
+       FROM dbo.Transactions t 
+       LEFT JOIN dbo.Wallets w ON w.id = t.walletId 
+       LEFT JOIN dbo.Bookings b ON b.id = t.bookingId 
+       WHERE (w.restaurantId IS NOT NULL OR b.id IS NOT NULL)
+       ${dateFilterTransactions} 
+       ${restaurantId && restaurantId !== 'all' ? ' AND (w.restaurantId = @rid OR b.restaurantId = @rid)' : ''}) AS totalTransactions,
+       
+      (SELECT COUNT(1) 
+       FROM dbo.Transactions t 
+       LEFT JOIN dbo.Wallets w ON w.id = t.walletId 
+       LEFT JOIN dbo.Bookings b ON b.id = t.bookingId 
+       WHERE UPPER(ISNULL(t.type, '')) = 'DEPOSIT_PAYMENT' 
+       ${dateFilterTransactions} 
+       ${restaurantId && restaurantId !== 'all' ? ' AND (w.restaurantId = @rid OR b.restaurantId = @rid)' : ''}) AS totalDepositTransactions
   `);
 
   return rs.recordset[0] || {};
@@ -417,10 +444,12 @@ async function getBookings({ status, restaurantId, dateFrom, dateTo, page = 1, l
   };
 }
 
-// Lay danh sach giao dich kem thong tin wallet/nha hang.
-async function getTransactions({ type, status, provider, restaurantId, walletId, page = 1, limit = 20 } = {}) {
+// Lay danh sach giao dich kem thong tin wallet/nha hang và thống kê tổng quan.
+async function getTransactions({ type, status, provider, restaurantId, walletId, dateFrom, dateTo, page = 1, limit = 20 } = {}) {
   const pool = await getPool();
   const { offset, page: safePage, limit: safeLimit } = buildPagination(page, limit);
+  
+  // 1. Build filters for listing
   const req = pool.request()
     .input('offset', sql.Int, offset)
     .input('limit', sql.Int, safeLimit);
@@ -446,27 +475,23 @@ async function getTransactions({ type, status, provider, restaurantId, walletId,
     where.push('w.restaurantId = @restaurantId');
     req.input('restaurantId', sql.UniqueIdentifier, restaurantId);
   }
+  if (dateFrom) {
+    where.push('t.createdAt >= @dateFrom');
+    req.input('dateFrom', sql.DateTime2, new Date(dateFrom));
+  }
+  if (dateTo) {
+    where.push('t.createdAt <= @dateTo');
+    req.input('dateTo', sql.DateTime2, new Date(dateTo));
+  }
 
+  // 2. Fetch Listing Items
   const itemsRs = await req.query(`
     SELECT
-      t.id,
-      t.walletId,
-      t.bookingId,
-      t.type,
-      t.amount,
-      t.currency,
-      t.paymentMethod,
-      t.referenceCode,
-      t.providerTxnId,
-      t.status,
-      t.payerType,
-      t.provider,
-      t.description,
-      t.idempotencyKey,
-      t.createdAt,
-      t.completedAt,
-      w.restaurantId,
-      w.userId,
+      t.id, t.walletId, t.bookingId, t.type, t.amount, t.currency,
+      t.paymentMethod, t.referenceCode, t.providerTxnId, t.status,
+      t.payerType, t.provider, t.description, t.idempotencyKey,
+      t.createdAt, t.completedAt,
+      w.restaurantId, w.userId,
       r.name AS restaurantName
     FROM dbo.Transactions t
     LEFT JOIN dbo.Wallets w ON w.id = t.walletId
@@ -476,12 +501,17 @@ async function getTransactions({ type, status, provider, restaurantId, walletId,
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
   `);
 
+  // 3. Fetch Total Count for current filter
   const countReq = pool.request();
+  // Copy inputs for count req
   if (type) countReq.input('type', sql.NVarChar(30), type);
   if (status) countReq.input('status', sql.NVarChar(30), status);
   if (provider) countReq.input('provider', sql.NVarChar(30), provider);
   if (walletId) countReq.input('walletId', sql.UniqueIdentifier, walletId);
   if (restaurantId) countReq.input('restaurantId', sql.UniqueIdentifier, restaurantId);
+  if (dateFrom) countReq.input('dateFrom', sql.DateTime2, new Date(dateFrom));
+  if (dateTo) countReq.input('dateTo', sql.DateTime2, new Date(dateTo));
+
   const countRs = await countReq.query(`
     SELECT COUNT(1) AS total
     FROM dbo.Transactions t
@@ -489,19 +519,60 @@ async function getTransactions({ type, status, provider, restaurantId, walletId,
     WHERE ${where.join(' AND ')}
   `);
 
+  // 4. Fetch Summary Data (Matching filters for Admin Profit and Count)
+  const summaryReq = pool.request();
+  if (restaurantId) summaryReq.input('restaurantId', sql.UniqueIdentifier, restaurantId);
+  if (dateFrom) summaryReq.input('dateFrom', sql.DateTime2, new Date(dateFrom));
+  if (dateTo) summaryReq.input('dateTo', sql.DateTime2, new Date(dateTo));
+
+  const adminWalletId = '6EDEC0B0-EA2C-46CB-B940-C8A1A357A0C9';
+  summaryReq.input('adminWalletId', sql.UniqueIdentifier, adminWalletId);
+
+  const summaryRs = await summaryReq.query(`
+    SELECT
+      -- Total Profit Admin (Filtered by date/restaurant)
+      (SELECT ISNULL(SUM(t.amount), 0) 
+       FROM dbo.Transactions t
+       LEFT JOIN dbo.Bookings b ON b.id = t.bookingId
+       WHERE t.walletId = @adminWalletId AND t.status = 'COMPLETED' 
+       AND (t.type = 'COMMISSION' OR t.type = 'SETTLEMENT')
+       ${dateFrom ? ' AND t.createdAt >= @dateFrom' : ''}
+       ${dateTo ? ' AND t.createdAt <= @dateTo' : ''}
+       ${restaurantId ? ' AND b.restaurantId = @restaurantId' : ''}
+      ) AS totalAdminProfit,
+
+      -- Total Uncollected Commission (Sum of lockedAmount)
+      (SELECT ISNULL(SUM(lockedAmount), 0) 
+       FROM dbo.Wallets 
+       WHERE restaurantId IS NOT NULL
+       ${restaurantId ? ' AND restaurantId = @restaurantId' : ''}
+      ) AS totalUncollectedCommission,
+
+      -- Restaurant Balance (Only if restaurantId is provided)
+      ${restaurantId ? '(SELECT TOP 1 balance FROM dbo.Wallets WHERE restaurantId = @restaurantId)' : 'NULL'} AS walletBalance
+  `);
+
+  const summary = summaryRs.recordset[0] || {};
   const total = Number(countRs.recordset[0]?.total || 0);
-  const totalPages = Math.ceil(total / safeLimit);
 
   return {
     data: itemsRs.recordset || [],
+    summary: {
+      totalAdminProfit: summary.totalAdminProfit,
+      totalUncollectedCommission: summary.totalUncollectedCommission,
+      totalTransactions: total,
+      walletBalance: summary.walletBalance,
+      currency: 'VND'
+    },
     pagination: {
       page: safePage,
       limit: safeLimit,
       total: total,
-      totalPages: totalPages
+      totalPages: Math.ceil(total / safeLimit)
     }
   };
 }
+
 
 // Thống kê doanh thu toàn hệ thống cho Admin (Hoa hồng) - Hỗ trợ Zero-filling
 async function getAdminRevenueStats({ period = 'month', from, to } = {}) {

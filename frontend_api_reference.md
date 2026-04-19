@@ -1251,6 +1251,26 @@ Các API này yêu cầu Header `x-internal-token` và không được tiếp c�
 > **Tham số query cho GET /dashboard/stats**:
 > - `period`: Lọc nhanh theo kỳ (`today`, `week`, `month`, `quarter`, `year`).
 > - `from`, `to`: Lọc chính xác theo dải ngày (ISO Date).
+> - `restaurantId`: (Tùy chọn) Lọc dữ liệu cho một nhà hàng cụ thể.
+>
+> **Cấu trúc Response mẫu (200 OK)**:
+> ```json
+> {
+>   "success": true,
+>   "data": {
+>     "totalUsers": 120,
+>     "totalRestaurants": 45,
+>     "totalWalletBalance": 85000000,       // Tổng số dư ví (hệ thống hoặc nhà hàng)
+>     "totalCommission": 15000000,          // Tổng lợi nhuận sàn (Admin Profit)
+>     "totalUncollectedCommission": 2500000, // Tổng hoa hồng chưa thu (lockedAmount)
+>     "totalBookings": 450,
+>     "totalTransactions": 145,
+>     "newUsers": 12,
+>     "pendingRestaurants": 3,
+>     "...": "..."
+>   }
+> }
+> ```
 
 #### 📈 Thống kê doanh thu (`GET /dashboard/revenue-stats`):
 Hệ thống sử dụng kỹ thuật **Zero-filling** để đảm bảo biểu đồ luôn đầy đủ các mốc thời gian ngay cả khi không có doanh thu.
@@ -1305,10 +1325,34 @@ Hệ thống sử dụng kỹ thuật **Zero-filling** để đảm bảo biểu
 > - `restaurantId`: Xem booking của một nhà hàng cụ thể.
 > - `dateFrom`, `dateTo`: Lọc theo khoảng thời gian đặt bàn.
 
-| `GET`    | `/transactions`                   | Danh sách giao dịch                                                       |
+| `GET`    | `/transactions`                   | Danh sách giao dịch (kèm thống kê tổng quan)                              |
 | `GET`    | `/partner-requests`               | Lấy danh sách yêu cầu trở thành đối tác                                   |
 | `POST`   | `/partner-requests/:id/approve`   | Duyệt đối tác (hệ thống tự tạo tài khoản Owner và gửi mật khẩu qua email) |
 | `DELETE` | `/partner-requests/:id/reject`    | Từ chối yêu cầu đối tác                                                   |
+
+> **Tham số query cho GET /transactions**:
+> - `type`: Lọc theo loại giao dịch (`DEPOSIT_PAYMENT`, `TOP_UP`, `COMMISSION`, `WITHDRAWAL`,...).
+> - `status`: Lọc theo trạng thái (`pending`, `completed`, `failed`).
+> - `restaurantId`: Xem giao dịch của một nhà hàng cụ thể.
+> - `dateFrom`, `dateTo`: Lọc theo khoảng thời gian phát sinh giao dịch.
+> - `page`, `limit`: Phân trang.
+>
+> **Cấu trúc Response mẫu (200 OK)**:
+> ```json
+> {
+>   "success": true,
+>   "data": [ ... ],
+>   "summary": {
+>     "totalAdminProfit": 15000000,       // Tổng lợi nhuận sàn (Admin Profit)
+>     "totalUncollectedCommission": 2500000, // Tổng hoa hồng chưa thu (lockedAmount)
+>     "totalTransactions": 145,             // Tổng số giao dịch khớp bộ lọc
+>     "walletBalance": 8500000,             // Số dư ví (Chỉ trả về khi lọc theo restaurantId)
+>     "currency": "VND"
+>   },
+>   "pagination": { "page": 1, "limit": 20, "total": 145, "totalPages": 8 }
+> }
+> ```
+
 
 ### 6.4 Tài chính & Đối soát (Settlement)
 
@@ -1715,7 +1759,7 @@ Khi thực hiện giải ngân, hệ thống sẽ tự động khấu trừ phí
 - **Giữ bàn tạm (Hold):** Redis Lock 2 phút khi khách chọn bàn trên UI
 - **Giải phóng slot:** Tự động khi booking chuyển `completed` hoặc `cancelled`
 - **Slot hết giờ:** Tự động trống lại sau 2h nếu chưa `completed`
-- | Thống kê tổng quan   | `GET`    | `/api/v1/admin/dashboard/stats`                | Query: `period` (today, week, month, year), `from`, `to`, `restaurantId` (Lọc số liệu theo nhà hàng) |
+- | Thống kê tổng quan   | `GET`    | `/api/v1/admin/dashboard/stats`                | Query: `period` (today, week, month, year), `from`, `to`, `restaurantId`. Trả về: `totalUsers`, `totalCustomers`, `totalOwners`, `totalRestaurants`, `totalBookings`, v.v. |
 | Biểu đồ doanh thu    | `GET`    | `/api/v1/admin/dashboard/revenue-stats`        | Query: `period`, `from`, `to` |
 
 ## 🔌 Hướng dẫn kết nối Frontend (React/Next.js)
