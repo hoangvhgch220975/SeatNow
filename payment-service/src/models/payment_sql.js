@@ -135,17 +135,23 @@ async function getWalletTransactions(walletId, type = null) {
   req.input('walletId', sql.UniqueIdentifier, walletId);
   
   let query = `
-    SELECT *
-    FROM dbo.Transactions
-    WHERE walletId = @walletId
+    SELECT 
+      t.*,
+      b.bookingCode,
+      b.commissionFee AS commissionAmount,
+      b.depositAmount AS depositAmount,
+      (ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)) AS netAmount
+    FROM dbo.Transactions t
+    LEFT JOIN dbo.Bookings b ON t.bookingId = b.id
+    WHERE t.walletId = @walletId
   `;
 
   if (type) {
     req.input('type', sql.NVarChar(50), type);
-    query += ' AND type = @type ';
+    query += ' AND t.type = @type ';
   }
 
-  query += ' ORDER BY createdAt DESC ';
+  query += ' ORDER BY t.createdAt DESC ';
 
   const rs = await req.query(query);
   return rs.recordset;
@@ -894,8 +900,9 @@ async function getRecentRestaurantTransactions(restaurantId, limit = 5) {
         tx.createdAt,
         tx.completedAt,
         b.bookingCode,
-        b.commissionFee,
-        tx.amount - ISNULL(b.commissionFee, 0) AS netAmount,
+        b.commissionFee AS commissionAmount,
+        b.depositAmount AS depositAmount,
+        (ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)) AS netAmount,
         COALESCE(u.name, b.guestName) AS customerName,
         u.avatar AS customerAvatar,
         t.tableNumber,
@@ -906,7 +913,7 @@ async function getRecentRestaurantTransactions(restaurantId, limit = 5) {
       LEFT JOIN dbo.Tables t ON b.tableId = t.id
       WHERE b.restaurantId = @restaurantId
         AND tx.status = 'completed'
-        AND tx.type = 'DEPOSIT_PAYMENT'
+        AND tx.type IN ('DEPOSIT_PAYMENT', 'SETTLEMENT')
       ORDER BY tx.createdAt DESC
     `);
   return rs.recordset;

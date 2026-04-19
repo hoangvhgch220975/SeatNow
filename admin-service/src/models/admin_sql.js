@@ -492,10 +492,14 @@ async function getTransactions({ type, status, provider, restaurantId, walletId,
       t.payerType, t.provider, t.description, t.idempotencyKey,
       t.createdAt, t.completedAt,
       w.restaurantId, w.userId,
-      r.name AS restaurantName
+      r.name AS restaurantName,
+      b.commissionFee AS commissionAmount,
+      b.depositAmount AS depositAmount,
+      (ISNULL(b.depositAmount, 0) - ISNULL(b.commissionFee, 0)) AS netAmount
     FROM dbo.Transactions t
     LEFT JOIN dbo.Wallets w ON w.id = t.walletId
     LEFT JOIN dbo.Restaurants r ON r.id = w.restaurantId
+    LEFT JOIN dbo.Bookings b ON b.id = t.bookingId
     WHERE ${where.join(' AND ')}
     ORDER BY t.createdAt DESC
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY

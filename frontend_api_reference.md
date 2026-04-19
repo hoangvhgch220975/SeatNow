@@ -1341,15 +1341,19 @@ Hệ thống sử dụng kỹ thuật **Zero-filling** để đảm bảo biểu
 > ```json
 > {
 >   "success": true,
->   "data": [ ... ],
->   "summary": {
->     "totalAdminProfit": 15000000,       // Tổng lợi nhuận sàn (Admin Profit)
->     "totalUncollectedCommission": 2500000, // Tổng hoa hồng chưa thu (lockedAmount)
->     "totalTransactions": 145,             // Tổng số giao dịch khớp bộ lọc
->     "walletBalance": 8500000,             // Số dư ví (Chỉ trả về khi lọc theo restaurantId)
->     "currency": "VND"
->   },
->   "pagination": { "page": 1, "limit": 20, "total": 145, "totalPages": 8 }
+>   "data": [
+>     {
+>       "id": "...",
+>       "type": "SETTLEMENT",
+>       "amount": 20000,           // Tổng dòng tiền (với Settlement là tiền cọc)
+>       "netAmount": -20000,       // Thực nhận của nhà hàng (Deposit - Commission)
+>       "commissionAmount": 20000, // Phí hoa hồng hệ thống tạm giữ
+>       "restaurantName": "...",
+>       "createdAt": "..."
+>     }
+>   ],
+>   "summary": { ... },
+>   "pagination": { ... }
 > }
 > ```
 
@@ -1929,9 +1933,20 @@ Hệ thống hỗ trợ cả phân tích chuỗi (Portfolio) và phân tích sâ
 | Thống kê doanh thu     | `GET`                 | `/api/v1/booking-restaurants/:idOrSlug/revenue-stats?period=month` |
 | Thống kê giờ           | `GET`                 | `/api/v1/booking-restaurants/:idOrSlug/stats/hourly?period=week`   |
 | Portfolio Summary      | `GET`                 | `/api/v1/owner/portfolio-summary?from=...&to=...`            |
-| Số dư ví               | `GET`                 | `/api/v1/payment/wallet/balance`                             |
-| **AI Advisor (Chat)**  | `POST`                | `/api/v1/ai/owner/chat`                                      |
-| **AI Summary (One-shot)** | `POST`             | `/api/v1/ai/owner/revenue-summary`                           |
+| Số dư ví               | `GET`                 | `/api/v1/payment/wallet/balance`                             | Trả về balance, lockedAmount, pendingWithdrawal |
+| Lịch sử giao dịch      | `GET`                 | `/api/v1/payment/wallet/history`                             | Danh sách giao dịch ví (kèm breakdown net/commission) |
+| Giao dịch gần đây      | `GET`                 | `/api/v1/payment/wallet/recent-transactions`                  | 5 giao dịch mới nhất (thường dùng cho Dashboard) |
+| Tạo lệnh nạp tiền      | `POST`                | `/api/v1/payment/wallet/topup/create`                         | Payload: `{ restaurantId, provider, amount }` |
+| Tạo lệnh rút tiền      | `POST`                | `/api/v1/payment/wallet/withdraw`                             | Payload: `{ idOrSlug, amount, withdrawMethod, bankInfo... }` |
+| **AI Advisor (Chat)**  | `POST`                | `/api/v1/ai/owner/chat`                                      | Tư vấn kinh doanh đa lượt |
+| **AI Summary (One-shot)** | `POST`             | `/api/v1/ai/owner/revenue-summary`                           | Phân tích báo cáo doanh thu nhanh |
+
+> **Cấu trúc dữ liệu Giao dịch bóc tách (SETTLEMENT breakdown):**
+> Đối với các giao dịch loại `SETTLEMENT`, API trả về các trường bổ sung để FE hiển thị minh bạch:
+> - `amount`: Tổng số tiền giao dịch (thường là tiền cọc).
+> - `netAmount`: Số tiền thực tế cộng vào ví (sau khi trừ hoa hồng). Có thể âm nếu không có cọc.
+> - `commissionAmount`: Phí hoa hồng hệ thống tạm giữ (locked).
+> - `bookingCode`: Mã đơn đặt bàn liên quan.
 
 ### 🛡️ Admin
 
