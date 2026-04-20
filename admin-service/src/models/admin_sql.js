@@ -577,6 +577,113 @@ async function getTransactions({ type, status, provider, restaurantId, walletId,
   };
 }
 
+/**
+ * Lấy danh sách yêu cầu rút tiền chuyên biệt cho Admin quản lý giải ngân.
+ * Hỗ trợ lọc theo trạng thái, nhà hàng và tìm kiếm từ khóa (ID, BookingCode, RestaurantName).
+ */
+async function getWithdrawals({ status, restaurantId, keyword, page = 1, limit = 20 } = {}) {
+  const pool = await getPool();
+  const req = pool.request();
+
+  const safePage = Math.max(1, parseInt(page) || 1);
+  const safeLimit = Math.max(1, Math.min(100, parseInt(limit) || 20));
+  const offset = (safePage - 1) * safeLimit;
+
+  req.input('offset', sql.Int, offset);
+  req.input('limit', sql.Int, safeLimit);
+
+  const where = ["t.type = 'WITHDRAWAL'"];
+
+  if (status) {
+    req.input('status', sql.NVarChar(30), status);
+    where.push("t.status = @status");
+  }
+
+  if (restaurantId) {
+    req.input('restaurantId', sql.UniqueIdentifier, restaurantId);
+    where.push("w.restaurantId = @restaurantId");
+  }
+
+  if (keyword) {
+    req.input('keyword', sql.NVarChar(100), `%${keyword}%`);
+    where.push("(CAST(t.id AS NVARCHAR(40)) LIKE @keyword OR b.bookingCode LIKE @keyword OR r.name LIKE @keyword)");
+  }
+
+  const query = `
+    SELECT 
+      t.*,
+      w.balance AS currentWalletBalance,
+      w.pendingWithdrawal AS currentPendingAmount,
+      r.name AS restaurantName,
+      r.id AS restaurantId,
+      b.bookingCode
+    FROM dbo.Transactions t
+    LEFT JOIN dbo.Wallets w ON w.id = t.walletId
+    LEFT JOIN dbo.Restaurants r ON r.id = w.restaurantId
+    LEFT JOIN dbo.Bookings b ON b.id = t.bookingId
+    WHERE ${where.join(' AND ')}
+    ORDER BY 
+      CASE WHEN t.status = 'pending' THEN 0 ELSE 1 END ASC,
+      t.createdAt DESC
+    OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+  `;
+
+  const itemsRs = await req.query(query);
+
+  const countReq = pool.request();
+  if (status) countReq.input('status', sql.NVarChar(30), status);
+  if (restaurantId) countReq.input('restaurantId', sql.UniqueIdentifier, restaurantId);
+  if (keyword) countReq.input('keyword', sql.NVarChar(100), `%${keyword}%`);
+
+  const countRs = await countReq.query(`
+    SELECT COUNT(1) AS total
+    FROM dbo.Transactions t
+    LEFT JOIN dbo.Wallets w ON w.id = t.walletId
+    LEFT JOIN dbo.Restaurants r ON r.id = w.restaurantId
+    LEFT JOIN dbo.Bookings b ON b.id = t.bookingId
+    WHERE ${where.join(' AND ')}
+  `);
+
+  const total = Number(countRs.recordset[0]?.total || 0);
+
+  // 4. Fetch Summary for Withdrawals (Stats)
+  const adminWalletId = '6EDEC0B0-EA2C-46CB-B940-C8A1A357A0C9';
+  const summaryRs = await pool.request()
+    .input('adminWalletId', sql.UniqueIdentifier, adminWalletId)
+    .query(`
+      SELECT
+        -- 1. Pending Count
+        (SELECT COUNT(1) FROM dbo.Transactions WHERE type = 'WITHDRAWAL' AND status = 'pending') AS pendingCount,
+        
+        -- 2. Total Processed (Sum of all completed withdrawals)
+        (SELECT ISNULL(SUM(amount), 0) FROM dbo.Transactions 
+         WHERE type = 'WITHDRAWAL' AND status = 'completed') AS totalProcessed,
+         
+        -- 3. System Liquidity (Admin Wallet Balance)
+        (SELECT balance FROM dbo.Wallets WHERE id = @adminWalletId) AS systemLiquidity
+    `);
+
+  const summary = summaryRs.recordset[0] || { pendingCount: 0, totalProcessed: 0, systemLiquidity: 0 };
+  console.log('>>> [SQL] Withdrawals Summary Result:', summary);
+
+  return {
+    data: itemsRs.recordset || [],
+    summary: {
+       pendingCount: summary.pendingCount,
+       totalProcessed: summary.totalProcessed,
+       systemLiquidity: summary.systemLiquidity || 0
+    },
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total: total,
+      totalPages: Math.ceil(total / safeLimit)
+    }
+  };
+}
+
+
+
 
 // Thống kê doanh thu toàn hệ thống cho Admin (Hoa hồng) - Hỗ trợ Zero-filling
 async function getAdminRevenueStats({ period = 'month', from, to } = {}) {
@@ -688,6 +795,7 @@ module.exports = {
   getUsers,
   getBookings,
   getTransactions,
+  getWithdrawals,
   getAdminRevenueStats,
   getSystemConfig,
   updateSystemConfig

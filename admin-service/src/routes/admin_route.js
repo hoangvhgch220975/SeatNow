@@ -35,6 +35,7 @@ router.post('/commissions/collect', controller.collectCommissions);
 router.post('/commissions/settle-quarter', controller.settleQuarterCommission);
 
 // Quy trinh duyet / tu choi rut tien
+router.get('/withdrawals', controller.getWithdrawals);
 router.post('/withdrawals/:id/approve', controller.approveWithdrawal);
 router.post('/withdrawals/:id/reject', controller.rejectWithdrawal);
 

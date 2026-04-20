@@ -894,6 +894,41 @@ async function rejectRestaurant(restaurantId) {
   return { success: true, restaurantId };
 }
 
+/**
+ * Lấy danh sách yêu cầu rút tiền cho Admin.
+ * Parse sẵn metadataJson để FE có đủ thông tin ngân hàng.
+ */
+async function getWithdrawals(query = {}) {
+  const result = await adminModel.getWithdrawals(query);
+  
+  // Parse metadataJson cho tung giao dich
+  if (result.data && result.data.length > 0) {
+    result.data = result.data.map(tx => {
+      let bankDetails = null;
+      if (tx.metadataJson) {
+        try {
+          const meta = JSON.parse(tx.metadataJson);
+          bankDetails = meta.bankInfo || { method: meta.withdrawMethod };
+        } catch (e) {
+          console.warn(`Failed to parse metadata for tx ${tx.id}`);
+        }
+      }
+      
+      return {
+        ...tx,
+        bankDetails,
+        // Canh bao neu so tien rut lon hon so du hien tai (goi y rui ro cho Admin)
+        riskSignals: {
+          insufficientBalance: Number(tx.amount) > Number(tx.currentWalletBalance),
+          unusualAmount: Number(tx.amount) > 50000000 // Vi du: Tren 50 trieu la bat thuong
+        }
+      };
+    });
+  }
+  
+  return result;
+}
+
 module.exports = {
   createRestaurant,
   updateRestaurant,
@@ -908,6 +943,7 @@ module.exports = {
   settleQuarterCommission,
   approveWithdrawal,
   rejectWithdrawal,
+  getWithdrawals,
   createRestaurantOwner,
   getAdminRevenueStats,
   resetOwnerPassword,

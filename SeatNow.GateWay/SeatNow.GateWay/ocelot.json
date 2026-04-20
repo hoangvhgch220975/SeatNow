@@ -99,6 +99,18 @@
     },
 
     {
+      "DownstreamPathTemplate": "/api/v1/admin/activity/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 3008 }
+      ],
+      "UpstreamPathTemplate": "/api/v1/admin/activity/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT", "OPTIONS" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "GatewayJwt"
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v1/admin/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

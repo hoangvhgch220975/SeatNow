@@ -283,6 +283,16 @@ async function rejectPartnerRequest(req, res, next) {
   }
 }
 
+// Lấy danh sách yêu cầu rút tiền cho Admin quản lý.
+async function getWithdrawals(req, res, next) {
+  try {
+    const data = await adminService.getWithdrawals(req.query);
+    return res.json({ success: true, ...data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createRestaurantOwner,
   createRestaurant,
@@ -299,6 +309,7 @@ module.exports = {
   settleQuarterCommission,
   approveWithdrawal,
   rejectWithdrawal,
+  getWithdrawals,
   getAdminRevenueStats,
   resetOwnerPassword,
   getPartnerRequests,

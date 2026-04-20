@@ -1366,6 +1366,12 @@ Hệ thống sử dụng kỹ thuật **Zero-filling** để đảm bảo biểu
 | `POST` | `/commissions/settle-quarter` | Đối soát hoa hồng theo quý                        |
 | `POST` | `/withdrawals/:id/approve`    | Duyệt lệnh rút tiền        |
 | `POST` | `/withdrawals/:id/reject`     | Từ chối lệnh rút tiền      |
+| `GET`  | `/withdrawals`                | Danh sách yêu cầu rút tiền |
+
+> **Tham số query cho GET /withdrawals**:
+> - `keyword`: Tìm kiếm theo ID giao dịch, Mã đơn đặt bàn hoặc Tên nhà hàng.
+> - `status`: Lọc theo trạng thái (`pending`, `completed`, `failed`).
+> - `restaurantId`: Xem yêu cầu của một nhà hàng cụ thể.
 
 #### 💸 Thu phí hoa hồng linh hoạt (`POST /commissions/collect`):
 Cho phép Admin thu phí bất cứ lúc nào cho một khoảng thời gian tự chọn.
