@@ -120,7 +120,30 @@ async function approveWithdrawal({ transactionId, providerTxnId, metadataJson })
 }
 
 async function rejectWithdrawal({ transactionId, reason }) {
-  return paymentModel.rejectWithdrawalRequest(transactionId, { reason });
+  const result = await paymentModel.rejectWithdrawalRequest(transactionId, { reason });
+
+  // Notify restaurant owner: withdrawal rejected
+  try {
+    const tx = await paymentModel.findTransactionById(transactionId);
+    if (tx && tx.walletId) {
+      const notifUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
+      await axios.post(notifUrl, {
+        type: 'web',
+        payload: {
+          walletId: tx.walletId,
+          event: 'TRANSACTION_WITHDRAW_REJECTED',
+          title: 'Withdrawal Rejected',
+          message: `Withdrawal rejected: ${reason || 'Contact support for details'}`,
+          link: '/restaurant/wallet',
+          data: { transactionId, reason, referenceCode: tx.referenceCode }
+        }
+      });
+    }
+  } catch (notifErr) {
+    console.error('[Withdrawal] Rejection notification error:', notifErr.message);
+  }
+
+  return result;
 }
 
 module.exports = {
