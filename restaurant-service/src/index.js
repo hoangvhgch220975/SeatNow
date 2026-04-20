@@ -33,11 +33,27 @@ Promise.allSettled([getPool(), connectMongo(), initRedis()])
   });
 
 app.get('/health', async (_req, res) => {
+  const details = { database: 'down', mongodb: 'down', redis: 'down' };
   try {
-    await Promise.all([getPool(), connectMongo(), initRedis()]);
-    res.json({ ok: true, service: 'restaurant-service' });
+    await Promise.all([
+      getPool().then(() => details.database = 'up'),
+      connectMongo().then(() => details.mongodb = 'up'),
+      initRedis().then(() => details.redis = 'up')
+    ]);
+    res.json({
+      status: 'UP',
+      service: 'restaurant-service',
+      timestamp: new Date().toISOString(),
+      details
+    });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    res.status(500).json({
+      status: 'DOWN',
+      service: 'restaurant-service',
+      timestamp: new Date().toISOString(),
+      details,
+      error: e.message
+    });
   }
 });
 

@@ -26,8 +26,28 @@ async function bootstrap() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  app.get('/health', (req, res) => {
-    res.json({ success: true, service: 'payment-service' });
+  app.get('/health', async (req, res) => {
+    const details = { database: 'down', redis: 'down' };
+    try {
+      await Promise.all([
+        getPool().then(() => details.database = 'up'),
+        getRedis().then(() => details.redis = 'up')
+      ]);
+      res.json({
+        status: 'UP',
+        service: 'payment-service',
+        timestamp: new Date().toISOString(),
+        details
+      });
+    } catch (err) {
+      res.status(500).json({
+        status: 'DOWN',
+        service: 'payment-service',
+        timestamp: new Date().toISOString(),
+        details,
+        error: err.message
+      });
+    }
   });
 
   app.get('/home', (req, res) => {

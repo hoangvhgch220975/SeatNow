@@ -104,7 +104,21 @@ app.UseAuthorization();
 
 app.UseEndpoints(endpoints =>
 {
-    endpoints.MapHealthChecks("/health");
+    endpoints.MapHealthChecks("/health", new HealthCheckOptions
+    {
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var response = new
+            {
+                status = report.Status.ToString().ToUpper() == "HEALTHY" ? "UP" : "DOWN",
+                service = "gateway-ocelot",
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                details = new { gateway = report.Status.ToString().ToLower() }
+            };
+            await context.Response.WriteAsJsonAsync(response);
+        }
+    });
 });
 
 await app.UseOcelot();

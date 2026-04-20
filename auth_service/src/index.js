@@ -19,7 +19,30 @@ app.use(cors({
 app.use(express.json());
 app.use(morgan('dev'));
 
-app.get('/health', (req, res) => res.json({ ok: true }));
+app.get('/health', async (req, res) => {
+  const details = { database: 'down', redis: 'down' };
+  try {
+    const { getPool } = require('./config/db');
+    await Promise.all([
+      getPool().then(() => details.database = 'up'),
+      initRedis().then(() => details.redis = 'up')
+    ]);
+    res.json({
+      status: 'UP',
+      service: 'auth-service',
+      timestamp: new Date().toISOString(),
+      details
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'DOWN',
+      service: 'auth-service',
+      timestamp: new Date().toISOString(),
+      details,
+      error: err.message
+    });
+  }
+});
 
 app.use('/api/v1/auth', authRoutes);
 

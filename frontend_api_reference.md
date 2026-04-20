@@ -2186,3 +2186,42 @@ Hệ thống thông báo được thiết kế với cơ chế bảo vệ nhiề
 - **Ghi dữ liệu Tin cậy:** Trong `notification.worker.js`, thông báo web luôn được yêu cầu lưu vào Database SQL trước khi gửi qua Socket. Nếu lưu DB thất bại, worker sẽ chủ động báo lỗi để hàng đợi thực hiện gửi lại sau.
 - **Failover (Dự phòng khẩn cấp):** Tại Service gốc (ví dụ `booking-service`), nếu kết nối tới Redis bị lỗi khiến việc thêm vào hàng đợi (Queue Add) thất bại, hệ thống sẽ **tự động chuyển sang ghi trực tiếp vào bảng `Notifications` trong SQL**. Điều này đảm bảo thông báo luôn được ghi nhận ngay cả khi hạ tầng Redis gặp sự cố.
 
+---
+
+# 12. Hệ thống Giám sát Sức khỏe (System Health Monitoring)
+
+Toàn bộ các microservices hiện đã được chuẩn hóa endpoint `/health` để phục vụ Dashboard giám sát.
+
+### Cấu trúc phản hồi chuẩn (Standard Response)
+
+Tất cả các endpoint `/health` trả về kết quả dưới định dạng JSON sau:
+
+```json
+{
+  "status": "UP",           // "UP" hoặc "DOWN"
+  "service": "auth-service", // Tên của service
+  "timestamp": "2026-04-21T00:50:00.000Z", // Thời gian server kiểm tra
+  "details": {               // Trạng thái chi tiết của các thành phần phụ thuộc
+    "database": "up",        // "up" hoặc "down"
+    "redis": "up",           // "up" hoặc "down" (nếu có dùng)
+    "mongodb": "up"          // (chỉ có ở restaurant-service)
+  }
+}
+```
+
+### Danh sách các Endpoint Health Check
+
+| Service | Endpoint (Internal) | Port | Thành phần kiểm tra |
+| :--- | :--- | :--- | :--- |
+| **Auth** | `http://localhost:3001/health` | 3001 | SQL Server, Redis |
+| **User** | `http://localhost:3002/health` | 3002 | SQL Server |
+| **Restaurant** | `http://localhost:3003/health` | 3003 | SQL Server, MongoDB, Redis |
+| **Booking** | `http://localhost:3004/health` | 3004 | SQL Server, Redis |
+| **Payment** | `http://localhost:3005/health` | 3005 | SQL Server, Redis |
+| **Admin** | `http://localhost:3006/health` | 3006 | SQL Server |
+| **AI** | `http://localhost:3007/health` | 3007 | Redis |
+| **Notification** | `http://localhost:3008/health` | 3008 | Redis (Bull Queue) |
+| **Gateway** | `http://localhost:5000/health` | 5000 | Ocelot Status |
+
+---
+

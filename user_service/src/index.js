@@ -16,7 +16,29 @@ app.use(cors({
 app.use(express.json());
 app.use(morgan('dev'));
 
-app.get('/health', (req, res) => res.json({ ok: true, service: 'user-service' }));
+app.get('/health', async (req, res) => {
+  const details = { database: 'down' };
+  try {
+    const { getPool } = require('./config/db');
+    await getPool();
+    details.database = 'up';
+    res.json({
+      status: 'UP',
+      service: 'user-service',
+      timestamp: new Date().toISOString(),
+      details
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'DOWN',
+      service: 'user-service',
+      timestamp: new Date().toISOString(),
+      details,
+      error: err.message
+    });
+  }
+});
+
 app.use('/api/v1/users', userRoutes);
 
 const port = process.env.PORT || 3002;

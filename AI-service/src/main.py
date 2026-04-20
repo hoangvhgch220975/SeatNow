@@ -48,10 +48,27 @@ app.include_router(owner.router)
 app.include_router(public.router)
 
 # ─────────────────────── Health check ───────────────────────
+from datetime import datetime
+from config import redis_client
 
 @app.get("/health", tags=["Health"])
 async def health():
-    return {"status": "OK", "service": "SeatNow AI Service", "port": PORT}
+    details = {"redis": "down"}
+    status = "UP"
+    try:
+        r = redis_client.get_client()
+        if r.ping():
+            details["redis"] = "up"
+    except Exception:
+        status = "DOWN"
+        
+    return {
+        "status": status,
+        "service": "AI-service",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "details": details
+    }
+
 
 
 # ─────────────────────── Entrypoint ───────────────────────

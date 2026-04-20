@@ -46,11 +46,26 @@ Promise.allSettled([getPool(), getRedis(), initRedisSubscriber()])
   });
 
 app.get('/health', async (_req, res) => {
+  const details = { database: 'down', redis: 'down' };
   try {
-    await Promise.all([getPool(), getRedis()]);
-    res.json({ ok: true, service: 'booking-service' });
+    await Promise.all([
+      getPool().then(() => details.database = 'up'),
+      getRedis().then(() => details.redis = 'up')
+    ]);
+    res.json({
+      status: 'UP',
+      service: 'booking-service',
+      timestamp: new Date().toISOString(),
+      details
+    });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    res.status(500).json({
+      status: 'DOWN',
+      service: 'booking-service',
+      timestamp: new Date().toISOString(),
+      details,
+      error: e.message
+    });
   }
 });
 

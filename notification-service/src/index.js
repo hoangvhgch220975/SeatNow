@@ -38,8 +38,28 @@ app.use(express.json());
 webNotificationService.init(io);
 
 // Health Check
-app.get('/health', (req, res) => {
-  res.json({ status: 'up', service: 'notification-service' });
+app.get('/health', async (req, res) => {
+  const details = { redis: 'down' };
+  try {
+    // Check if queue client is connected
+    if (notificationQueue.client.status === 'ready') {
+      details.redis = 'up';
+    }
+    res.json({
+      status: 'UP',
+      service: 'notification-service',
+      timestamp: new Date().toISOString(),
+      details
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'DOWN',
+      service: 'notification-service',
+      timestamp: new Date().toISOString(),
+      details,
+      error: err.message
+    });
+  }
 });
 
 // Trigger notifications via HTTP (Internal Service Use)

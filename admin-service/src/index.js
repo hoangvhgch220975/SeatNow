@@ -24,9 +24,20 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/health', async (_req, res) => {
 	try {
 		await getPool();
-		return res.json({ success: true, service: 'admin-service' });
+		return res.json({ 
+			status: 'UP', 
+			service: 'admin-service',
+			timestamp: new Date().toISOString(),
+			details: { database: 'up' }
+		});
 	} catch (err) {
-		return res.status(500).json({ success: false, message: err.message });
+		return res.status(500).json({ 
+			status: 'DOWN', 
+			service: 'admin-service',
+			timestamp: new Date().toISOString(),
+			details: { database: 'down' },
+			error: err.message 
+		});
 	}
 });
 
