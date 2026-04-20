@@ -901,14 +901,19 @@ async function rejectRestaurant(restaurantId) {
 async function getWithdrawals(query = {}) {
   const result = await adminModel.getWithdrawals(query);
   
-  // Parse metadataJson cho tung giao dich
+  // Parse metadataJson cho từng giao dịch để lấy chi tiết ngân hàng/QR
   if (result.data && result.data.length > 0) {
     result.data = result.data.map(tx => {
       let bankDetails = null;
       if (tx.metadataJson) {
         try {
           const meta = JSON.parse(tx.metadataJson);
-          bankDetails = meta.bankInfo || { method: meta.withdrawMethod };
+          // Ưu tiên bankInfo, nếu không có thì vẫn lấy các trường method và qrCodeUrl
+          bankDetails = {
+            ...(meta.bankInfo || {}),
+            method: meta.withdrawMethod || 'BANK_TRANSFER',
+            qrCodeUrl: meta.qrCodeUrl
+          };
         } catch (e) {
           console.warn(`Failed to parse metadata for tx ${tx.id}`);
         }
@@ -917,10 +922,10 @@ async function getWithdrawals(query = {}) {
       return {
         ...tx,
         bankDetails,
-        // Canh bao neu so tien rut lon hon so du hien tai (goi y rui ro cho Admin)
+        // Phân tích rủi ro dựa trên dữ liệu ví hiện tại
         riskSignals: {
           insufficientBalance: Number(tx.amount) > Number(tx.currentWalletBalance),
-          unusualAmount: Number(tx.amount) > 50000000 // Vi du: Tren 50 trieu la bat thuong
+          unusualAmount: Number(tx.amount) > 50000000 // Cảnh báo nếu rút trên 50 triệu
         }
       };
     });
