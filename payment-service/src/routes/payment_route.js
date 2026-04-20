@@ -5,7 +5,8 @@ const validate = require('../middlewares/validate_middleware');
 const internalAuth = require('../middlewares/internalAuth_middleware');
 const {
 	createWalletTopupSchema,
-	chargeCommissionSchema
+	chargeCommissionSchema,
+	createWithdrawalSchema
 } = require('../validators/payment_validator');
 
 // Khởi tạo router
@@ -25,8 +26,8 @@ r.get('/wallet/transactions', controller.getWalletTransactions);
 r.get('/wallet/recent-transactions', controller.getRecentTransactions);
 r.post('/wallet/commission/charge', internalAuth, validate(chargeCommissionSchema), controller.chargeCommission);
 
-// Withdrawal APIs (usually called via internal requests from admin/restaurant service)
-r.post('/wallet/withdraw', internalAuth, controller.createWithdrawal);
+// Withdrawal APIs (Available to restaurant owners via Gateway)
+r.post('/wallet/withdraw', validate(createWithdrawalSchema), controller.createWithdrawal);
 r.post('/internal/wallet/withdraw/:id/approve', internalAuth, controller.approveWithdrawal);
 r.post('/internal/wallet/withdraw/:id/reject', internalAuth, controller.rejectWithdrawal);
 

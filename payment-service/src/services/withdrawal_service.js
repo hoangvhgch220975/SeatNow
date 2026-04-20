@@ -49,7 +49,7 @@ async function createWithdrawal({ idOrSlug, amount, description, withdrawMethod,
     };
 
     // Map withdraw method to payment provider
-    const mappedPaymentMethod = withdrawMethod === 'QR' ? 'momo' : 'vnpay';
+    const mappedPaymentMethod = withdrawMethod === 'QR' ? 'MOMO' : 'VNPAY';
 
     const withdrawal = await paymentModel.createWithdrawalRequest({
       restaurantId,
@@ -100,21 +100,17 @@ async function approveWithdrawal({ transactionId, providerTxnId, metadataJson })
     const tx = await paymentModel.findTransactionById(transactionId);
     if (tx && tx.walletId) {
       const notifUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3008/api/v1/notifications';
-      fetch(notifUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'web',
-          payload: {
-            walletId: tx.walletId,
-            event: 'TRANSACTION_WITHDRAW_APPROVED',
-            title: 'Withdrawal Approved',
-            message: `Withdrawal approved: ${Number(tx.amount || 0).toLocaleString('vi-VN')} VND`,
-            link: '/restaurant/wallet',
-            data: { transactionId, amount: tx.amount, referenceCode: tx.referenceCode }
-          }
-        })
-      }).catch(err => console.error('[Withdrawal] Failed to notify owner:', err.message));
+      await axios.post(notifUrl, {
+        type: 'web',
+        payload: {
+          walletId: tx.walletId,
+          event: 'TRANSACTION_WITHDRAW_APPROVED',
+          title: 'Withdrawal Approved',
+          message: `Withdrawal approved: ${Number(tx.amount || 0).toLocaleString('vi-VN')} VND`,
+          link: '/restaurant/wallet',
+          data: { transactionId, amount: tx.amount, referenceCode: tx.referenceCode }
+        }
+      });
     }
   } catch (notifErr) {
     console.error('[Withdrawal] Notification error:', notifErr.message);

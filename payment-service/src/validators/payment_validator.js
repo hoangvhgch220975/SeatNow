@@ -18,7 +18,23 @@ const chargeCommissionSchema = Joi.object({
   idempotencyKey: Joi.string().trim().max(100).optional()
 });
 
+const createWithdrawalSchema = Joi.object({
+  idOrSlug: Joi.string().min(1).max(255).required(),
+  amount: Joi.number().positive().required(),
+  description: Joi.string().allow('', null).max(1000).optional(),
+  withdrawMethod: Joi.string().valid('CARD', 'QR').required(),
+  bankInfo: Joi.object({
+    bankName: Joi.string().allow('', null).optional(),
+    cardNumber: Joi.string().allow('', null).optional(),
+    accountName: Joi.string().allow('', null).optional(),
+    expiryDate: Joi.string().allow('', null).optional(),
+    cvv: Joi.string().allow('', null).optional()
+  }).optional(),
+  qrCodeUrl: Joi.string().uri().allow('', null).optional()
+});
+
 module.exports = {
   createWalletTopupSchema,
-  chargeCommissionSchema
+  chargeCommissionSchema,
+  createWithdrawalSchema
 };
