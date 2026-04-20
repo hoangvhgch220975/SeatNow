@@ -26,8 +26,10 @@ async function resolveRestaurantId(idOrSlug) {
 
 async function createWalletTopup({ restaurantId, provider, amount, req }) {
   const normalizedProvider = String(provider || '').toUpperCase();
+  // Hỗ trợ cả UUID và slug — resolve về UUID thật trước khi thao tác
+  const resolvedRestaurantId = await resolveRestaurantId(restaurantId);
   const redis = await getRedis();
-  const lockKey = `payment:wallet:topup:create:${restaurantId}`;
+  const lockKey = `payment:wallet:topup:create:${resolvedRestaurantId}`;
   const locked = await redis.set(lockKey, '1', { NX: true, EX: 30 });
 
   if (!locked) {
@@ -37,7 +39,7 @@ async function createWalletTopup({ restaurantId, provider, amount, req }) {
   }
 
   try {
-    const wallet = await paymentModel.findWalletByRestaurantId(restaurantId);
+    const wallet = await paymentModel.findWalletByRestaurantId(resolvedRestaurantId);
 
     if (!wallet) throw new Error('Restaurant wallet not found');
     if (wallet.status !== 'active') throw new Error('Wallet is not active');
@@ -59,7 +61,7 @@ async function createWalletTopup({ restaurantId, provider, amount, req }) {
       paymentMethod: normalizedProvider,
       referenceCode,
       provider: normalizedProvider,
-      description: `Top-up wallet for restaurant ${restaurantId}`,
+      description: `Top-up wallet for restaurant ${resolvedRestaurantId}`,
       idempotencyKey: referenceCode
     });
 
@@ -68,14 +70,14 @@ async function createWalletTopup({ restaurantId, provider, amount, req }) {
       providerPayload = await momoProvider.createPayment({
         amount: normalizedAmount,
         referenceCode,
-        bookingCode: `TOPUP-${restaurantId}`,
+        bookingCode: `TOPUP-${resolvedRestaurantId}`,
         bookingId: null
       });
     } else if (normalizedProvider === 'VNPAY') {
       providerPayload = await vnpayProvider.createPayment({
         amount: normalizedAmount,
         referenceCode,
-        bookingCode: `TOPUP-${restaurantId}`,
+        bookingCode: `TOPUP-${resolvedRestaurantId}`,
         bookingId: null,
         req
       });
