@@ -4,7 +4,8 @@
 const Joi = require('joi');
 
 const createWalletTopupSchema = Joi.object({
-  restaurantId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required(),
+  // Chấp nhận UUID hoặc slug (resolve được xử lý tại service layer)
+  restaurantId: Joi.string().min(1).max(255).required(),
   provider: Joi.string().valid('MOMO', 'VNPAY').required(),
   amount: Joi.number().positive().required()
 });
