@@ -230,6 +230,7 @@ async function createBooking({ actor, body }) {
         type: 'web',
         payload: {
           userId: r.ownerId,
+          restaurantId: body.restaurantId,
           event: 'BOOKING_NEW',
           title: 'New Booking Received',
           message: `New order: ${row.bookingCode}`,
@@ -440,6 +441,7 @@ async function confirm(idOrCode) {
         type: 'web',
         payload: {
           userId: r.ownerId,
+          restaurantId: updated.restaurantId,
           event: 'BOOKING_CONFIRMED',
           title: 'Booking Confirmed',
           message: `Confirmed booking: ${updated.bookingCode}`,
@@ -615,6 +617,7 @@ async function guestCancel(idOrCode, guestPhone, cancellationReason = null) {
         type: 'web',
         payload: {
           userId: r.ownerId,
+          restaurantId: updated.restaurantId,
           event: 'BOOKING_CANCELLED',
           title: 'Booking Cancelled',
           message: updated.depositRefunded 
@@ -735,6 +738,7 @@ async function cancel(idOrCode, actor = null, cancellationReason = null) {
           type: 'web',
           payload: {
             userId: r.ownerId,
+            restaurantId: updated.restaurantId,
             event: 'BOOKING_CANCELLED',
             title: 'Booking Cancelled',
             message: updated.depositRefunded 

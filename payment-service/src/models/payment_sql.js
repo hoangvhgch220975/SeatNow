@@ -438,7 +438,12 @@ async function findTransactionById(id) {
   const pool = await getPool();
   const rs = await pool.request()
     .input('id', sql.UniqueIdentifier, id)
-    .query(`SELECT TOP 1 * FROM dbo.Transactions WHERE id = @id`);
+    .query(`
+      SELECT t.*, w.restaurantId 
+      FROM dbo.Transactions t
+      LEFT JOIN dbo.Wallets w ON t.walletId = w.id
+      WHERE t.id = @id
+    `);
   return rs.recordset[0] || null;
 }
 
@@ -447,7 +452,12 @@ async function findTransactionByReferenceCode(referenceCode) {
   const pool = await getPool();
   const rs = await pool.request()
     .input('referenceCode', sql.NVarChar(100), referenceCode)
-    .query(`SELECT TOP 1 * FROM dbo.Transactions WHERE referenceCode = @referenceCode`);
+    .query(`
+      SELECT t.*, w.restaurantId 
+      FROM dbo.Transactions t
+      LEFT JOIN dbo.Wallets w ON t.walletId = w.id
+      WHERE t.referenceCode = @referenceCode
+    `);
   return rs.recordset[0] || null;
 }
 

@@ -126,11 +126,16 @@ async function processProviderResult({ provider, payload, verifySignature = true
               type: 'web',
               payload: {
                 walletId: tx.walletId,
+                restaurantId: tx.restaurantId,
                 event: 'TRANSACTION_TOPUP',
                 title: 'Wallet Top-up Successful',
                 message: topupMsg,
-                link: '/restaurant/wallet',
-                data: topupData
+                link: `/restaurant/wallet/transactions/${tx.id}`,
+                data: {
+                   ...topupData,
+                   transactionId: tx.id,
+                   restaurantId: tx.restaurantId
+                }
               }
             })
           }).catch(err => console.error('[Webhook] Failed to notify owner TOPUP:', err.message));
@@ -143,11 +148,16 @@ async function processProviderResult({ provider, payload, verifySignature = true
               type: 'web',
               payload: {
                 role: 'ADMIN',
+                restaurantId: tx.restaurantId,
                 event: 'TRANSACTION_TOPUP',
                 title: 'Restaurant Top-up Detected',
                 message: `[Admin] Restaurant wallet top-up: ${Number(tx.amount || 0).toLocaleString('vi-VN')} VND (Ref: ${referenceCode})`,
-                link: '/audit-requests',
-                data: topupData
+                link: '/audit-requests', // Admin links remain the same or adjust as needed
+                data: {
+                  ...topupData,
+                  transactionId: tx.id,
+                  restaurantId: tx.restaurantId
+                }
               }
             })
           }).catch(err => console.error('[Webhook] Failed to notify admin TOPUP:', err.message));

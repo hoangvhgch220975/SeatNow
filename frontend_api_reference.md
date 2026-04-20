@@ -1685,13 +1685,13 @@ Notification Service gửi push notification qua Socket.IO theo 2 cấp độ:
 | **`RESTAURANT_APPROVED`**   | `{ message, data: { restaurantId } }`           | `OWNER`        | Khi Admin nhấn "Approve" hồ sơ nhà hàng của bạn.                          |
 | **`RESTAURANT_ACTIVATED`**  | `{ message, data: { restaurantId } }`           | `OWNER`        | Khi Admin mở khóa hoạt động cho nhà hàng.                                 |
 | **`RESTAURANT_SUSPENDED`**  | `{ message, data: { restaurantId } }`           | `OWNER`        | Khi Admin tạm ngưng hoạt động nhà hàng (Khoá).                            |
-| **`TRANSACTION_WITHDRAW_APPROVED`**| `{ message, data: { transactionId, amount } }` | `OWNER`        | Khi Admin phê duyệt yêu cầu rút tiền của bạn. |
-| **`TRANSACTION_WITHDRAW_REJECTED`**| `{ message, data: { transactionId, reason } }` | `OWNER`        | Khi Admin từ chối yêu cầu rút tiền của bạn. |
+| **`TRANSACTION_WITHDRAW_APPROVED`**| `{ restaurantId, message, link: '/restaurant/wallet/transactions/:id', data: { transactionId, restaurantId, ... } }` | `OWNER`        | Khi Admin phê duyệt yêu cầu rút tiền của bạn. |
+| **`TRANSACTION_WITHDRAW_REJECTED`**| `{ restaurantId, message, link: '/restaurant/wallet/transactions/:id', data: { transactionId, restaurantId, reason, ... } }` | `OWNER`        | Khi Admin từ chối yêu cầu rút tiền của bạn. |
 | `bookingChanged`            | `{ type, booking }`                             | OWNER, ADMIN   | Kích hoạt khi có thay đổi trạng thái đặt bàn (created, confirmed, cancelled, ...). Dùng để refresh Dashboard realtime. |
 | **`WITHDRAWAL_REQUESTED`**  | `{ message, data: { restaurantName, amount } }` | `role:ADMIN`   | Kích hoạt ngay lập tức khi một Owner nộp đơn yêu cầu Rút tiền thành công. |
 | **`PARTNER_REQUEST_SUBMITTED`**| `{ message, link, data: { ...requestData } }` | `role:ADMIN`   | Kích hoạt khi partner hoàn tất form "Be my member". Có kèm `link: '/audit-requests'`. |
 | **`RESTAURANT_CREATED`**    | `{ message, link, data: { restaurantId, name } }` | `role:ADMIN`   | Kích hoạt khi Owner tạo nhà hàng mới và chờ duyệt. Có kèm `link: '/audit-requests'`. |
-| **`TRANSACTION_TOPUP`**     | `{ message, data: { amount, ... } }`            | `role:ADMIN`   | Thông báo khi nhà hàng nạp tiền thành công.                               |
+| **`TRANSACTION_TOPUP`**     | `{ restaurantId, message, link: '/restaurant/wallet/transactions/:id', data: { transactionId, restaurantId, ... } }`            | `role:ADMIN`, `OWNER` | Thông báo khi nhà hàng nạp tiền thành công.                               |
 | **`COMMISSION_SETTLED`**    | `{ message, data: { amount, ... } }`            | `role:ADMIN`   | Thông báo khi hệ thống thực hiện thu phí hoa hồng.                        |
 
 ---

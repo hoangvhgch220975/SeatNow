@@ -104,11 +104,17 @@ async function approveWithdrawal({ transactionId, providerTxnId, metadataJson })
         type: 'web',
         payload: {
           walletId: tx.walletId,
+          restaurantId: tx.restaurantId,
           event: 'TRANSACTION_WITHDRAW_APPROVED',
           title: 'Withdrawal Approved',
           message: `Withdrawal approved: ${Number(tx.amount || 0).toLocaleString('vi-VN')} VND`,
-          link: '/restaurant/wallet',
-          data: { transactionId, amount: tx.amount, referenceCode: tx.referenceCode }
+          link: `/restaurant/wallet/transactions/${transactionId}`,
+          data: { 
+            transactionId, 
+            restaurantId: tx.restaurantId,
+            amount: tx.amount, 
+            referenceCode: tx.referenceCode 
+          }
         }
       });
     }
@@ -131,11 +137,17 @@ async function rejectWithdrawal({ transactionId, reason }) {
         type: 'web',
         payload: {
           walletId: tx.walletId,
+          restaurantId: tx.restaurantId,
           event: 'TRANSACTION_WITHDRAW_REJECTED',
           title: 'Withdrawal Rejected',
           message: `Withdrawal rejected: ${reason || 'Contact support for details'}`,
-          link: '/restaurant/wallet',
-          data: { transactionId, reason, referenceCode: tx.referenceCode }
+          link: `/restaurant/wallet/transactions/${transactionId}`,
+          data: { 
+            transactionId, 
+            restaurantId: tx.restaurantId,
+            reason, 
+            referenceCode: tx.referenceCode 
+          }
         }
       });
     }
